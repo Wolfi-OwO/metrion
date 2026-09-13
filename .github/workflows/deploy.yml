@@ -3,7 +3,7 @@ name: Deploy
 # Only after CI has passed on main. A deploy that races the test run would
 # publish an image nobody has checked. Restored from the version Task 1's
 # rename disabled (git history: 6054b8b) and extended to the two Metrion
-# services - see organizational/deployment-runbook.md for the infrastructure
+# services - see organizational/agent-deployment-runbook.md for the infrastructure
 # this deploys onto.
 on:
   workflow_run:
@@ -69,20 +69,15 @@ jobs:
 
           tar czf /tmp/db-migrate.tar.gz -C packages/db dist migrations package.json
 
-          scp -i ~/.ssh/metrion_deploy_key /tmp/db-migrate.tar.gz "deploy@$VPS_HOST:/tmp/"
-          ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" '
-            set -euo pipefail
-            rm -rf /opt/metrion/migrate/* && mkdir -p /opt/metrion/migrate
-            tar xzf /tmp/db-migrate.tar.gz -C /opt/metrion/migrate
-            rm -f /tmp/db-migrate.tar.gz
-            cd /opt/metrion/migrate
-            npm install pg@8.23.0 --omit=dev --no-save --no-audit --no-fund
-            # The password never leaves the VPS - read straight out of the
-            # same .env docker compose already uses, never passed in over SSH.
-            source /opt/metrion/.env
-            DATABASE_URL="postgres://metrion:${POSTGRES_PASSWORD}@127.0.0.1:5432/metrion?sslmode=require&uselibpqcompat=true" \
-              node dist/migrate.js
-          '
+          # The CI key is now a forced-command key (see
+          # organizational/agent-deployment-runbook.md and
+          # /opt/metrion/deploy.sh on the VPS) - it ignores whatever we ask
+          # it to run and always executes that one script, reading the
+          # tarball off stdin. No `scp` step: modern OpenSSH `scp` defaults
+          # to the SFTP protocol, which a forced command can't cleanly
+          # single out without exec'ing a real sftp-server - piping over the
+          # same session's stdin needs no such exception.
+          ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" < /tmp/db-migrate.tar.gz
 
   deploy:
     needs: migrate
