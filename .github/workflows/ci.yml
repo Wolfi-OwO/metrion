@@ -63,6 +63,20 @@ jobs:
       # anyway - a build failure should read as a build failure.
       - run: npm run build
 
+      # applications/ingest's and applications/viewer's tests query real
+      # tables (users, api_keys, ...) against this job's db service - only
+      # packages/db's own migrate.test.ts applies migrations itself, and
+      # only against a throwaway fixture directory, never the real
+      # packages/db/migrations. A fresh service container has neither, so
+      # without this step those tests fail at setup with `relation "users"
+      # does not exist` - and were then found to hang afterward rather than
+      # exit cleanly, which is what the timeout below now guards against
+      # either way.
+      - name: Apply migrations to this job's own db service
+        env:
+          DATABASE_URL: postgres://metrion:metrion@localhost:5432/metrion
+        run: npm run migrate --workspace @metrion/db
+
       # A hard ceiling in case a test ever again finds a way to hang instead
       # of failing fast - a red build in 10 minutes beats a silent stall.
       - run: npm test
