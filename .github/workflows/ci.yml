@@ -40,3 +40,42 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+  # Runs the real migration files against the exact image and tag the
+  # production deploy uses (see docker-compose.prod.yml and ADR 0004) -
+  # `npm test`'s own tests/migrate.test.ts already covers the runner's logic
+  # (idempotency, ordering) against whatever Postgres happens to be on the
+  # runner; this job is the one place that proves the SQL itself applies
+  # cleanly against a real TimescaleDB pg17 service container, not a stand-in.
+  migration-check:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: timescale/timescaledb-ha:pg17
+        env:
+          POSTGRES_USER: metrion
+          POSTGRES_PASSWORD: metrion
+          POSTGRES_DB: metrion
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U metrion -d metrion"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply every migration against a real timescaledb-ha:pg17
+        env:
+          DATABASE_URL: postgres://metrion:metrion@localhost:5432/metrion
+        run: npm run migrate --workspace @metrion/db

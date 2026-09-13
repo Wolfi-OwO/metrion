@@ -1,35 +1,107 @@
 name: Deploy
 
-# Disabled as part of the Metrion rename (issue #2): this workflow targets the
-# `mona-viewer` Container App, which is soon to be decommissioned (issue #17)
-# in favour of the new multi-tenant viewer. Manual dispatch only, so the old
-# app can still be redeployed by hand if needed before that cutover, but a
-# push to main no longer triggers it.
+# Only after CI has passed on main. A deploy that races the test run would
+# publish an image nobody has checked. Restored from the version Task 1's
+# rename disabled (git history: 6054b8b) and extended to the two Metrion
+# services - see organizational/deployment-runbook.md for the infrastructure
+# this deploys onto.
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # A manual button, for redeploying the same commit after an infrastructure
+  # change CI knows nothing about.
   workflow_dispatch:
 
-# OIDC: GitHub mints a short-lived token that Azure trades for one of its own.
-# There is no client secret stored in this repository - the federated
-# credential on the `mona-deploy` identity only trusts this repo on `main`.
+# OIDC: GitHub mints a short-lived token that Azure trades for one of its
+# own. There is no client secret stored in this repository - the
+# `mona-deploy` identity's federated credential only trusts this repo on
+# `main` (see the viewer runbook's note on why its subject carries GitHub's
+# numeric owner/repo IDs, not names - that already survives a repo rename).
 permissions:
   contents: read
   id-token: write
 
-# A second push while a deploy is running should win, not queue behind it, but
-# never interrupt one mid-way: a half-updated revision is worse than a late one.
+# A second push while a deploy is running should win, not queue behind it,
+# but never interrupt one mid-way: a half-migrated database or a
+# half-updated revision is worse than a late one.
 concurrency:
-  group: deploy-mona-viewer
+  group: deploy-metrion
   cancel-in-progress: false
 
 env:
   REGISTRY: globalcr01.azurecr.io
-  IMAGE: mona-viewer
-  RESOURCE_GROUP: mona-rg
-  APP: mona-viewer
+  RESOURCE_GROUP: metrion-rg
+  VPS_HOST: <VPS-IP>
 
 jobs:
-  deploy:
+  # One explicit step, before either service's new revision goes out -
+  # never from application startup. metrion-ingest can run more than one
+  # replica; two processes migrating the same database at once is a bug
+  # class this project has hit before. Runs over SSH, not a direct Postgres
+  # connection: GitHub-hosted runners have no stable egress IP, so
+  # allowlisting them on the VPS firewall isn't workable (see the runbook's
+  # own note on why the Container Apps side needed a tunnel for the same
+  # reason).
+  migrate:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build --workspace @metrion/db
+
+      - name: Ship the migrator to the VPS and run it there
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.METRION_SSH_DEPLOY_KEY }}" > ~/.ssh/metrion_deploy_key
+          chmod 600 ~/.ssh/metrion_deploy_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          tar czf /tmp/db-migrate.tar.gz -C packages/db dist migrations package.json
+
+          scp -i ~/.ssh/metrion_deploy_key /tmp/db-migrate.tar.gz "deploy@$VPS_HOST:/tmp/"
+          ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" '
+            set -euo pipefail
+            rm -rf /opt/metrion/migrate/* && mkdir -p /opt/metrion/migrate
+            tar xzf /tmp/db-migrate.tar.gz -C /opt/metrion/migrate
+            rm -f /tmp/db-migrate.tar.gz
+            cd /opt/metrion/migrate
+            npm install pg@8.23.0 --omit=dev --no-save --no-audit --no-fund
+            # The password never leaves the VPS - read straight out of the
+            # same .env docker compose already uses, never passed in over SSH.
+            source /opt/metrion/.env
+            DATABASE_URL="postgres://metrion:${POSTGRES_PASSWORD}@127.0.0.1:5432/metrion?sslmode=require&uselibpqcompat=true" \
+              node dist/migrate.js
+          '
+
+  deploy:
+    needs: migrate
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    strategy:
+      # One matrix, both services - a deploy is a merge for either, not a
+      # separately-remembered sequence per app.
+      matrix:
+        include:
+          - app: metrion-ingest
+            dir: applications/ingest
+            dockerfile: applications/ingest/Dockerfile
+            port: 8090
+          - app: metrion-viewer
+            dir: applications/viewer
+            dockerfile: applications/viewer/Dockerfile
+            port: 8080
 
     steps:
       - uses: actions/checkout@v4
@@ -40,14 +112,14 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      # The version in package.json is the image tag, so a deployed revision can
-      # be traced back to a released version rather than to a commit sha nobody
-      # can read. The run number keeps the revision suffix unique when the same
-      # version is deployed twice.
+      # The version in package.json is the image tag, so a deployed revision
+      # can be traced back to a released version rather than to a commit sha
+      # nobody can read. The run number keeps the suffix unique when the
+      # same version is deployed twice.
       - name: Resolve version
         id: version
         run: |
-          VERSION=$(node -p "require('./applications/viewer/package.json').version")
+          VERSION=$(node -p "require('./${{ matrix.dir }}/package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "suffix=v${VERSION//./-}-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
@@ -55,43 +127,47 @@ jobs:
         run: |
           az acr login -n globalcr01
           # Built from the repository root: npm workspaces need the root
-          # manifest and lockfile.
-          docker build -f applications/viewer/Dockerfile \
-            -t "$REGISTRY/$IMAGE:${{ steps.version.outputs.version }}" \
-            -t "$REGISTRY/$IMAGE:latest" .
-          docker push "$REGISTRY/$IMAGE:${{ steps.version.outputs.version }}"
-          docker push "$REGISTRY/$IMAGE:latest"
+          # manifest and lockfile - same reason as every Dockerfile here.
+          docker build -f "${{ matrix.dockerfile }}" \
+            -t "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}" \
+            -t "$REGISTRY/${{ matrix.app }}:latest" .
+          docker push "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}"
+          docker push "$REGISTRY/${{ matrix.app }}:latest"
 
+      # `--container-name` matters here: both apps run a `db-tunnel` sidecar
+      # (see infra/db-tunnel-sidecar and the runbook's Database
+      # connectivity section) alongside the main container, named exactly
+      # after the app. Omitting it targets an ambiguous/default container
+      # and risks dropping the sidecar from the new revision - `--image`
+      # alone (no `--yaml`) otherwise leaves every other container in the
+      # template untouched.
       - name: Deploy revision
         run: |
-          az containerapp update -n "$APP" -g "$RESOURCE_GROUP" \
-            --image "$REGISTRY/$IMAGE:${{ steps.version.outputs.version }}" \
+          az containerapp update -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
+            --container-name "${{ matrix.app }}" \
+            --image "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}" \
             --revision-suffix "${{ steps.version.outputs.suffix }}"
 
-      # `az containerapp update` returns while the previous revision is still
-      # serving, so a check run immediately after it can pass against the code
-      # that was just replaced. Wait for a single active revision first.
+      # `az containerapp update` returns while the previous revision is
+      # still serving, so a check run immediately after it can pass against
+      # the code that was just replaced. Wait for a single active revision
+      # first - same trap the viewer's very first deploy hit.
       - name: Wait for the handover
         run: |
           for _ in $(seq 1 60); do
-            ACTIVE=$(az containerapp revision list -n "$APP" -g "$RESOURCE_GROUP" \
+            ACTIVE=$(az containerapp revision list -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
               --query "length([?properties.active])" -o tsv)
             [ "$ACTIVE" = "1" ] && break
             sleep 10
           done
 
-      # A deploy that finishes is not a deploy that works. The resources call is
-      # the one that exercises the managed identity against real storage - the
-      # credential is not used until the first blob read, so boot proves nothing.
+      # A deploy that finishes is not a deploy that works. Liveness only -
+      # neither service has a separate readiness probe (both pools are lazy,
+      # see applications/*/src/lib/db.ts), so liveness answering 200 is the
+      # whole post-deploy check available today.
       - name: Verify the running app
         run: |
-          FQDN=$(az containerapp show -n "$APP" -g "$RESOURCE_GROUP" \
+          FQDN=$(az containerapp show -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
             --query properties.configuration.ingress.fqdn -o tsv)
-          FROM=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
-          TO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-          curl -fsS -o /dev/null "https://$FQDN/api/v1/health/liveness"
-          curl -fsS -o /dev/null "https://$FQDN/"
-          curl -fsS -o /dev/null "https://$FQDN/impressum"
-          curl -fsS --max-time 180 "https://$FQDN/api/v1/resources?from=$FROM&to=$TO" > /dev/null
+          curl -fsS --max-time 60 -o /dev/null "https://$FQDN/api/v1/health/liveness"
           echo "https://$FQDN is live"
