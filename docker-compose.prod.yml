@@ -11,11 +11,13 @@
 #     set up by db/init/10-tls-hba.sh on first init - see that file). Local
 #     dev never needed a certificate; a database reachable from the public
 #     internet does.
-#   * The port is still published (5432:5432) because Container Apps has no
-#     private link to this VPS - the host firewall (ufw), not Docker's
-#     publish mechanism, is what actually restricts who can reach it. See
-#     the runbook for the measured allowlist and why publishing here does
-#     NOT by itself open the port to the world (ufw sits in front of it).
+#   * The port is bound to loopback only (127.0.0.1:5432:5432), not published
+#     to the world - Container Apps never talks to this port directly, it
+#     goes through the db-tunnel sidecar's SSH forward, which lands on
+#     127.0.0.1:5432 as seen from the VPS's own side, same as any other
+#     local client. Publishing to 0.0.0.0 bought nothing real: ufw was doing
+#     all the actual restricting anyway, so this makes that the only
+#     control, not the sole one standing between Postgres and the internet.
 #   * The password comes from a repo-root .env (gitignored, scp'd separately,
 #     chmod 600 on the server, POSTGRES_PASSWORD=...) - never committed.
 #
@@ -48,7 +50,7 @@ services:
       # volume, so a restart or an image bump does not re-run it.
       - ./db/init/10-tls-hba.sh:/docker-entrypoint-initdb.d/10-tls-hba.sh:ro
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U metrion -d metrion']
       interval: 5s
