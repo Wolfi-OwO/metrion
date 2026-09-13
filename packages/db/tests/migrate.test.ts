@@ -133,7 +133,7 @@ test('application_dependencies: a cross-project dependency edge is rejected', as
   }
 });
 
-test('api_keys: a key bound to another project\'s application is rejected', async () => {
+test("api_keys: a key bound to another project's application is rejected", async () => {
   const pool = createPool();
   const seed = await seedTwoProjectsWithApps(pool);
   try {
