@@ -13,6 +13,30 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
+    # Several test files (packages/db, applications/ingest,
+    # applications/viewer) connect to a real Postgres at
+    # postgres://metrion:metrion@localhost:5432/metrion - the same default
+    # docker-compose.dev.yml gives a local `npm test` run. Found the hard
+    # way on this job's first-ever real run: without a service container
+    # here, those tests don't fail fast, they hang - `pg`'s connection
+    # attempt against a port nothing is listening on did not get a fast
+    # ECONNREFUSED on the runner, and stalled `npm test` for 15+ minutes
+    # before being cancelled.
+    services:
+      db:
+        image: timescale/timescaledb-ha:pg17
+        env:
+          POSTGRES_USER: metrion
+          POSTGRES_PASSWORD: metrion
+          POSTGRES_DB: metrion
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U metrion -d metrion"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -39,14 +63,17 @@ jobs:
       # anyway - a build failure should read as a build failure.
       - run: npm run build
 
+      # A hard ceiling in case a test ever again finds a way to hang instead
+      # of failing fast - a red build in 10 minutes beats a silent stall.
       - run: npm test
+        timeout-minutes: 10
 
   # Runs the real migration files against the exact image and tag the
-  # production deploy uses (see docker-compose.prod.yml and ADR 0004) -
-  # `npm test`'s own tests/migrate.test.ts already covers the runner's logic
-  # (idempotency, ordering) against whatever Postgres happens to be on the
-  # runner; this job is the one place that proves the SQL itself applies
-  # cleanly against a real TimescaleDB pg17 service container, not a stand-in.
+  # production deploy uses (see docker-compose.prod.yml and ADR 0004).
+  # `check`'s own tests/migrate.test.ts already covers the runner's logic
+  # (idempotency, ordering) against its own Postgres service above; this
+  # separate job is the one place that proves the SQL applies cleanly on a
+  # freshly-initialized database with nothing else pre-seeded into it.
   migration-check:
     runs-on: ubuntu-latest
 
