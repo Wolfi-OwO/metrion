@@ -38,6 +38,14 @@ Wird metrion jemals entgeltlich oder gewerblich betrieben, kommen nach § 5 Abs 
 ECG Gewerbewortlaut, Gewerbebehörde, UID-Nummer und WKO-Zugehörigkeit hinzu —
 das ist dann keine Formalie mehr, sondern Pflicht.
 
+Stand dieses Dokuments: Im Code dieses Repositories findet sich keine
+Zahlungs-, Preis- oder Abrechnungslogik (recherchiert am 2026-09-13; siehe
+`applications/`, `packages/`). Der Dienst ist damit derzeit weiterhin
+unentgeltlich und nicht gewerblich im Sinne des § 5 Abs 1 ECG, trotz
+Mandantenfähigkeit und Nutzerkonten. Diese Einschätzung ist bei jeder
+Monetarisierung neu zu treffen, bevor eine entsprechende Funktion live geht
+— die Platzhalter oben bleiben nur so lange richtig, wie das zutrifft.
+
 ## Aufsichtsbehörde
 
 Österreichische Datenschutzbehörde, Barichgasse 40-42, 1030 Wien —
@@ -49,11 +57,17 @@ Phillip Kofler.
 
 ## Zweck des Angebots (§ 25 Abs 4 MedienG)
 
-metrion ist eine Infrastruktur-Überwachung für die eigenen Server des Betreibers:
-minütliche CPU-, RAM-, Festplatten-, Netzwerk- und Container-Kennzahlen, eine
-öffentliche Lese-API, eine API-Dokumentation unter `/docs` und eine
-Diagramm-Oberfläche. Kein redaktionelles Angebot, keine Werbung, kein
-Nutzerkonto, kein Verkauf.
+metrion ist eine mandantenfähige Infrastruktur-Überwachungsplattform:
+Nutzer melden sich über OAuth (Google, Microsoft oder GitHub) an, verwalten
+eigene Projekte und API-Schlüssel, und liefern minütliche Kennzahlen (CPU,
+RAM, Festplatte, Netzwerk, Container) über eine authentifizierte Ingest-API
+ein. Eine öffentliche Lese-API, eine API-Dokumentation unter `/docs` und
+eine Diagramm-Oberfläche stellen diese Daten dar. Kein redaktionelles
+Angebot, keine Werbung, kein Verkauf.
+
+Die drei Identitätsanbieter (Google, Microsoft, GitHub) sind für den
+Anmeldevorgang eigenständige Verantwortliche, keine Auftragsverarbeiter von
+metrion — Einzelheiten in `PRIVACY.md`, Abschnitt 6.
 
 ## Urheberrecht
 

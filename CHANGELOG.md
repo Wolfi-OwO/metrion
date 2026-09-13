@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026-09-13 — Legal documents: accounts, self-hosted database, alerting (forward-looking)
+
+- Rewrote `PRIVACY.md` sections 1, 2, 4, 5, 6, 7 and 8: retired the
+  single-tenant/no-account/no-cookie/Australia-Southeast-Chapter-V position
+  now falsified by OAuth accounts (`packages/db/migrations/0002_accounts.sql`),
+  the `mtr_session` cookie (`applications/viewer/src/auth/session.ts`), and
+  the self-hosted TimescaleDB-on-Contabo database
+  (`organizational/agent-deployment-runbook.md:159-183`) that replaced the
+  originally planned managed Azure Postgres West Europe store.
+- Named Contabo GmbH as a new Art 28 DSGVO processor for the database;
+  recorded the VPS's datacentre country (France, Lauterbourg — measured via
+  whois + IP geolocation against `<VPS-IP>`) for the first time; named
+  Backblaze B2 EU-Central as the stated-but-not-yet-credentialed offsite
+  backup target.
+- Added the DSAR/deletion cascade (`identities` → `sessions` → `api_keys`
+  → `projects` → `metrics` → `users`) and named the three OAuth sign-in
+  providers (Google, Microsoft, GitHub) as separate controllers, not Art 28
+  processors, in both `PRIVACY.md` and `IMPRESSUM.md`.
+- Rewrote `IMPRESSUM.md`'s § 25 MedienG purpose statement and removed "kein
+  Nutzerkonto"; added the entgeltlich/gewerblich re-assessment (still no
+  billing code in the repository as of this date, so the service remains
+  non-commercial under § 5 Abs 1 ECG for now).
+- Rewrote `TERMS_OF_USE.md` §1 and §3 for the real per-project API-key
+  ingest model (`docs/adr/0005-api-key-determines-tenancy.md`), added an
+  operator-as-processor statement for a key holder's own application data,
+  a deletion commitment, and a new §7 account-termination clause.
+- Added forward-looking (not yet built — GitHub issues #20-#24) coverage
+  for the planned threshold-alerting feature: a new Art 28 processor for
+  outbound transactional alert email (Brevo tentative, EEA-preferred),
+  the Art 6(1)(b) basis for alert delivery, the § 174 TKG 2021
+  transactional-not-marketing basis, the extended DSAR cascade to
+  `thresholds`/`threshold_status`/`status_events`, a 180-day retention line
+  for `status_events`, and a best-effort/no-SLA sentence in
+  `TERMS_OF_USE.md` §4 for alert delivery.
+- Added a "Third-party components" note to `LICENSE` recording the Timescale
+  License (TSL) text actually read and the conclusion that self-hosting
+  TimescaleDB behind metrion's HTTP-only API reads as permitted "Value
+  Added Products or Services" use under TSL § 2.1(b)/§ 3.10, not the
+  prohibited database-as-a-service use under TSL § 2.2.
+
 ## Unreleased
 
 - Add the metrics collector (`applications/collector`): reads CPU, RAM,
