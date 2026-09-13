@@ -1,0 +1,64 @@
+# Production database stack for the Contabo VPS (<VPS-IP>). Run with:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# This file owns ONLY the database. metrion-ingest and metrion-viewer run on
+# Azure Container Apps (see organizational/deployment-runbook.md) - see ADR
+# 0004's Hosting section for why the database itself is self-hosted here
+# instead of managed Azure Postgres.
+#
+# ── How this differs from docker-compose.dev.yml ────────────────────────────
+#   * TLS is mandatory (ssl=on, TLSv1.2 minimum, hostssl-only in pg_hba.conf,
+#     set up by db/init/10-tls-hba.sh on first init - see that file). Local
+#     dev never needed a certificate; a database reachable from the public
+#     internet does.
+#   * The port is still published (5432:5432) because Container Apps has no
+#     private link to this VPS - the host firewall (ufw), not Docker's
+#     publish mechanism, is what actually restricts who can reach it. See
+#     the runbook for the measured allowlist and why publishing here does
+#     NOT by itself open the port to the world (ufw sits in front of it).
+#   * The password comes from a repo-root .env (gitignored, scp'd separately,
+#     chmod 600 on the server, POSTGRES_PASSWORD=...) - never committed.
+#
+services:
+  db:
+    # Same pinned tag as docker-compose.dev.yml and ADR 0004 - never `:latest`.
+    image: timescale/timescaledb-ha:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: metrion
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: metrion
+    # shared_buffers/work_mem left at the image's own defaults, per ADR 0004 -
+    # no tuning until a real workload proves a default wrong.
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+      - -c
+      - ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+    volumes:
+      - metrion-db-data:/home/postgres/pgdata/data
+      # Runs once, only when the data directory is empty (the postgres image's
+      # own first-init hook) - rewrites pg_hba.conf to hostssl-only,
+      # scram-sha-256, no trust, no md5. Never touches an already-initialized
+      # volume, so a restart or an image bump does not re-run it.
+      - ./db/init/10-tls-hba.sh:/docker-entrypoint-initdb.d/10-tls-hba.sh:ro
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U metrion -d metrion']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # A good citizen on a 4 vCPU / 8 GB VPS shared with five other stacks
+    # (see /opt/preussen's docker-compose.prod.yml for the budget reasoning
+    # this mirrors) - the same cap the sibling postgis-based nutrilens-db
+    # container already runs under on this box.
+    mem_limit: 512m
+
+volumes:
+  metrion-db-data:
