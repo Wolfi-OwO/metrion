@@ -50,3 +50,11 @@
     fixed along the way (a hung collector run) and one live dependency
     (`mona-deploy`, still used by Metrion's own deploy workflow) that kept
     `mona-rg` itself from being deleted.
+- Replace the `mona-deploy` CI/CD identity with `metrion-deploy`, a new
+  identity in `metrion-rg` carrying the same two federated credentials and
+  the same three role assignments, and cut `.github/workflows/deploy.yml`
+  over to it. Verified with a real, manually-triggered deploy run
+  (`workflow_dispatch`, GitHub Actions run `34778998281`) that succeeded end
+  to end - migration plus both app deploys - under the new identity before
+  the old one was deleted. `mona-deploy` and `mona-rg` are now gone;
+  `az group exists -n mona-rg` returns `false`.
