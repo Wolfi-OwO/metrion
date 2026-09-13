@@ -16,9 +16,12 @@ on:
 
 # OIDC: GitHub mints a short-lived token that Azure trades for one of its
 # own. There is no client secret stored in this repository - the
-# `mona-deploy` identity's federated credential only trusts this repo on
-# `main` (see the viewer runbook's note on why its subject carries GitHub's
-# numeric owner/repo IDs, not names - that already survives a repo rename).
+# `metrion-deploy` identity (in `metrion-rg`, replacing the old `mona-deploy`
+# in the now-deleted `mona-rg` - see the viewer runbook's "Teardown, as
+# actually executed" section) has two federated credentials, both trusting
+# this repo on `main` only: one by name, one carrying GitHub's numeric
+# owner/repo IDs (see the viewer runbook's note on why - that form already
+# survives a repo rename).
 permissions:
   contents: read
   id-token: write
