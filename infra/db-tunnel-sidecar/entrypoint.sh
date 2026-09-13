@@ -12,8 +12,16 @@ mkdir -p /tmp/ssh
 umask 077
 printf '%s\n' "$TUNNEL_PRIVATE_KEY" > /tmp/ssh/key
 chmod 600 /tmp/ssh/key
+# Pinned, not TOFU'd: /tmp/ssh/known_hosts is created empty on every
+# container start, so the previous `accept-new` trusted whatever key the
+# server presented on every single boot - no pinning ever actually
+# happened. Baked in literally instead, captured once via
+# `ssh-keyscan -t ed25519 <VPS-IP>` (same fingerprint deploy.yml now
+# pins for its own SSH step), and StrictHostKeyChecking=yes so a changed
+# key hard-fails the tunnel instead of silently re-trusting it.
+printf '%s\n' "${TUNNEL_HOST} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0EZSmAYeYlrrvypv8MGUoUHVyFlDnWFf6rDKQkdD2C" > /tmp/ssh/known_hosts
 exec autossh -M 0 -N \
-  -o StrictHostKeyChecking=accept-new \
+  -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile=/tmp/ssh/known_hosts \
   -o ServerAliveInterval=15 \
   -o ServerAliveCountMax=3 \

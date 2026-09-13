@@ -65,7 +65,13 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.METRION_SSH_DEPLOY_KEY }}" > ~/.ssh/metrion_deploy_key
           chmod 600 ~/.ssh/metrion_deploy_key
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # Pinned, not ssh-keyscan'd: keyscan trusts on first use, silently,
+          # on every single run - if the VPS were ever MITM'd between runs,
+          # CI would just re-trust the new key and hand it the tarball
+          # below. Captured once via `ssh-keyscan -t ed25519 <VPS-IP>`
+          # and checked in literally, same fingerprint the db-tunnel sidecar
+          # now pins (see infra/db-tunnel-sidecar/entrypoint.sh).
+          echo "$VPS_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0EZSmAYeYlrrvypv8MGUoUHVyFlDnWFf6rDKQkdD2C" >> ~/.ssh/known_hosts
 
           tar czf /tmp/db-migrate.tar.gz -C packages/db dist migrations package.json
 
