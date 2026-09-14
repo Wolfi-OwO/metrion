@@ -1,0 +1,5 @@
+{
+  "//": "`references` is NOT inherited through `extends`, so repeating it here is what makes `tsc -b tsconfig.build.json` build packages/db first. Without it this target compiles only when an earlier build happened to leave packages/db/dist behind - green locally, broken in a clean checkout, which is exactly the state a deploy builds from.",
+  "extends": "./tsconfig.json",
+  "references": [{ "path": "../../packages/db" }]
+}

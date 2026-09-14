@@ -5,6 +5,7 @@
     { "path": "packages/db" },
     { "path": "applications/agent" },
     { "path": "applications/ingest" },
-    { "path": "applications/viewer" }
+    { "path": "applications/viewer" },
+    { "path": "applications/evaluator" }
   ]
 }

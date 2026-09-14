@@ -13,7 +13,8 @@
     "applications/agent",
     "applications/ingest",
     "applications/viewer",
-    "applications/viewer/client"
+    "applications/viewer/client",
+    "applications/evaluator"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
