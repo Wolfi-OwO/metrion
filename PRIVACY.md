@@ -289,9 +289,38 @@ stays on-box only, 4-week rotation, unencrypted — it never leaves the host.
   Framework certification for that specific provider — checked and recorded
   once the choice is final, not assumed in advance.
 
-Nothing is shared with anyone else, sold, or used for advertising. The read
-API remains public by decision: it serves aggregate resource usage of the
-operator's own machines.
+Nothing is shared with anyone else, sold, or used for advertising.
+
+**The general read API is not public.** `GET /api/v1/metrics` and
+`GET /api/v1/resources` carry no auth middleware, but every route resolves
+the caller's accessible projects from the session cookie before it queries
+anything; an anonymous caller — no cookie, or an invalid one — resolves to
+zero accessible projects and the routes return empty data to anyone without
+a session (`applications/viewer/src/routes/metrics.routes.ts:18-30`;
+`applications/viewer/src/middlewares/project-scope.ts:48-59`). These two
+routes serve a project owner's own ingested data, scoped by session, the
+same Art 6(1)(b) basis as the rest of the account's project data — not a
+public inventory of anything.
+
+**The one genuinely public surface is `GET /api/v1/public/projects/:id/uptime`**
+(`applications/viewer/src/routes/public-status.routes.ts:19-21`;
+`applications/viewer/src/handlers/public-status.handlers.ts:15-27`). It has
+no session middleware at all because it has no caller identity to scope by;
+visibility is instead the project's own opt-in,
+`projects.public_status_enabled`, a column added with a default of
+`false` — opt-in, not opt-out, the inverse of `alerts_enabled`'s default,
+because this flag exposes a project's data to callers with no account at
+all (`packages/db/migrations/0011_project_public_status.sql:1-8`). For an
+opted-in project it returns only up/down status and latency aggregates for
+that project's applications — never the general resource/metric inventory
+`/api/v1/metrics` and `/api/v1/resources` serve — and for every other
+project it returns the same 404 an unknown id would
+(`applications/viewer/src/services/status-service.ts:467-475`). This
+endpoint is consumed server-to-server, by the portfolio status page, as its
+second, labelled uptime source
+(`applications/viewer/src/routes/public-status.routes.ts:6-8`;
+`organizational/uptime-sources.md`) — so a status-page visitor's own IP
+address reaches the portfolio host only, never this application.
 
 ## 7. Is personal data processed at all?
 
@@ -321,7 +350,7 @@ because there is something stored under which they can be found.
 | Account creation, OAuth sign-in, session maintenance | Art 6(1)(b) — necessary to perform the contract the user enters by signing up                             |
 | Project and API-key management                       | Art 6(1)(b)                                                                                               |
 | Storing/serving a project's own ingested metrics     | Art 6(1)(b) — performance of the contract with that project's owner                                       |
-| Public read API of the operator's own infrastructure | Art 6(1)(f) — legitimate interest, as reasoned above                                                      |
+| Public uptime status endpoint (`GET /api/v1/public/projects/:id/uptime`), opt-in per project via `public_status_enabled` | Art 6(1)(f) — legitimate interest, as reasoned above                                                      |
 | Account-table backups                                | Art 6(1)(f) — legitimate interest in business continuity                                                  |
 | Threshold-alert email (**planned**, see below)       | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
 
