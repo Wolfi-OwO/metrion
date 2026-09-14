@@ -144,8 +144,25 @@ before(async () => {
 
   // Continuous aggregates refresh on a schedule/policy, not on INSERT - the
   // wide-range test needs this to actually see the rows just written.
-  await fixturePool.query("CALL refresh_continuous_aggregate('metrics_hourly', NULL, NULL)");
+  // Retried on 55P03 ("concurrent refresh"): `node --test` runs this file
+  // alongside `tests/public-status.test.ts`, which refreshes the same
+  // `metrics_hourly` aggregate in its own `before()`/test body - TimescaleDB
+  // allows only one in-flight refresh per aggregate, not per window, so the
+  // two can collide with no data-correctness issue, just a race to retry.
+  await refreshMetricsHourly(fixturePool);
 });
+
+async function refreshMetricsHourly(pool: Pool): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await pool.query("CALL refresh_continuous_aggregate('metrics_hourly', NULL, NULL)");
+      return;
+    } catch (err) {
+      if ((err as { code?: string }).code !== '55P03' || attempt >= 5) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+    }
+  }
+}
 
 after(async () => {
   await fixturePool.query('DELETE FROM metrics WHERE project_id = ANY($1)', [

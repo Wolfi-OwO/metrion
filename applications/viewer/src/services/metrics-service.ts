@@ -27,7 +27,12 @@ export type MetricsSource = 'raw' | 'hourly';
  * a point lookup, so the same 7 days is where reads switch to the
  * pre-aggregated rollup rather than the compressed raw rows.
  */
-function pickSource(from: Date, to: Date): MetricsSource {
+/** Exported for `status-service.ts#getPublicUptime`: the public uptime
+ * endpoint's `d30` window and 90-day history are both wider than 7 days, so
+ * they must pick `metrics_hourly` by the exact same rule a chart range does
+ * - duplicating the threshold there would be a second place for the two to
+ * drift apart. */
+export function pickSource(from: Date, to: Date): MetricsSource {
   return to.getTime() - from.getTime() > WIDE_RANGE_MS ? 'hourly' : 'raw';
 }
 

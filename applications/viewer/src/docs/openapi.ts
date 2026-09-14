@@ -176,6 +176,13 @@ export function buildOpenApiDocument(): object {
           'schedule is a separate, later piece of work, so a project answers "ok" for every ' +
           'application until it ships.',
       },
+      {
+        name: 'public-status',
+        description:
+          'The one tag with no session requirement. Answers `uptime.ok`/`uptime.latency`-derived ' +
+          'numbers only, and only for a project with `public_status_enabled = true` - every other ' +
+          'id gets the same 404, whether it does not exist or simply has not opted in.',
+      },
     ],
     paths: {
       '/api/v1/health/liveness': {
@@ -611,6 +618,76 @@ export function buildOpenApiDocument(): object {
               },
             },
             '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+      },
+      '/api/v1/public/projects/{id}/uptime': {
+        get: {
+          tags: ['public-status'],
+          summary: "A project's uptime, for a caller with no session at all.",
+          description:
+            'No `Authorization`, no session cookie - gated only on `projects.public_status_enabled` ' +
+            '(`packages/db/migrations/0011_project_public_status.sql`). A nonexistent project id and ' +
+            'an existing-but-unflagged one both answer the same 404. Only `uptime.ok`/`uptime.latency` ' +
+            'are ever read - no `cpu`/`memory`/`docker` metric, and no resource inventory, is ' +
+            'derivable from this response even for a flagged project with those metrics stored.',
+          parameters: [projectIdPathParameter],
+          responses: {
+            '200': {
+              description: 'The uptime.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      projectId: { type: 'string', format: 'uuid' },
+                      generatedAt: { type: 'string', format: 'date-time' },
+                      applications: {
+                        type: 'array',
+                        description:
+                          'One entry per application key that has ever written an `uptime.ok` sample - ' +
+                          'a registered application with no uptime instrumentation is omitted entirely.',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            key: { type: 'string' },
+                            displayName: { type: 'string', nullable: true },
+                            subResource: { type: 'string', nullable: true },
+                            uptime: {
+                              type: 'object',
+                              description:
+                                '`avg(uptime.ok) * 100` over each window, `null` (never `100`) when the ' +
+                                'window holds no samples.',
+                              properties: {
+                                h24: { type: 'number', nullable: true },
+                                d7: { type: 'number', nullable: true },
+                                d30: { type: 'number', nullable: true },
+                              },
+                            },
+                            latencyMs: { type: 'number', nullable: true },
+                            lastSampleAt: { type: 'string', format: 'date-time', nullable: true },
+                            history: {
+                              type: 'array',
+                              description:
+                                'Exactly 90 entries, oldest first, one per UTC calendar day.',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  day: { type: 'string', format: 'date-time' },
+                                  upPct: { type: 'number', nullable: true },
+                                  samples: { type: 'integer' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
             '404': errorResponse,
           },
         },
