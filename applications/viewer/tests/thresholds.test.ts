@@ -129,7 +129,11 @@ async function mustCreateApplication(
   return JSON.parse(text) as ApplicationBody;
 }
 
-function createThreshold(cookie: string, projectId: string, body: Record<string, unknown>): Promise<Response> {
+function createThreshold(
+  cookie: string,
+  projectId: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
   return fetch(`${baseUrl}/api/v1/projects/${projectId}/thresholds`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
@@ -320,7 +324,7 @@ test('DELETE /thresholds/:id removes it', async () => {
   assert.equal(repeat.status, 404);
 });
 
-test('thresholds and status for another user\'s project are 404, never 403', async () => {
+test("thresholds and status for another user's project are 404, never 403", async () => {
   const ownerCookie = await signInAs(`${marker}-f1`, `${marker}-f1@example.test`);
   const project = await createProject(ownerCookie, `${marker} Not Yours`);
   const created = (await (
@@ -375,14 +379,20 @@ test('GET /status answers ok for every application when threshold_status has no 
     criticalValue: 90,
   });
 
-  const response = await fetch(`${baseUrl}/api/v1/projects/${project.id}/status`, { headers: { cookie } });
+  const response = await fetch(`${baseUrl}/api/v1/projects/${project.id}/status`, {
+    headers: { cookie },
+  });
   assert.equal(response.status, 200);
   const body = (await response.json()) as {
     applications: { id: string; status: string; effectiveStatus: string; causedBy: unknown }[];
   };
   const found = body.applications.find((a) => a.id === application.id);
   assert.ok(found);
-  assert.equal(found!.status, 'ok', 'no evaluator has run yet - expected and correct, per issue #20');
+  assert.equal(
+    found!.status,
+    'ok',
+    'no evaluator has run yet - expected and correct, per issue #20',
+  );
   assert.equal(found!.effectiveStatus, 'ok');
   assert.equal(found!.causedBy, null);
 });
@@ -423,7 +433,9 @@ test('GET /status computes effectiveStatus/causedBy from a failing transitive de
   await seedThresholdStatus(threshold.id, 'critical', 0);
   await seedStatusEvent(project.id, threshold.id, 'ok', 'critical');
 
-  const response = await fetch(`${baseUrl}/api/v1/projects/${project.id}/status`, { headers: { cookie } });
+  const response = await fetch(`${baseUrl}/api/v1/projects/${project.id}/status`, {
+    headers: { cookie },
+  });
   assert.equal(response.status, 200);
   const body = (await response.json()) as {
     applications: {
@@ -442,7 +454,11 @@ test('GET /status computes effectiveStatus/causedBy from a failing transitive de
 
   const paymentsStatus = body.applications.find((a) => a.id === payments.id)!;
   assert.equal(paymentsStatus.status, 'ok', "payments' own thresholds never fired");
-  assert.equal(paymentsStatus.effectiveStatus, 'critical', 'worse than its own status via its dependency');
+  assert.equal(
+    paymentsStatus.effectiveStatus,
+    'critical',
+    'worse than its own status via its dependency',
+  );
   assert.equal(paymentsStatus.causedBy?.id, database.id);
   assert.equal(paymentsStatus.causedBy?.key, 'status-database');
 
@@ -455,14 +471,19 @@ test('GET /status computes effectiveStatus/causedBy from a failing transitive de
   );
   assert.equal(checkoutStatus.causedBy?.id, database.id);
 
-  const eventsResponse = await fetch(`${baseUrl}/api/v1/projects/${project.id}/status/events?limit=10`, {
-    headers: { cookie },
-  });
+  const eventsResponse = await fetch(
+    `${baseUrl}/api/v1/projects/${project.id}/status/events?limit=10`,
+    {
+      headers: { cookie },
+    },
+  );
   assert.equal(eventsResponse.status, 200);
   const eventsBody = (await eventsResponse.json()) as {
     events: { thresholdId: string; fromState: string; toState: string }[];
   };
-  assert.ok(eventsBody.events.some((e) => e.thresholdId === threshold.id && e.toState === 'critical'));
+  assert.ok(
+    eventsBody.events.some((e) => e.thresholdId === threshold.id && e.toState === 'critical'),
+  );
 
   // Never a colour - always exactly one of ok/warning/critical.
   const raw = JSON.stringify(body);

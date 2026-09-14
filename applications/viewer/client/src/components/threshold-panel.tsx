@@ -100,7 +100,12 @@ function ThresholdEditor({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    setTouched({ metricName: true, criticalValue: true, consecutiveBreaches: true, windowSeconds: true });
+    setTouched({
+      metricName: true,
+      criticalValue: true,
+      consecutiveBreaches: true,
+      windowSeconds: true,
+    });
     if (Object.keys(errors).length > 0) return;
 
     setSubmitting(true);
@@ -167,10 +172,14 @@ function ThresholdEditor({
           id="threshold-metric"
           type="text"
           value={fields.metricName}
-          onChange={(event) => setFields((current) => ({ ...current, metricName: event.target.value }))}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, metricName: event.target.value }))
+          }
           onBlur={() => touch('metricName')}
           aria-invalid={touched.metricName && !!errors.metricName}
-          aria-describedby={touched.metricName && errors.metricName ? 'threshold-metric-error' : undefined}
+          aria-describedby={
+            touched.metricName && errors.metricName ? 'threshold-metric-error' : undefined
+          }
           className={INPUT_CLASS}
         />
         {touched.metricName && errors.metricName && (
@@ -207,8 +216,8 @@ function ThresholdEditor({
           />
           <span>
             <span className="font-medium">Below</span> - alert when the value goes below the
-            threshold. Use this for anything where low is the problem, like free memory or a
-            request rate that dropped to zero.
+            threshold. Use this for anything where low is the problem, like free memory or a request
+            rate that dropped to zero.
           </span>
         </label>
       </fieldset>
@@ -251,7 +260,11 @@ function ThresholdEditor({
           />
         </div>
         {touched.criticalValue && errors.criticalValue && (
-          <p id="threshold-critical-error" role="alert" className="col-span-2 text-[12px] text-series-8">
+          <p
+            id="threshold-critical-error"
+            role="alert"
+            className="col-span-2 text-[12px] text-series-8"
+          >
             {errors.criticalValue}
           </p>
         )}
@@ -277,7 +290,9 @@ function ThresholdEditor({
             onBlur={() => touch('windowSeconds')}
             aria-invalid={touched.windowSeconds && !!errors.windowSeconds}
             aria-describedby={
-              touched.windowSeconds && errors.windowSeconds ? 'threshold-window-error' : 'threshold-window-hint'
+              touched.windowSeconds && errors.windowSeconds
+                ? 'threshold-window-error'
+                : 'threshold-window-hint'
             }
             className={INPUT_CLASS}
           />
@@ -322,7 +337,11 @@ function ThresholdEditor({
       </div>
 
       <label className="mb-4 flex items-center gap-2 text-[13px] text-ink">
-        <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => setEnabled(event.target.checked)}
+        />
         Enabled
       </label>
 
@@ -382,7 +401,9 @@ function ThresholdRow({
     deleteThreshold(threshold.id, controller.signal)
       .then(() => onDeleted(threshold.id))
       .catch((cause: unknown) => {
-        setDeleteError(cause instanceof ApiError ? cause.message : 'Could not delete the threshold.');
+        setDeleteError(
+          cause instanceof ApiError ? cause.message : 'Could not delete the threshold.',
+        );
       })
       .finally(() => setDeleting(false));
   };
@@ -422,13 +443,14 @@ function ThresholdRow({
         <p className="font-mono text-[13px] text-ink">
           {threshold.metricName}{' '}
           <span className="text-ink-dim">
-            alerts when the value goes {threshold.direction} - warning {bound(threshold.warningValue)},
-            critical {bound(threshold.criticalValue)}
+            alerts when the value goes {threshold.direction} - warning{' '}
+            {bound(threshold.warningValue)}, critical {bound(threshold.criticalValue)}
           </span>
         </p>
         <p className="mt-0.5 text-[11px] text-ink-muted">
-          {applicationLabel} · every {formatDuration(threshold.windowSeconds)}, {threshold.consecutiveBreaches}{' '}
-          consecutive {threshold.consecutiveBreaches === 1 ? 'breach' : 'breaches'} ·{' '}
+          {applicationLabel} · every {formatDuration(threshold.windowSeconds)},{' '}
+          {threshold.consecutiveBreaches} consecutive{' '}
+          {threshold.consecutiveBreaches === 1 ? 'breach' : 'breaches'} ·{' '}
           {threshold.enabled ? 'enabled' : 'disabled'}
         </p>
         {deleteError && (
@@ -465,7 +487,9 @@ export function ThresholdPanel({
   projectId: string;
   applications: readonly ApplicationStatus[];
 }) {
-  const loader = useLoader(`thresholds/${projectId}`, (signal) => fetchThresholds(projectId, signal));
+  const loader = useLoader(`thresholds/${projectId}`, (signal) =>
+    fetchThresholds(projectId, signal),
+  );
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [rows, setRows] = useState<Threshold[] | null>(null);

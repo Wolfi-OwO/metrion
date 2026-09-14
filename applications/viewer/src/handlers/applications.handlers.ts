@@ -62,7 +62,9 @@ export async function createApplication(req: Request, res: Response): Promise<vo
     });
   } catch (err) {
     if (pgErrorCode(err) === UNIQUE_VIOLATION) {
-      throw new ConflictError(`An application with key "${body.key}" already exists in this project.`);
+      throw new ConflictError(
+        `An application with key "${body.key}" already exists in this project.`,
+      );
     }
     throw err;
   }

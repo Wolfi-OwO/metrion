@@ -4,7 +4,9 @@ import { cyclePathFromMessage, worseStatus } from '../src/lib/status.ts';
 
 test('a cycle 409 message is parsed into its path', () => {
   assert.deepEqual(
-    cyclePathFromMessage('Dependency cycle detected: checkout-api -> postgres-primary -> checkout-api'),
+    cyclePathFromMessage(
+      'Dependency cycle detected: checkout-api -> postgres-primary -> checkout-api',
+    ),
     ['checkout-api', 'postgres-primary', 'checkout-api'],
   );
 });

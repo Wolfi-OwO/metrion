@@ -134,7 +134,11 @@ async function mustCreateApplication(
   return JSON.parse(text) as ApplicationBody;
 }
 
-function putDependencies(cookie: string, applicationId: string, dependsOn: string[]): Promise<Response> {
+function putDependencies(
+  cookie: string,
+  applicationId: string,
+  dependsOn: string[],
+): Promise<Response> {
   return fetch(`${baseUrl}/api/v1/applications/${applicationId}/dependencies`, {
     method: 'PUT',
     headers: { cookie, 'content-type': 'application/json' },
@@ -185,7 +189,9 @@ after(async () => {
 });
 
 test('GET /api/v1/projects/:id/applications with no session is 401', async () => {
-  const response = await fetch(`${baseUrl}/api/v1/projects/00000000-0000-0000-0000-000000000000/applications`);
+  const response = await fetch(
+    `${baseUrl}/api/v1/projects/00000000-0000-0000-0000-000000000000/applications`,
+  );
   assert.equal(response.status, 401);
 });
 
@@ -214,7 +220,11 @@ test('POST /applications creates one; GET lists it back with a status', async ()
   };
   const found = body.applications.find((a) => a.id === created.id);
   assert.ok(found, 'the created application must be listed');
-  assert.equal(found!.status, 'ok', 'no threshold data yet must answer ok, not a fourth status value');
+  assert.equal(
+    found!.status,
+    'ok',
+    'no threshold data yet must answer ok, not a fourth status value',
+  );
 });
 
 test('a duplicate key in the same project is rejected with 409', async () => {
@@ -252,8 +262,18 @@ test('PATCH /applications/:id renames displayName; key is immutable and rejected
 test('DELETE /applications/:id cascades dependencies and thresholds, and states metrics are kept', async () => {
   const cookie = await signInAs(`${marker}-e`, `${marker}-e@example.test`);
   const project = await createProject(cookie, `${marker} Delete Project`);
-  const dependent = await mustCreateApplication(cookie, project.id, 'delete-dependent', 'Dependent');
-  const dependency = await mustCreateApplication(cookie, project.id, 'delete-dependency', 'Dependency');
+  const dependent = await mustCreateApplication(
+    cookie,
+    project.id,
+    'delete-dependent',
+    'Dependent',
+  );
+  const dependency = await mustCreateApplication(
+    cookie,
+    project.id,
+    'delete-dependency',
+    'Dependency',
+  );
 
   const putResponse = await putDependencies(cookie, dependent.id, [dependency.id]);
   assert.equal(putResponse.status, 200);
@@ -303,13 +323,17 @@ test('GET/PUT dependencies: replaces the set, both directions read back correctl
   assert.equal(putResponse.status, 200);
 
   const checkoutDeps = (await (
-    await fetch(`${baseUrl}/api/v1/applications/${checkout.id}/dependencies`, { headers: { cookie } })
+    await fetch(`${baseUrl}/api/v1/applications/${checkout.id}/dependencies`, {
+      headers: { cookie },
+    })
   ).json()) as { dependsOn: string[]; dependents: string[] };
   assert.deepEqual(checkoutDeps.dependsOn, [payments.id]);
   assert.deepEqual(checkoutDeps.dependents, []);
 
   const paymentsDeps = (await (
-    await fetch(`${baseUrl}/api/v1/applications/${payments.id}/dependencies`, { headers: { cookie } })
+    await fetch(`${baseUrl}/api/v1/applications/${payments.id}/dependencies`, {
+      headers: { cookie },
+    })
   ).json()) as { dependsOn: string[]; dependents: string[] };
   assert.deepEqual(paymentsDeps.dependsOn, []);
   assert.deepEqual(paymentsDeps.dependents, [checkout.id]);
@@ -318,7 +342,9 @@ test('GET/PUT dependencies: replaces the set, both directions read back correctl
   const clearResponse = await putDependencies(cookie, checkout.id, []);
   assert.equal(clearResponse.status, 200);
   const cleared = (await (
-    await fetch(`${baseUrl}/api/v1/applications/${checkout.id}/dependencies`, { headers: { cookie } })
+    await fetch(`${baseUrl}/api/v1/applications/${checkout.id}/dependencies`, {
+      headers: { cookie },
+    })
   ).json()) as { dependsOn: string[] };
   assert.deepEqual(cleared.dependsOn, []);
 });
@@ -343,7 +369,11 @@ test('PUT dependencies creating a cycle is rejected with 409 naming the path, an
   const cDeps = (await (
     await fetch(`${baseUrl}/api/v1/applications/${c.id}/dependencies`, { headers: { cookie } })
   ).json()) as { dependsOn: string[] };
-  assert.deepEqual(cDeps.dependsOn, [], 'a rejected write must leave the edge set exactly as it was');
+  assert.deepEqual(
+    cDeps.dependsOn,
+    [],
+    'a rejected write must leave the edge set exactly as it was',
+  );
 });
 
 test('the database itself rejects a cross-tenant dependency edge, independent of any application-code check', async () => {
@@ -363,13 +393,17 @@ test('the database itself rejects a cross-tenant dependency edge, independent of
         [projectA.id, appA.id, appB.id],
       ),
     (err: unknown) => {
-      assert.equal((err as { code?: string }).code, '23503', 'must fail on the composite foreign key');
+      assert.equal(
+        (err as { code?: string }).code,
+        '23503',
+        'must fail on the composite foreign key',
+      );
       return true;
     },
   );
 });
 
-test('applications, dependencies and status for another user\'s project are 404, never 403', async () => {
+test("applications, dependencies and status for another user's project are 404, never 403", async () => {
   const ownerCookie = await signInAs(`${marker}-i`, `${marker}-i@example.test`);
   const project = await createProject(ownerCookie, `${marker} Not Yours`);
   const application = await mustCreateApplication(ownerCookie, project.id, 'not-yours-app', 'App');
@@ -394,9 +428,12 @@ test('applications, dependencies and status for another user\'s project are 404,
   });
   assert.equal(deleteResponse.status, 404);
 
-  const depsResponse = await fetch(`${baseUrl}/api/v1/applications/${application.id}/dependencies`, {
-    headers: { cookie: otherCookie },
-  });
+  const depsResponse = await fetch(
+    `${baseUrl}/api/v1/applications/${application.id}/dependencies`,
+    {
+      headers: { cookie: otherCookie },
+    },
+  );
   assert.equal(depsResponse.status, 404);
 
   const putDepsResponse = await putDependencies(otherCookie, application.id, []);
@@ -427,8 +464,15 @@ test('POST /projects/:id/keys accepts an optional applicationId and states the b
     method: 'POST',
     headers: { cookie },
   });
-  assert.equal(projectWideResponse.status, 201, 'no body at all must still work, same as before #20');
-  const projectWide = (await projectWideResponse.json()) as { applicationId: string | null; scope: string };
+  assert.equal(
+    projectWideResponse.status,
+    201,
+    'no body at all must still work, same as before #20',
+  );
+  const projectWide = (await projectWideResponse.json()) as {
+    applicationId: string | null;
+    scope: string;
+  };
   assert.equal(projectWide.applicationId, null);
   assert.equal(projectWide.scope, 'project');
 });

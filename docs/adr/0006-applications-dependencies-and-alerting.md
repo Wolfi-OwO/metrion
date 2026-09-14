@@ -37,7 +37,7 @@ values, not topology (`packages/db/migrations/0006_applications.sql:7-10`).
 An application is scoped to `resource` alone.
 
 `projects` remains the only tenancy boundary (ADR 0005). An application is a
-grouping *inside* a tenant - `applications.project_id` is `NOT NULL
+grouping _inside_ a tenant - `applications.project_id` is `NOT NULL
 REFERENCES projects(id)` - never a tenant itself
 (`packages/db/migrations/0006_applications.sql:12-20`).
 
@@ -66,7 +66,7 @@ with `project_id` mismatched between the two ends. A database constraint
 cannot be forgotten at a new call site the way an `if (a.project_id !==
 b.project_id) throw` guard can - and a forgotten guard at one new call site
 is the exact failure mode this project's security review keeps having to
-check for by hand. Cycle prevention, by contrast, is *not* a database
+check for by hand. Cycle prevention, by contrast, is _not_ a database
 constraint - it is one recursive-CTE check in the write handler, so there is
 one owner for that rule (`packages/db/migrations/0006_applications.sql:25-26`).
 The two guarantees are enforced at different layers on purpose: cross-tenant
@@ -121,7 +121,7 @@ Four alternative places were considered and rejected, each for a specific
 reason, not a general "was worse":
 
 - **Inside the metrics write path (`metrion-ingest`).** The write path only
-  sees data that arrives. It structurally cannot detect *absence* of data -
+  sees data that arrives. It structurally cannot detect _absence_ of data -
   the `no_data` state (`applications/evaluator/src/evaluate.ts:66-77`, fired
   when a threshold's window has zero matching rows) requires evaluating on a
   clock regardless of whether a write just happened, which a handler
@@ -199,7 +199,7 @@ This is a deliberate security decision, not an oversight left for later. The
 digest email body includes metric names and application display names,
 which are user-controlled strings (`applications/evaluator/src/mailer.ts:6-12`
 notes they are escaped before entering HTML for exactly this reason). If the
-*destination* address were also user-supplied, this project's own SMTP
+_destination_ address were also user-supplied, this project's own SMTP
 relay would become a spam relay: anyone with write access to a project could
 set an arbitrary recipient and an arbitrary metric name, and the evaluator
 would dutifully mail attacker-chosen text to an attacker-chosen inbox on

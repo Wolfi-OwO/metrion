@@ -51,9 +51,8 @@ test('neither bound set is rejected on the critical field, mirroring the server'
 test('an "above" threshold rejects critical below warning; "below" rejects the opposite', () => {
   assert.ok(thresholdFormErrors(fields({ warningValue: '10', criticalValue: '5' })).criticalValue);
   assert.equal(
-    thresholdFormErrors(
-      fields({ direction: 'below', warningValue: '10', criticalValue: '5' }),
-    ).criticalValue,
+    thresholdFormErrors(fields({ direction: 'below', warningValue: '10', criticalValue: '5' }))
+      .criticalValue,
     undefined,
   );
   assert.ok(
@@ -66,5 +65,8 @@ test('window and consecutive-breach bounds match the server schema (60-86400, 1-
   assert.ok(thresholdFormErrors(fields({ windowSeconds: '59' })).windowSeconds);
   assert.equal(thresholdFormErrors(fields({ windowSeconds: '60' })).windowSeconds, undefined);
   assert.ok(thresholdFormErrors(fields({ consecutiveBreaches: '11' })).consecutiveBreaches);
-  assert.equal(thresholdFormErrors(fields({ consecutiveBreaches: '1' })).consecutiveBreaches, undefined);
+  assert.equal(
+    thresholdFormErrors(fields({ consecutiveBreaches: '1' })).consecutiveBreaches,
+    undefined,
+  );
 });

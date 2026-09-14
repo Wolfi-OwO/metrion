@@ -18,7 +18,9 @@ export function StatusEventsPanel({
   projectId: string;
   applications: readonly ApplicationStatus[];
 }) {
-  const loader = useLoader(`status-events/${projectId}`, (signal) => fetchStatusEvents(projectId, signal));
+  const loader = useLoader(`status-events/${projectId}`, (signal) =>
+    fetchStatusEvents(projectId, signal),
+  );
   const appById = new Map(applications.map((app) => [app.id, app]));
 
   if (loader.phase === 'error' && loader.error) {

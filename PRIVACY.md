@@ -72,13 +72,13 @@ free-text field can smuggle anything but a numeric measurement into a row.
 
 ### Account data (new with this release)
 
-| Table        | Columns                                                                        | Holds                                                                    |
-| ------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `users`      | `id`, `email`, `created_at`                                                     | One row per signed-in person.                                             |
-| `identities` | `user_id`, `provider`, `provider_subject`, `email`                              | One row per OAuth sign-in method, keyed on `(provider, provider_subject)`, never on `email` (`packages/db/migrations/0002_accounts.sql:12-20`). |
-| `projects`   | `id`, `owner_user_id`, `name`, `slug`, `default_resource`, `created_at`         | One row per metrics project a user owns.                                  |
-| `api_keys`   | `id`, `project_id`, `key_prefix`, `key_hash`, `created_at`, `last_used_at`, `revoked_at` | One row per issued ingest credential; only a hash is stored, never the raw key (`packages/db/migrations/0002_accounts.sql:31-41`). |
-| `sessions`   | `id`, `user_id`, `expires_at`                                                   | One row per active browser sign-in (`packages/db/migrations/0002_accounts.sql:43-47`). |
+| Table        | Columns                                                                                  | Holds                                                                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`      | `id`, `email`, `created_at`                                                              | One row per signed-in person.                                                                                                                   |
+| `identities` | `user_id`, `provider`, `provider_subject`, `email`                                       | One row per OAuth sign-in method, keyed on `(provider, provider_subject)`, never on `email` (`packages/db/migrations/0002_accounts.sql:12-20`). |
+| `projects`   | `id`, `owner_user_id`, `name`, `slug`, `default_resource`, `created_at`                  | One row per metrics project a user owns.                                                                                                        |
+| `api_keys`   | `id`, `project_id`, `key_prefix`, `key_hash`, `created_at`, `last_used_at`, `revoked_at` | One row per issued ingest credential; only a hash is stored, never the raw key (`packages/db/migrations/0002_accounts.sql:31-41`).              |
+| `sessions`   | `id`, `user_id`, `expires_at`                                                            | One row per active browser sign-in (`packages/db/migrations/0002_accounts.sql:43-47`).                                                          |
 
 `users.email` and the `identities` rows identify a natural person directly.
 This table is why section 7's earlier position — that this application
@@ -157,7 +157,7 @@ nothing to ask about" — replace this whole analysis, not just its
 conclusion, if the cookie's purpose or scope ever changes.
 
 **Hard gate for anything added later.** Any future analytics snippet,
-CDN-hosted font, embedded video, or tracking pixel is *not* covered by the
+CDN-hosted font, embedded video, or tracking pixel is _not_ covered by the
 strictly-necessary exemption above and requires a prior, freely-given,
 specific opt-in banner — with reject exactly as easy as accept — before that
 code ships. Shipping such a feature without that banner first is a direct
@@ -216,7 +216,7 @@ ceiling.
 
 A nightly encrypted dump of the account tables (`users`, `identities`,
 `projects`, `api_keys`, `sessions` — never `metrics`) runs on the VPS,
-GPG-encrypted on-host with the *public* half of a keypair whose private half
+GPG-encrypted on-host with the _public_ half of a keypair whose private half
 is not on the box (`organizational/metrion-backups/nightly-account-dump.sh:1-30`).
 
 **Offsite target: Backblaze B2, EU-Central region.** This is the operator's
@@ -234,12 +234,12 @@ stays on-box only, 4-week rotation, unencrypted — it never leaves the host.
 
 ### Retention periods
 
-| Data                                | Period                                                                 | Enforced by                                                                                                    |
-| ------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Metrics (`metrics` hypertable)      | 90 days                                                                | TimescaleDB retention policy; chunks older than 90 days are dropped by the platform (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`). |
-| Sessions (`sessions`)               | 30-day TTL from creation                                               | Checked at read time — an expired `expires_at` is treated as no session (`applications/viewer/src/auth/session.ts:16-18`, `:107`). **No scheduled job deletes the row itself once it expires** — it becomes unusable but is not purged; this is an open point below, not a claimed 30-day deletion guarantee. |
-| Accounts (`users`/`identities`/`projects`/`api_keys`) | Life of the account                              | Deleted on request via section 8's process, or by the operator closing an account by hand. No automatic expiry exists in the schema. |
-| `status_events` (**planned, not yet built** — GitHub issues #20-#24) | 180 days                              | Once shipped, enforced by a TimescaleDB retention policy on `status_events`, deleted 180 days after the event's own timestamp — the same mechanism already used for `metrics`' 90-day policy above (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`). |
+| Data                                                                 | Period                   | Enforced by                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metrics (`metrics` hypertable)                                       | 90 days                  | TimescaleDB retention policy; chunks older than 90 days are dropped by the platform (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                                                                                                                                          |
+| Sessions (`sessions`)                                                | 30-day TTL from creation | Checked at read time — an expired `expires_at` is treated as no session (`applications/viewer/src/auth/session.ts:16-18`, `:107`). **No scheduled job deletes the row itself once it expires** — it becomes unusable but is not purged; this is an open point below, not a claimed 30-day deletion guarantee. |
+| Accounts (`users`/`identities`/`projects`/`api_keys`)                | Life of the account      | Deleted on request via section 8's process, or by the operator closing an account by hand. No automatic expiry exists in the schema.                                                                                                                                                                          |
+| `status_events` (**planned, not yet built** — GitHub issues #20-#24) | 180 days                 | Once shipped, enforced by a TimescaleDB retention policy on `status_events`, deleted 180 days after the event's own timestamp — the same mechanism already used for `metrics`' 90-day policy above (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                           |
 
 - **On the VPS:** undelivered samples wait in a local queue capped at 1440
   lines — one day — plus small state files
@@ -304,6 +304,7 @@ personal data" / "for personal data" reasoning previously written here still
 applies to that data on its own terms.
 
 ### Account data — yes, and it is why this section exists in its current
+
 ### form
 
 `users.email`, `identities.provider_subject`/`identities.email` and the
@@ -315,14 +316,14 @@ because there is something stored under which they can be found.
 
 **Lawful basis, per purpose:**
 
-| Purpose                                             | Basis                                             |
-| ---------------------------------------------------- | -------------------------------------------------- |
-| Account creation, OAuth sign-in, session maintenance | Art 6(1)(b) — necessary to perform the contract the user enters by signing up |
-| Project and API-key management                      | Art 6(1)(b)                                        |
-| Storing/serving a project's own ingested metrics     | Art 6(1)(b) — performance of the contract with that project's owner |
-| Public read API of the operator's own infrastructure | Art 6(1)(f) — legitimate interest, as reasoned above |
-| Account-table backups                                | Art 6(1)(f) — legitimate interest in business continuity |
-| Threshold-alert email (**planned**, see below)        | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
+| Purpose                                              | Basis                                                                                                     |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Account creation, OAuth sign-in, session maintenance | Art 6(1)(b) — necessary to perform the contract the user enters by signing up                             |
+| Project and API-key management                       | Art 6(1)(b)                                                                                               |
+| Storing/serving a project's own ingested metrics     | Art 6(1)(b) — performance of the contract with that project's owner                                       |
+| Public read API of the operator's own infrastructure | Art 6(1)(f) — legitimate interest, as reasoned above                                                      |
+| Account-table backups                                | Art 6(1)(f) — legitimate interest in business continuity                                                  |
+| Threshold-alert email (**planned**, see below)       | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
 
 **DSAR / deletion cascade.** A request under Art 15/17/20 for a given user
 is answered by walking, in order: `identities` (by `user_id`) → `sessions`
@@ -333,7 +334,7 @@ threshold-alerting feature ships (GitHub issues #20-#24), the same cascade
 extends to `thresholds`, `threshold_status` and `status_events` — all three
 scoped by `project_id`/`user_id` the same way `api_keys` and `metrics` are
 today — and `users.email` must be treated as playing two roles at that
-point: a login identifier (as today) *and* a notification-delivery target
+point: a login identifier (as today) _and_ a notification-delivery target
 for alert email, both erased together.
 
 **How this is actually exercised today.** There is no self-service

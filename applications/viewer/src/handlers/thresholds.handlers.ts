@@ -1,6 +1,11 @@
 import type { Request, Response } from 'express';
 import { getPool } from '../lib/db.js';
-import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../middlewares/error.js';
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from '../middlewares/error.js';
 import { scopeProjectIds } from '../middlewares/project-scope.js';
 import type { CreateThresholdBody, UpdateThresholdBody } from '../schemas/thresholds.schemas.js';
 import { thresholdBoundsIssue } from '../schemas/thresholds.schemas.js';

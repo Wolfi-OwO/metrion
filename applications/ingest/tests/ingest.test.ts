@@ -254,7 +254,7 @@ test("POST /api/v1/ingest: a resource naming another project still writes under 
   );
 });
 
-test('POST /api/v1/ingest: an application-bound key forces resource to the application\'s key, ignoring the body', async () => {
+test("POST /api/v1/ingest: an application-bound key forces resource to the application's key, ignoring the body", async () => {
   const response = await post(
     envelope('shape.application-bound', { name: 'shape.application-bound' }),
     bearer(applicationBoundPrefix, applicationBoundSecret),
@@ -292,24 +292,37 @@ test('POST /api/v1/ingest: an unseen resource auto-registers exactly one applica
     bearer(validPrefix, validSecret),
   );
   assert.equal(first.status, 202);
-  assert.equal(await countRows(), 1, 'the first request for an unseen resource must create one row');
+  assert.equal(
+    await countRows(),
+    1,
+    'the first request for an unseen resource must create one row',
+  );
 
   const second = await post(
     { resource, metrics: envelope('shape.autoreg.2').metrics },
     bearer(validPrefix, validSecret),
   );
   assert.equal(second.status, 202);
-  assert.equal(await countRows(), 1, 'a repeat request for the same resource must create no new row');
+  assert.equal(
+    await countRows(),
+    1,
+    'a repeat request for the same resource must create no new row',
+  );
 });
 
-test('a key bound to another project\'s application is rejected by the database', async () => {
+test("a key bound to another project's application is rejected by the database", async () => {
   await assert.rejects(
     fixturePool.query(
       'INSERT INTO api_keys (project_id, key_prefix, key_hash, application_id) VALUES ($1, $2, $3, $4)',
-      [otherProjectId, `${marker.replace(/_/g, '')}x`, hashSecret(randomBytes(24).toString('hex')), applicationId],
+      [
+        otherProjectId,
+        `${marker.replace(/_/g, '')}x`,
+        hashSecret(randomBytes(24).toString('hex')),
+        applicationId,
+      ],
     ),
     /foreign key|violat/i,
-    'a key whose project_id does not match its bound application\'s project_id must be rejected by the composite FK, not accepted',
+    "a key whose project_id does not match its bound application's project_id must be rejected by the composite FK, not accepted",
   );
 });
 

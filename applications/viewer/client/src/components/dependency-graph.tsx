@@ -87,7 +87,11 @@ function EdgeEditor({
           </legend>
           {candidates.map((app) => (
             <label key={app.id} className="flex items-center gap-2 text-[13px] text-ink">
-              <input type="checkbox" checked={selected.has(app.id)} onChange={() => toggle(app.id)} />
+              <input
+                type="checkbox"
+                checked={selected.has(app.id)}
+                onChange={() => toggle(app.id)}
+              />
               <span className="font-mono">{appLabel(app)}</span>
             </label>
           ))}

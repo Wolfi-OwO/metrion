@@ -65,7 +65,9 @@ function CreateApplicationForm({
         onCreated();
       })
       .catch((cause: unknown) => {
-        setSubmitError(cause instanceof ApiError ? cause.message : 'Could not register the application.');
+        setSubmitError(
+          cause instanceof ApiError ? cause.message : 'Could not register the application.',
+        );
       })
       .finally(() => setSubmitting(false));
   };
@@ -130,7 +132,9 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
   return (
     <li id={`app-${app.id}`} className="scroll-mt-20 px-1 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-mono text-[13px] font-medium text-ink">{app.displayName ?? app.key}</span>
+        <span className="font-mono text-[13px] font-medium text-ink">
+          {app.displayName ?? app.key}
+        </span>
         <StatusBadge status={app.effectiveStatus} />
       </div>
       {app.causedBy && (
@@ -171,19 +175,27 @@ function ProjectStatusPanel({
   email: string;
   onSignedOut: () => void;
 }) {
-  const status = useLoader(`status/${project.id}`, (signal) => fetchProjectStatus(project.id, signal));
+  const status = useLoader(`status/${project.id}`, (signal) =>
+    fetchProjectStatus(project.id, signal),
+  );
   const applications = status.data ?? [];
 
   return (
     <>
       <header className="border-b border-line bg-bg-900">
         <AccountBar email={email} onSignedOut={onSignedOut}>
-          <nav aria-label="Breadcrumb" className="flex items-center gap-x-2 text-[12px] text-ink-dim">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-x-2 text-[12px] text-ink-dim"
+          >
             <Link to="/" className="transition-colors duration-150 hover:text-ink">
               Projects
             </Link>
             <span aria-hidden="true">/</span>
-            <Link to={`/projects/${project.id}`} className="transition-colors duration-150 hover:text-ink">
+            <Link
+              to={`/projects/${project.id}`}
+              className="transition-colors duration-150 hover:text-ink"
+            >
               {project.name}
             </Link>
             <span aria-hidden="true">/</span>
@@ -343,6 +355,10 @@ export default function ProjectStatusRoute() {
   }
 
   return (
-    <ProjectStatusPanel project={lookup.project} email={auth.user?.email ?? ''} onSignedOut={auth.refresh} />
+    <ProjectStatusPanel
+      project={lookup.project}
+      email={auth.user?.email ?? ''}
+      onSignedOut={auth.refresh}
+    />
   );
 }

@@ -453,9 +453,19 @@ export function updateThreshold(
   input: Omit<ThresholdInput, 'applicationId'>,
   signal: AbortSignal,
 ): Promise<Threshold> {
-  return sendJson<Threshold>(`/api/v1/thresholds/${encodeURIComponent(thresholdId)}`, 'PATCH', input, signal);
+  return sendJson<Threshold>(
+    `/api/v1/thresholds/${encodeURIComponent(thresholdId)}`,
+    'PATCH',
+    input,
+    signal,
+  );
 }
 
 export function deleteThreshold(thresholdId: string, signal: AbortSignal): Promise<void> {
-  return sendJson<void>(`/api/v1/thresholds/${encodeURIComponent(thresholdId)}`, 'DELETE', undefined, signal);
+  return sendJson<void>(
+    `/api/v1/thresholds/${encodeURIComponent(thresholdId)}`,
+    'DELETE',
+    undefined,
+    signal,
+  );
 }

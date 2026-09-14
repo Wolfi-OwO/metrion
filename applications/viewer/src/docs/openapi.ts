@@ -79,12 +79,13 @@ const applicationStatusSchema = {
     effectiveStatus: {
       ...statusEnum,
       description:
-        'The worse of `status` and the worst status among this application\'s transitive dependencies.',
+        "The worse of `status` and the worst status among this application's transitive dependencies.",
     },
     causedBy: {
       type: 'object',
       nullable: true,
-      description: 'Set only when `effectiveStatus` came from a dependency, not from this application itself.',
+      description:
+        'Set only when `effectiveStatus` came from a dependency, not from this application itself.',
       properties: { id: { type: 'string', format: 'uuid' }, key: { type: 'string' } },
     },
     thresholds: {
@@ -507,7 +508,9 @@ export function buildOpenApiDocument(): object {
             '404': errorResponse,
             '409': {
               description: 'The proposed set creates a dependency cycle.',
-              content: { 'application/json': { schema: errorResponse.content['application/json'].schema } },
+              content: {
+                'application/json': { schema: errorResponse.content['application/json'].schema },
+              },
             },
           },
         },

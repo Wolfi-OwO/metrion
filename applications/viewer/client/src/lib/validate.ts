@@ -68,7 +68,8 @@ export function thresholdFormErrors(fields: ThresholdFormFields): ThresholdFormE
 
   const metricName = fields.metricName.trim();
   if (metricName.length === 0) errors.metricName = 'Enter the metric name to watch.';
-  else if (metricName.length > 200) errors.metricName = 'Keep the metric name under 200 characters.';
+  else if (metricName.length > 200)
+    errors.metricName = 'Keep the metric name under 200 characters.';
 
   const warning = parsedOrNull(fields.warningValue);
   const critical = parsedOrNull(fields.criticalValue);
