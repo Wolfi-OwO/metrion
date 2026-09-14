@@ -156,9 +156,24 @@ const RESOURCE_KINDS: ReadonlyArray<{
   readonly prefix: string | null;
   readonly metrics: readonly string[];
 }> = [
-  { id: 'host', scope: 'Host', prefix: null, metrics: ['cpu.usage', 'memory.used', 'disk.root.usedPercent'] },
-  { id: 'container', scope: 'Container', prefix: 'container:<name>', metrics: ['restarts', 'memory', 'cpu'] },
-  { id: 'request', scope: 'Request host', prefix: 'requests:<host>', metrics: ['latency', 'status counts'] },
+  {
+    id: 'host',
+    scope: 'Host',
+    prefix: null,
+    metrics: ['cpu.usage', 'memory.used', 'disk.root.usedPercent'],
+  },
+  {
+    id: 'container',
+    scope: 'Container',
+    prefix: 'container:<name>',
+    metrics: ['restarts', 'memory', 'cpu'],
+  },
+  {
+    id: 'request',
+    scope: 'Request host',
+    prefix: 'requests:<host>',
+    metrics: ['latency', 'status counts'],
+  },
 ];
 
 /**
@@ -207,8 +222,22 @@ function TimeAxisPreview() {
           strokeLinecap="round"
         />
 
-        <line x1="358" y1="10" x2="358" y2="180" stroke="var(--color-series-2)" strokeWidth="1" strokeDasharray="3 3" />
-        <text x="362" y="20" fill="var(--color-series-2)" fontSize="10" fontFamily="var(--font-mono)">
+        <line
+          x1="358"
+          y1="10"
+          x2="358"
+          y2="180"
+          stroke="var(--color-series-2)"
+          strokeWidth="1"
+          strokeDasharray="3 3"
+        />
+        <text
+          x="362"
+          y="20"
+          fill="var(--color-series-2)"
+          fontSize="10"
+          fontFamily="var(--font-mono)"
+        >
           now
         </text>
       </svg>
@@ -266,10 +295,9 @@ export default function LandingRoute() {
                 One shared time axis for every server you run.
               </h1>
               <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-ink-dim">
-                metrion collects CPU, memory, disk, network and per-container metrics once a
-                minute and lines every reading up against the same clock, so a CPU spike and a
-                network spike read as one instant, not two dashboards you have to
-                cross-reference by hand.
+                metrion collects CPU, memory, disk, network and per-container metrics once a minute
+                and lines every reading up against the same clock, so a CPU spike and a network
+                spike read as one instant, not two dashboards you have to cross-reference by hand.
               </p>
               <div className="mt-9">
                 <p className="mb-3 text-[12px] text-ink-muted">
