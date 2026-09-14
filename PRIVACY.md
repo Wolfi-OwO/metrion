@@ -345,14 +345,14 @@ because there is something stored under which they can be found.
 
 **Lawful basis, per purpose:**
 
-| Purpose                                              | Basis                                                                                                     |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Account creation, OAuth sign-in, session maintenance | Art 6(1)(b) — necessary to perform the contract the user enters by signing up                             |
-| Project and API-key management                       | Art 6(1)(b)                                                                                               |
-| Storing/serving a project's own ingested metrics     | Art 6(1)(b) — performance of the contract with that project's owner                                       |
+| Purpose                                                                                                                  | Basis                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Account creation, OAuth sign-in, session maintenance                                                                     | Art 6(1)(b) — necessary to perform the contract the user enters by signing up                             |
+| Project and API-key management                                                                                           | Art 6(1)(b)                                                                                               |
+| Storing/serving a project's own ingested metrics                                                                         | Art 6(1)(b) — performance of the contract with that project's owner                                       |
 | Public uptime status endpoint (`GET /api/v1/public/projects/:id/uptime`), opt-in per project via `public_status_enabled` | Art 6(1)(f) — legitimate interest, as reasoned above                                                      |
-| Account-table backups                                | Art 6(1)(f) — legitimate interest in business continuity                                                  |
-| Threshold-alert email (**planned**, see below)       | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
+| Account-table backups                                                                                                    | Art 6(1)(f) — legitimate interest in business continuity                                                  |
+| Threshold-alert email (**planned**, see below)                                                                           | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
 
 **DSAR / deletion cascade.** A request under Art 15/17/20 for a given user
 is answered by walking, in order: `identities` (by `user_id`) → `sessions`

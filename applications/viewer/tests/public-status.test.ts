@@ -201,8 +201,20 @@ before(async () => {
   // (both 100%); "up, down" is not - a `d30` that only a hourly-sourced
   // query can still compute correctly is a real proof of the source, not
   // just a coincidence of timing.
-  await insertMetric(flaggedProjectId, 'ml-visualizer', 'uptime.ok', 1, new Date(now - 10 * 60 * 1000));
-  await insertMetric(flaggedProjectId, 'ml-visualizer', 'uptime.ok', 0, new Date(now - 20 * DAY_MS));
+  await insertMetric(
+    flaggedProjectId,
+    'ml-visualizer',
+    'uptime.ok',
+    1,
+    new Date(now - 10 * 60 * 1000),
+  );
+  await insertMetric(
+    flaggedProjectId,
+    'ml-visualizer',
+    'uptime.ok',
+    0,
+    new Date(now - 20 * DAY_MS),
+  );
 
   // unflagged project: real uptime data too, so the 404 is proven to be
   // about the flag, not about an absence of anything to show.
@@ -268,7 +280,11 @@ test('GET .../uptime: no-samples reads back null, not 100', async () => {
   assert.ok(nutrilens, 'nutrilens must be present - it has one uptime.ok sample, 10 days old');
   assert.equal(nutrilens.uptime.h24, null, 'no sample in the last 24h');
   assert.equal(nutrilens.uptime.d7, null, 'no sample in the last 7 days');
-  assert.equal(nutrilens.latencyMs, null, 'no uptime.latency sample was ever written for nutrilens');
+  assert.equal(
+    nutrilens.latencyMs,
+    null,
+    'no uptime.latency sample was ever written for nutrilens',
+  );
   assert.ok(nutrilens.lastSampleAt, 'the one uptime.ok sample it does have must still be reported');
 });
 
@@ -356,7 +372,9 @@ test('GET .../uptime: full shape for a flagged project, after the continuous agg
 
   assert.equal(netviz.history.length, 90, 'exactly 90 daily entries');
   assert.ok(
-    netviz.history.every((entry, i) => i === 0 || Date.parse(entry.day) > Date.parse(netviz.history[i - 1]!.day)),
+    netviz.history.every(
+      (entry, i) => i === 0 || Date.parse(entry.day) > Date.parse(netviz.history[i - 1]!.day),
+    ),
     'oldest first, strictly increasing',
   );
   const todayDay = new Date(netviz.history[89]!.day);

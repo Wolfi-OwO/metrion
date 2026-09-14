@@ -416,7 +416,9 @@ interface LatestSampleRow {
 async function queryLatestSamples(
   projectId: string,
   keys: readonly string[],
-): Promise<Map<string, { subResource: string | null; latencyMs: number | null; lastSampleAt: string | null }>> {
+): Promise<
+  Map<string, { subResource: string | null; latencyMs: number | null; lastSampleAt: string | null }>
+> {
   const { rows } = await getPool().query<LatestSampleRow>(
     `SELECT DISTINCT ON (resource, name) resource, name, sub_resource, value, time
        FROM metrics
