@@ -12,6 +12,14 @@ export interface ApiKeyContext {
   /** The ONLY source of tenancy for a write - never anything from the body. See ADR 0005. */
   readonly projectId: string;
   readonly defaultResource: string | null;
+  /**
+   * Set when this key is bound to one application (`api_keys.application_id`,
+   * `packages/db/migrations/0006_applications.sql`) - that application's own
+   * `key` column, which every point in the request must be written under,
+   * ignoring whatever `resource` the body names. Null for a project-wide key,
+   * today's behaviour, unchanged.
+   */
+  readonly applicationResource: string | null;
   /** Non-secret, stable per key - the rate limiter's bucket key, never the secret itself. */
   readonly rateLimitKey: string;
 }
@@ -56,6 +64,7 @@ interface ApiKeyRow {
   key_hash: Buffer;
   revoked_at: Date | null;
   default_resource: string | null;
+  application_resource: string | null;
 }
 
 /**
@@ -77,9 +86,10 @@ export async function requireApiKey(
   }
 
   const { rows } = await getPool().query<ApiKeyRow>(
-    `SELECT ak.project_id, ak.key_hash, ak.revoked_at, p.default_resource
+    `SELECT ak.project_id, ak.key_hash, ak.revoked_at, p.default_resource, a.key AS application_resource
        FROM api_keys ak
        JOIN projects p ON p.id = ak.project_id
+       LEFT JOIN applications a ON a.id = ak.application_id
       WHERE ak.key_prefix = $1`,
     [presented.prefix],
   );
@@ -93,6 +103,7 @@ export async function requireApiKey(
   req.apiKeyContext = {
     projectId: row.project_id,
     defaultResource: row.default_resource,
+    applicationResource: row.application_resource,
     rateLimitKey: createHash('sha256').update(presented.secret, 'utf8').digest('hex'),
   };
 

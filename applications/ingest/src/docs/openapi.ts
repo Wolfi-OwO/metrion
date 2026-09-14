@@ -94,7 +94,10 @@ export function buildOpenApiDocument(): object {
           description:
             'Accepts one metric envelope, an array of envelopes, or a bare array of metric ' +
             'points with no envelope at all - the resource for that last shape falls back to ' +
-            "the authenticated project's default_resource. Rate limited per API key.",
+            "the authenticated project's default_resource. If the API key is bound to a " +
+            "specific application, resource is forced to that application's own key for " +
+            'every point and any resource named in the body is silently ignored. Rate ' +
+            'limited per API key.',
           security: [{ apiKeyAuth: [] }],
           requestBody: {
             required: true,

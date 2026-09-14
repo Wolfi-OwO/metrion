@@ -1,10 +1,12 @@
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import helmet from 'helmet';
-import { pino } from 'pino';
 import { config } from './config/index.js';
+import { logger } from './lib/logger.js';
 import { errorHandler, notFound } from './middlewares/error.js';
 import { routes } from './routes/index.js';
+
+export { logger };
 
 /**
  * The whole startup file: app at module scope, then `listen` only when this
@@ -25,13 +27,6 @@ app.use(routes);
 
 app.use(notFound);
 app.use(errorHandler);
-
-export const logger = pino({
-  level: config.logLevel,
-  timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
-  messageKey: 'message',
-  formatters: { level: (label) => ({ level: label.toUpperCase() }) },
-});
 
 const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 
