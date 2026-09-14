@@ -1,5 +1,4 @@
 import { getPool } from '../lib/db.js';
-import { pickSource } from './metrics-service.js';
 
 /**
  * Reads `thresholds`, `threshold_status`, `status_events` and
