@@ -32,6 +32,92 @@ const errorResponse = {
   },
 };
 
+const applicationSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    key: { type: 'string', example: 'checkout-api' },
+    displayName: { type: 'string', nullable: true, example: 'Checkout API' },
+    createdAt: { type: 'string', format: 'date-time' },
+  },
+};
+
+const thresholdSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    applicationId: {
+      type: 'string',
+      format: 'uuid',
+      nullable: true,
+      description: 'null = every application in the project.',
+    },
+    subResource: { type: 'string', nullable: true },
+    metricName: { type: 'string', example: 'http.5xx.rate' },
+    direction: { type: 'string', enum: ['above', 'below'] },
+    warningValue: { type: 'number', nullable: true },
+    criticalValue: { type: 'number', nullable: true },
+    consecutiveBreaches: { type: 'integer', minimum: 1, maximum: 10 },
+    windowSeconds: { type: 'integer', minimum: 60, maximum: 86400 },
+    enabled: { type: 'boolean' },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+  },
+};
+
+/** Only `ok`/`warning`/`critical` are ever returned - never a colour or hex
+ * value, a presentation decision that belongs to the client, not the API. */
+const statusEnum = { type: 'string', enum: ['ok', 'warning', 'critical'] };
+
+const applicationStatusSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    key: { type: 'string' },
+    displayName: { type: 'string', nullable: true },
+    status: { ...statusEnum, description: "This application's own worst threshold state." },
+    effectiveStatus: {
+      ...statusEnum,
+      description:
+        'The worse of `status` and the worst status among this application\'s transitive dependencies.',
+    },
+    causedBy: {
+      type: 'object',
+      nullable: true,
+      description: 'Set only when `effectiveStatus` came from a dependency, not from this application itself.',
+      properties: { id: { type: 'string', format: 'uuid' }, key: { type: 'string' } },
+    },
+    thresholds: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          metricName: { type: 'string' },
+          state: statusEnum,
+          reason: { type: 'string', enum: ['threshold', 'no_data'] },
+          value: { type: 'number', nullable: true },
+          since: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  },
+};
+
+const projectIdPathParameter = {
+  name: 'id',
+  in: 'path',
+  required: true,
+  schema: { type: 'string', format: 'uuid' },
+};
+
+const applicationIdPathParameter = {
+  name: 'id',
+  in: 'path',
+  required: true,
+  schema: { type: 'string', format: 'uuid' },
+};
+
 const rangeParameters = [
   {
     name: 'from',
@@ -76,6 +162,19 @@ export function buildOpenApiDocument(): object {
     tags: [
       { name: 'metrics', description: 'Reading stored metrics.' },
       { name: 'health', description: 'Liveness.' },
+      {
+        name: 'applications',
+        description: 'Naming applications and recording the dependency graph between them.',
+      },
+      { name: 'thresholds', description: 'Per-metric warning/critical bounds.' },
+      {
+        name: 'status',
+        description:
+          'Computed ok/warning/critical status per application. Reads whatever is currently in ' +
+          '`threshold_status`/`status_events` - the evaluator that populates those tables on a ' +
+          'schedule is a separate, later piece of work, so a project answers "ok" for every ' +
+          'application until it ships.',
+      },
     ],
     paths: {
       '/api/v1/health/liveness': {
@@ -217,6 +316,347 @@ export function buildOpenApiDocument(): object {
               },
             },
             '400': errorResponse,
+          },
+        },
+      },
+      '/api/v1/projects/{id}/applications': {
+        get: {
+          tags: ['applications'],
+          summary: "An project's applications, with each one's current status.",
+          parameters: [projectIdPathParameter],
+          responses: {
+            '200': {
+              description: 'The applications.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      applications: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            key: { type: 'string' },
+                            displayName: { type: 'string', nullable: true },
+                            status: statusEnum,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+        post: {
+          tags: ['applications'],
+          summary: 'Registers a new application.',
+          parameters: [projectIdPathParameter],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['key', 'displayName'],
+                  properties: {
+                    key: {
+                      type: 'string',
+                      description:
+                        'Same `IDENTIFIER` charset the ingest endpoint uses for `resource` - letters, digits, dot, underscore, colon, hyphen.',
+                      example: 'checkout-api',
+                    },
+                    displayName: { type: 'string', example: 'Checkout API' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Created.',
+              content: { 'application/json': { schema: applicationSchema } },
+            },
+            '400': errorResponse,
+            '401': errorResponse,
+            '404': errorResponse,
+            '409': errorResponse,
+          },
+        },
+      },
+      '/api/v1/applications/{id}': {
+        patch: {
+          tags: ['applications'],
+          summary: "Renames an application's display name. `key` is immutable.",
+          parameters: [applicationIdPathParameter],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['displayName'],
+                  properties: { displayName: { type: 'string' } },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Updated.',
+              content: { 'application/json': { schema: applicationSchema } },
+            },
+            '400': errorResponse,
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+        delete: {
+          tags: ['applications'],
+          summary: 'Deletes an application, cascading its dependency edges, thresholds and status.',
+          description:
+            'Historical `metrics` rows recorded under this application are NOT deleted - the response states this.',
+          parameters: [applicationIdPathParameter],
+          responses: {
+            '200': {
+              description: 'Deleted.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      deleted: { type: 'boolean' },
+                      message: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+      },
+      '/api/v1/applications/{id}/dependencies': {
+        get: {
+          tags: ['applications'],
+          summary: 'What this application depends on, and what depends on it.',
+          parameters: [applicationIdPathParameter],
+          responses: {
+            '200': {
+              description: 'The edges.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      dependsOn: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                      dependents: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                    },
+                  },
+                },
+              },
+            },
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+        put: {
+          tags: ['applications'],
+          summary: 'Replaces the whole `dependsOn` set in one transaction.',
+          description:
+            'A recursive CTE inside the same transaction rejects a cycle with 409, naming the offending path ' +
+            '(`checkout-api -> payments-service -> checkout-api`); the edge set is unchanged after a rejected write.',
+          parameters: [applicationIdPathParameter],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['dependsOn'],
+                  properties: {
+                    dependsOn: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Replaced.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      dependsOn: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                    },
+                  },
+                },
+              },
+            },
+            '400': errorResponse,
+            '401': errorResponse,
+            '404': errorResponse,
+            '409': {
+              description: 'The proposed set creates a dependency cycle.',
+              content: { 'application/json': { schema: errorResponse.content['application/json'].schema } },
+            },
+          },
+        },
+      },
+      '/api/v1/projects/{id}/thresholds': {
+        get: {
+          tags: ['thresholds'],
+          summary: "A project's thresholds.",
+          parameters: [projectIdPathParameter],
+          responses: {
+            '200': {
+              description: 'The thresholds.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: { thresholds: { type: 'array', items: thresholdSchema } },
+                  },
+                },
+              },
+            },
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+        post: {
+          tags: ['thresholds'],
+          summary: 'Creates a threshold.',
+          description:
+            'A `direction: "below"` threshold with `warningValue` less strict than `criticalValue` (i.e. ' +
+            '`criticalValue > warningValue`) is rejected with 400, and symmetrically for `"above"`.',
+          parameters: [projectIdPathParameter],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: thresholdSchema } },
+          },
+          responses: {
+            '201': {
+              description: 'Created.',
+              content: { 'application/json': { schema: thresholdSchema } },
+            },
+            '400': errorResponse,
+            '401': errorResponse,
+            '404': errorResponse,
+            '409': errorResponse,
+          },
+        },
+      },
+      '/api/v1/thresholds/{id}': {
+        patch: {
+          tags: ['thresholds'],
+          summary: 'Partially updates a threshold.',
+          parameters: [applicationIdPathParameter],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: thresholdSchema } },
+          },
+          responses: {
+            '200': {
+              description: 'Updated.',
+              content: { 'application/json': { schema: thresholdSchema } },
+            },
+            '400': errorResponse,
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+        delete: {
+          tags: ['thresholds'],
+          summary: 'Deletes a threshold.',
+          parameters: [applicationIdPathParameter],
+          responses: {
+            '204': { description: 'Deleted.' },
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+      },
+      '/api/v1/projects/{id}/status': {
+        get: {
+          tags: ['status'],
+          summary: 'Per-application ok/warning/critical status, including dependency attribution.',
+          description:
+            'Never a colour or hex value - green/orange/red is a presentation decision the client makes.',
+          parameters: [projectIdPathParameter],
+          responses: {
+            '200': {
+              description: 'The statuses.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      applications: { type: 'array', items: applicationStatusSchema },
+                    },
+                  },
+                },
+              },
+            },
+            '401': errorResponse,
+            '404': errorResponse,
+          },
+        },
+      },
+      '/api/v1/projects/{id}/status/events': {
+        get: {
+          tags: ['status'],
+          summary: 'Recent status transitions, newest first.',
+          parameters: [
+            projectIdPathParameter,
+            {
+              name: 'limit',
+              in: 'query',
+              required: false,
+              schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'The events.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      events: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            applicationId: { type: 'string', format: 'uuid', nullable: true },
+                            thresholdId: { type: 'string', format: 'uuid' },
+                            metricName: { type: 'string' },
+                            fromState: { type: 'string' },
+                            toState: { type: 'string' },
+                            value: { type: 'number', nullable: true },
+                            at: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            '400': errorResponse,
+            '401': errorResponse,
+            '404': errorResponse,
           },
         },
       },

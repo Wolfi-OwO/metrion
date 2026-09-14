@@ -1,14 +1,23 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
-import type { CreateProjectBody } from '../schemas/projects.schemas.js';
+import type { CreateApiKeyBody, CreateProjectBody } from '../schemas/projects.schemas.js';
 import { getPool } from '../lib/db.js';
 import { NotFoundError } from '../middlewares/error.js';
 
 const UNIQUE_VIOLATION = '23505';
+const FOREIGN_KEY_VIOLATION = '23503';
 
 function isUniqueViolation(err: unknown): boolean {
   return (
     typeof err === 'object' && err !== null && (err as { code?: string }).code === UNIQUE_VIOLATION
+  );
+}
+
+function isForeignKeyViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { code?: string }).code === FOREIGN_KEY_VIOLATION
   );
 }
 
@@ -103,7 +112,16 @@ async function findOwnedProject(projectId: string, ownerUserId: string): Promise
 
 /** Displayed exactly once, in this response, and never again - only
  * `key_hash` is stored, so there is nothing left to re-reveal even to the
- * project's own owner. */
+ * project's own owner.
+ *
+ * `applicationId` (issue #20) is optional - absent, the key stays
+ * project-wide, exactly the pre-#20 behaviour. When present, its ownership
+ * is enforced by the composite foreign key on `api_keys.application_id`
+ * (`packages/db/migrations/0006_applications.sql`): an id from another
+ * project cannot be inserted at all, so there is nothing to re-check here -
+ * `isForeignKeyViolation` below only translates that constraint's rejection
+ * into the same 404 an unowned project id already gets, rather than a raw
+ * 500. */
 export async function createApiKey(req: Request, res: Response): Promise<void> {
   const projectId = req.params.id!;
   if (!(await findOwnedProject(projectId, req.userId!))) {
@@ -111,16 +129,21 @@ export async function createApiKey(req: Request, res: Response): Promise<void> {
     // caller's - never confirms another owner's project id is real.
     throw new NotFoundError('Project not found.');
   }
+  const { applicationId } = req.body as CreateApiKeyBody;
 
   const pool = getPool();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { prefix, secret, hash } = generateApiKey();
     try {
-      const { rows } = await pool.query<{ id: string; created_at: Date }>(
-        `INSERT INTO api_keys (project_id, key_prefix, key_hash)
-         VALUES ($1, $2, $3)
-         RETURNING id, created_at`,
-        [projectId, prefix, hash],
+      const { rows } = await pool.query<{
+        id: string;
+        created_at: Date;
+        application_id: string | null;
+      }>(
+        `INSERT INTO api_keys (project_id, key_prefix, key_hash, application_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, created_at, application_id`,
+        [projectId, prefix, hash, applicationId ?? null],
       );
       const row = rows[0]!;
       res.status(201).json({
@@ -128,9 +151,14 @@ export async function createApiKey(req: Request, res: Response): Promise<void> {
         key: `mtr_${prefix}_${secret}`,
         keyPrefix: prefix,
         createdAt: row.created_at,
+        applicationId: row.application_id,
+        scope: row.application_id ? 'application' : 'project',
       });
       return;
     } catch (err) {
+      if (isForeignKeyViolation(err)) {
+        throw new NotFoundError('Application not found.');
+      }
       if (!isUniqueViolation(err) || attempt === 2) throw err;
     }
   }

@@ -43,6 +43,14 @@ export class ServiceUnavailableError extends AppError {
   }
 }
 
+/** A unique-key clash or a dependency cycle - both name a conflict with
+ * existing state rather than a malformed request, so 409 rather than 400. */
+export class ConflictError extends AppError {
+  constructor(message = 'Conflict') {
+    super(409, message);
+  }
+}
+
 /** One field-level validation failure. `path` is dot-joined, e.g. `metrics.0.value`. */
 export interface FieldIssue {
   readonly path: string;
