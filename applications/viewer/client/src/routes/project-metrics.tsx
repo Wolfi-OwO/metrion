@@ -233,6 +233,12 @@ function ProjectMetricsPanel({
               Refresh
             </button>
             <Link
+              to={`/projects/${project.id}/status`}
+              className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
+            >
+              Status
+            </Link>
+            <Link
               to={`/projects/${project.id}/settings`}
               className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
             >

@@ -39,6 +39,25 @@
   --color-series-7: #f778ba; /* 7.53 */
   --color-series-8: #f85149; /* 5.65 */
 
+  /* Status: ok/warning/critical, named separately from the series ramp above
+     so a call site never reaches for "series-4" to mean "this application is
+     fine" - the two are allowed to drift independently even though they
+     alias the same vetted hexes today. Aliased, not re-typed, so there is one
+     place these three colours are ever defined. Never the only signal: every
+     status also carries a distinct icon shape (circle/triangle/diamond,
+     `components/status-badge.tsx`) and its text label - colour is the third
+     channel, not the first.
+     Re-measured with scripts/contrast against every surface this app
+     actually paints behind a status badge (there is no light theme; see
+     `color-scheme: dark` below) - all three clear the 4.5:1 AA floor on all
+     three:
+       ok       #3fb950 on bg-950 7.45:1, bg-900 6.81:1, bg-800 5.99:1
+       warning  #d29922 on bg-950 7.50:1, bg-900 6.85:1, bg-800 6.03:1
+       critical #f85149 on bg-950 5.65:1, bg-900 5.16:1, bg-800 4.54:1 */
+  --color-status-ok: var(--color-series-4);
+  --color-status-warning: var(--color-series-2);
+  --color-status-critical: var(--color-series-8);
+
   --font-sans: 'Inter Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 

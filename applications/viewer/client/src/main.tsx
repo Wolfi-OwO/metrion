@@ -5,6 +5,7 @@ import App from './App.tsx';
 import NotFoundRoute from './routes/not-found.tsx';
 import ProjectMetricsRoute from './routes/project-metrics.tsx';
 import ProjectSettingsRoute from './routes/project-settings.tsx';
+import ProjectStatusRoute from './routes/project-status.tsx';
 import RootRoute from './routes/root.tsx';
 import './styles/index.css';
 
@@ -23,6 +24,7 @@ createRoot(root).render(
         <Route element={<App />}>
           <Route index element={<RootRoute />} />
           <Route path="projects/:projectId" element={<ProjectMetricsRoute />} />
+          <Route path="projects/:projectId/status" element={<ProjectStatusRoute />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettingsRoute />} />
           <Route path="*" element={<NotFoundRoute />} />
         </Route>

@@ -98,14 +98,14 @@ async function getJson<T>(path: string, params: URLSearchParams, signal: AbortSi
 }
 
 /**
- * `POST`/`DELETE` against the accounts and projects API. Same shape as
- * `getJson`, minus the query string and plus an optional JSON body - the
- * session cookie rides along automatically because every request here is
+ * `POST`/`PUT`/`PATCH`/`DELETE` against the accounts and projects API. Same
+ * shape as `getJson`, minus the query string and plus an optional JSON body -
+ * the session cookie rides along automatically because every request here is
  * same-origin, exactly like the read calls above.
  */
 async function sendJson<T>(
   path: string,
-  method: 'POST' | 'DELETE',
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body: unknown,
   signal: AbortSignal,
 ): Promise<T> {
@@ -270,4 +270,192 @@ export function fetchApiKeys(projectId: string, signal: AbortSignal): Promise<Ap
     new URLSearchParams(),
     signal,
   ).then((body) => body.keys);
+}
+
+/** Mirrors `Status`/`ThresholdStatusEntry`/`ApplicationStatus` in
+ * `applications/viewer/src/services/status-service.ts` - the API never
+ * returns a colour, only one of these three words. `ok` also covers "nothing
+ * has evaluated this yet" on a fresh project, same value a genuinely healthy
+ * application would answer once thresholds exist for it - see that file's
+ * own comment. */
+export type Status = 'ok' | 'warning' | 'critical';
+
+export interface ThresholdStatusEntry {
+  readonly id: string;
+  readonly metricName: string;
+  readonly state: Status;
+  readonly reason: 'threshold' | 'no_data';
+  readonly value: number | null;
+  readonly since: string;
+}
+
+/** `causedBy` is `null` when `effectiveStatus` is explained entirely by this
+ * application's own thresholds - see `status-service.ts#getApplicationStatuses`. */
+export interface ApplicationStatus {
+  readonly id: string;
+  readonly key: string;
+  readonly displayName: string | null;
+  readonly status: Status;
+  readonly effectiveStatus: Status;
+  readonly causedBy: { readonly id: string; readonly key: string } | null;
+  readonly thresholds: ThresholdStatusEntry[];
+}
+
+export function fetchProjectStatus(
+  projectId: string,
+  signal: AbortSignal,
+): Promise<ApplicationStatus[]> {
+  return getJson<{ applications: ApplicationStatus[] }>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/status`,
+    new URLSearchParams(),
+    signal,
+  ).then((body) => body.applications);
+}
+
+/** Mirrors `StatusEvent` in `status-service.ts`. Newest first, already
+ * limited server-side (default 50, `statusEventsQuerySchema`). */
+export interface StatusEvent {
+  readonly id: string;
+  readonly applicationId: string | null;
+  readonly thresholdId: string;
+  readonly metricName: string;
+  readonly fromState: string;
+  readonly toState: string;
+  readonly value: number | null;
+  readonly at: string;
+}
+
+export function fetchStatusEvents(projectId: string, signal: AbortSignal): Promise<StatusEvent[]> {
+  return getJson<{ events: StatusEvent[] }>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/status/events`,
+    new URLSearchParams(),
+    signal,
+  ).then((body) => body.events);
+}
+
+export interface ApplicationCreated {
+  readonly id: string;
+  readonly key: string;
+  readonly displayName: string;
+  readonly createdAt: string;
+}
+
+export function createApplication(
+  projectId: string,
+  key: string,
+  displayName: string,
+  signal: AbortSignal,
+): Promise<ApplicationCreated> {
+  return sendJson<ApplicationCreated>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/applications`,
+    'POST',
+    { key, displayName },
+    signal,
+  );
+}
+
+/** Direct edges only - `dependsOn` is what `replaceDependencies` writes back;
+ * `dependents` is the reverse direction, offered by the same GET but not
+ * used by this client today. Mirrors `getDependencies` in
+ * `applications.handlers.ts`. */
+export interface DependencyEdges {
+  readonly dependsOn: string[];
+  readonly dependents: string[];
+}
+
+export function fetchDependencies(
+  applicationId: string,
+  signal: AbortSignal,
+): Promise<DependencyEdges> {
+  return getJson<DependencyEdges>(
+    `/api/v1/applications/${encodeURIComponent(applicationId)}/dependencies`,
+    new URLSearchParams(),
+    signal,
+  );
+}
+
+/** Replaces the whole `dependsOn` set - see `replaceDependencies` in
+ * `applications.handlers.ts`. A cycle answers 409 with a plain-text message
+ * of the shape `Dependency cycle detected: a -> b -> c`; `lib/status.ts`'s
+ * `cyclePathFromMessage` is what turns that back into an array of keys, kept
+ * separate from this module because it parses `ApiError#message`, not a
+ * response body field the API documents as structured. */
+export function replaceDependencies(
+  applicationId: string,
+  dependsOn: readonly string[],
+  signal: AbortSignal,
+): Promise<{ dependsOn: string[] }> {
+  return sendJson<{ dependsOn: string[] }>(
+    `/api/v1/applications/${encodeURIComponent(applicationId)}/dependencies`,
+    'PUT',
+    { dependsOn },
+    signal,
+  );
+}
+
+/** Mirrors `toThresholdJson` in `thresholds.handlers.ts`. */
+export interface Threshold {
+  readonly id: string;
+  readonly applicationId: string | null;
+  readonly subResource: string | null;
+  readonly metricName: string;
+  readonly direction: 'above' | 'below';
+  readonly warningValue: number | null;
+  readonly criticalValue: number | null;
+  readonly consecutiveBreaches: number;
+  readonly windowSeconds: number;
+  readonly enabled: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** What both `createThreshold` and `updateThreshold` below send - a subset
+ * of `Threshold`'s own fields, `id`/`createdAt`/`updatedAt` excluded because
+ * the server assigns them. `applicationId` is accepted by `POST` and simply
+ * never sent by `PATCH` - `updateThresholdSchema` does not have the field at
+ * all, matching that schema's own comment on why reassignment is out of
+ * scope. */
+export interface ThresholdInput {
+  readonly applicationId?: string | null;
+  readonly subResource?: string | null;
+  readonly metricName: string;
+  readonly direction: 'above' | 'below';
+  readonly warningValue?: number | null;
+  readonly criticalValue?: number | null;
+  readonly consecutiveBreaches: number;
+  readonly windowSeconds: number;
+  readonly enabled: boolean;
+}
+
+export function fetchThresholds(projectId: string, signal: AbortSignal): Promise<Threshold[]> {
+  return getJson<{ thresholds: Threshold[] }>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/thresholds`,
+    new URLSearchParams(),
+    signal,
+  ).then((body) => body.thresholds);
+}
+
+export function createThreshold(
+  projectId: string,
+  input: ThresholdInput,
+  signal: AbortSignal,
+): Promise<Threshold> {
+  return sendJson<Threshold>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/thresholds`,
+    'POST',
+    input,
+    signal,
+  );
+}
+
+export function updateThreshold(
+  thresholdId: string,
+  input: Omit<ThresholdInput, 'applicationId'>,
+  signal: AbortSignal,
+): Promise<Threshold> {
+  return sendJson<Threshold>(`/api/v1/thresholds/${encodeURIComponent(thresholdId)}`, 'PATCH', input, signal);
+}
+
+export function deleteThreshold(thresholdId: string, signal: AbortSignal): Promise<void> {
+  return sendJson<void>(`/api/v1/thresholds/${encodeURIComponent(thresholdId)}`, 'DELETE', undefined, signal);
 }

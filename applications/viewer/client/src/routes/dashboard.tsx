@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, createProject, type MeResponse } from '../api/client.ts';
 import { AccountBar } from '../components/account-bar.tsx';
+import { ProjectStatusIndicator } from '../components/project-status-indicator.tsx';
 import { ActionButton, Body, ErrorState, Heading, Panel } from '../components/states.tsx';
 import { projectNameError } from '../lib/validate.ts';
 import { useProjects } from '../lib/use-projects.ts';
@@ -172,6 +173,7 @@ export default function DashboardRoute({
                 >
                   {project.name}
                 </Link>
+                <ProjectStatusIndicator projectId={project.id} />
                 <span className="font-mono text-[11px] text-ink-muted">{project.slug}</span>
                 <span className="font-mono text-[11px] text-ink-muted">
                   created{' '}
@@ -182,8 +184,14 @@ export default function DashboardRoute({
                   })}
                 </span>
                 <Link
-                  to={`/projects/${project.id}/settings`}
+                  to={`/projects/${project.id}/status`}
                   className="ml-auto text-[12px] text-ink-dim transition-colors duration-150 hover:text-ink"
+                >
+                  Status
+                </Link>
+                <Link
+                  to={`/projects/${project.id}/settings`}
+                  className="text-[12px] text-ink-dim transition-colors duration-150 hover:text-ink"
                 >
                   Settings
                 </Link>

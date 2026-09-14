@@ -241,7 +241,15 @@ export default function ProjectSettingsRoute() {
     <>
       {header}
       <main className="flex-1 px-5 py-8 sm:px-8">
-        <h1 className="text-[15px] font-semibold text-ink">API keys</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-[15px] font-semibold text-ink">API keys</h1>
+          <Link
+            to={`/projects/${project.id}/status`}
+            className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
+          >
+            Status, dependencies and thresholds
+          </Link>
+        </div>
         <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-ink-dim">
           A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code> for{' '}
           <span className="font-mono text-ink">{project.name}</span>. Revoking one takes effect
