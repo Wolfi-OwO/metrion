@@ -653,7 +653,6 @@ export function buildOpenApiDocument(): object {
                           properties: {
                             key: { type: 'string' },
                             displayName: { type: 'string', nullable: true },
-                            subResource: { type: 'string', nullable: true },
                             uptime: {
                               type: 'object',
                               description:
