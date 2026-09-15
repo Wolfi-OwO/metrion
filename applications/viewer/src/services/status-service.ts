@@ -238,9 +238,13 @@ export async function getStatusEvents(
  * (`packages/db/migrations/0011_project_public_status.sql`), not on
  * ownership. Everything below reads only `uptime.ok`/`uptime.latency`
  * (organizational/uptime-sources.md's measured writers) - never `cpu.*`,
- * `memory.*`, a `docker` sub-resource, or the project's resource inventory,
- * so a flagged project can leak nothing beyond these two metric names no
- * matter what else it has stored.
+ * `memory.*`, or the project's resource inventory - and never `sub_resource`
+ * either: by this project's own convention it carries infrastructure naming
+ * (container names, hostnames - `applications/agent/src/lib/to-metric-
+ * envelopes.ts`), so it is never selected here, let alone placed on the
+ * response. A flagged project can leak nothing beyond the two metric names
+ * and the application `key`s it already registered, no matter what else it
+ * has stored.
  */
 
 const UPTIME_OK_NAME = 'uptime.ok';
@@ -268,7 +272,6 @@ export interface PublicUptimeHistoryEntry {
 export interface PublicUptimeApplication {
   readonly key: string;
   readonly displayName: string | null;
-  readonly subResource: string | null;
   readonly uptime: {
     readonly h24: number | null;
     readonly d7: number | null;
@@ -401,7 +404,6 @@ async function queryHistory(
 interface LatestSampleRow {
   resource: string;
   name: string;
-  sub_resource: string | null;
   value: number;
   time: Date;
 }
@@ -416,29 +418,22 @@ interface LatestSampleRow {
 async function queryLatestSamples(
   projectId: string,
   keys: readonly string[],
-): Promise<
-  Map<string, { subResource: string | null; latencyMs: number | null; lastSampleAt: string | null }>
-> {
+): Promise<Map<string, { latencyMs: number | null; lastSampleAt: string | null }>> {
   const { rows } = await getPool().query<LatestSampleRow>(
-    `SELECT DISTINCT ON (resource, name) resource, name, sub_resource, value, time
+    `SELECT DISTINCT ON (resource, name) resource, name, value, time
        FROM metrics
       WHERE project_id = $1 AND resource = ANY($2) AND name = ANY($3)
       ORDER BY resource, name, time DESC`,
     [projectId, keys, [UPTIME_OK_NAME, UPTIME_LATENCY_NAME]],
   );
 
-  const byResource = new Map<
-    string,
-    { subResource: string | null; latencyMs: number | null; lastSampleAt: string | null }
-  >();
+  const byResource = new Map<string, { latencyMs: number | null; lastSampleAt: string | null }>();
   for (const row of rows) {
     const entry = byResource.get(row.resource) ?? {
-      subResource: null,
       latencyMs: null,
       lastSampleAt: null,
     };
     if (row.name === UPTIME_OK_NAME) {
-      entry.subResource = row.sub_resource;
       entry.lastSampleAt = row.time.toISOString();
     } else {
       entry.latencyMs = row.value;
@@ -521,7 +516,6 @@ export async function getPublicUptime(projectId: string): Promise<PublicUptime |
     return {
       key: row.key,
       displayName: row.display_name,
-      subResource: sample?.subResource ?? null,
       uptime: {
         h24: window?.h24 ?? null,
         d7: window?.d7 ?? null,

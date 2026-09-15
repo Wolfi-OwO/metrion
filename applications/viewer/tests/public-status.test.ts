@@ -50,7 +50,6 @@ interface HistoryEntry {
 interface AppEntry {
   key: string;
   displayName: string | null;
-  subResource: string | null;
   uptime: { h24: number | null; d7: number | null; d30: number | null };
   latencyMs: number | null;
   lastSampleAt: string | null;
@@ -70,11 +69,12 @@ async function insertMetric(
   value: number,
   time: Date,
   unit = 'bool',
+  subResource: string | null = null,
 ): Promise<void> {
   await fixturePool.query(
     `INSERT INTO metrics (time, project_id, resource, sub_resource, name, value, unit, interval_seconds)
-     VALUES ($1, $2, $3, NULL, $4, $5, $6, 300)`,
-    [time.toISOString(), projectId, resource, name, value, unit],
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 300)`,
+    [time.toISOString(), projectId, resource, subResource, name, value, unit],
   );
 }
 
@@ -305,7 +305,6 @@ test('GET .../uptime: response contains only uptime-derived fields - never the c
       'key',
       'lastSampleAt',
       'latencyMs',
-      'subResource',
       'uptime',
     ]);
     assert.deepEqual(Object.keys(application.uptime).sort(), ['d30', 'd7', 'h24']);
@@ -359,7 +358,6 @@ test('GET .../uptime: full shape for a flagged project, after the continuous agg
 
   const netviz = body.applications[1]!;
   assert.equal(netviz.displayName, 'Network Visualizer');
-  assert.equal(netviz.subResource, null);
   assert.ok(netviz.uptime.h24 !== null && Math.abs(netviz.uptime.h24 - 100) < 0.01);
   assert.ok(netviz.uptime.d7 !== null && Math.abs(netviz.uptime.d7 - 100) < 0.01);
   assert.ok(netviz.uptime.d30 !== null && Math.abs(netviz.uptime.d30 - 100) < 0.01);
@@ -404,4 +402,27 @@ test('GET .../uptime: full shape for a flagged project, after the continuous agg
   );
   assert.equal(nutrilens.uptime.h24, null);
   assert.equal(nutrilens.uptime.d7, null);
+});
+
+test('GET .../uptime: sub_resource never reaches the response, not even as the newest uptime.ok sample for a resource', async () => {
+  // `container:<name>` / `requests:<hostname>` is this project's real
+  // convention for sub_resource (applications/agent/src/lib/to-metric-
+  // envelopes.ts) - inserted here as the NEWEST uptime.ok row for netviz, so
+  // it is the exact row `queryLatestSamples`' `DISTINCT ON (resource, name)
+  // ... ORDER BY time DESC` would have picked, proving this isn't just an
+  // untested code path.
+  await insertMetric(
+    flaggedProjectId,
+    'netviz',
+    'uptime.ok',
+    1,
+    new Date(),
+    'bool',
+    'container:test-leak-canary-1',
+  );
+
+  const response = await getUptime(flaggedProjectId);
+  const raw = await response.text();
+  assert.equal(raw.includes('test-leak-canary-1'), false);
+  assert.equal(raw.includes('container:'), false);
 });
