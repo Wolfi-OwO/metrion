@@ -284,7 +284,9 @@ export function DependencyGraph({
     const exitY = new Map<string, number>();
     outgoing.forEach((list, nodeId) => spread(nodeId, list).forEach((y, key) => exitY.set(key, y)));
     const entryY = new Map<string, number>();
-    incoming.forEach((list, nodeId) => spread(nodeId, list).forEach((y, key) => entryY.set(key, y)));
+    incoming.forEach((list, nodeId) =>
+      spread(nodeId, list).forEach((y, key) => entryY.set(key, y)),
+    );
 
     const nextPaths: EdgePath[] = [];
     edges.forEach((edge) => {
