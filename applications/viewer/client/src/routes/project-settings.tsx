@@ -23,11 +23,28 @@ interface KeyRow {
   revoked: boolean;
 }
 
+// How long a first click stays armed before the second, confirming click is
+// required again - long enough to move the pointer onto the same button,
+// short enough that walking away from the tab doesn't leave it primed.
+const REVOKE_ARM_MS = 4000;
+
 function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) => void }) {
   const [revoking, setRevoking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    if (!armed) return;
+    const timer = window.setTimeout(() => setArmed(false), REVOKE_ARM_MS);
+    return () => window.clearTimeout(timer);
+  }, [armed]);
 
   const handleRevoke = () => {
+    if (!armed) {
+      setArmed(true);
+      return;
+    }
+    setArmed(false);
     setRevoking(true);
     setError(null);
     const controller = new AbortController();
@@ -55,8 +72,17 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
         // Solid fill, not the outlined default every other action on this page
         // uses - the one place in the app a destructive action is irreversible
         // with no undo, so it reads that way at rest, not only on hover.
-        <Button className="ml-auto" variant="primary" tone="danger" onClick={handleRevoke} loading={revoking}>
-          {revoking ? 'Revoking…' : 'Revoke'}
+        // First click only arms it (relabels to a confirmation); the second,
+        // real click has to land on the same button within REVOKE_ARM_MS.
+        <Button
+          className="ml-auto"
+          variant="primary"
+          tone="danger"
+          onClick={handleRevoke}
+          onBlur={() => setArmed(false)}
+          loading={revoking}
+        >
+          {revoking ? 'Revoking…' : armed ? 'Confirm revoke' : 'Revoke'}
         </Button>
       )}
       {error && (
@@ -100,6 +126,8 @@ function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void
             id="just-created-key"
             type="text"
             readOnly
+            spellCheck={false}
+            autoComplete="off"
             value={apiKey}
             onFocus={(event) => event.currentTarget.select()}
             className="w-full min-w-0 flex-1 rounded-control border border-line-strong bg-bg-950 px-2.5 py-1.5 font-mono text-label text-ink sm:w-auto"

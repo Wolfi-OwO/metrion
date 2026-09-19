@@ -88,6 +88,7 @@ export function buttonClassName(
 
 export function Button({
   onClick,
+  onBlur,
   children,
   type = 'button',
   variant = 'secondary',
@@ -97,6 +98,7 @@ export function Button({
   className = '',
 }: {
   onClick?: () => void;
+  onBlur?: () => void;
   children: React.ReactNode;
   type?: 'button' | 'submit';
   variant?: ButtonVariant;
@@ -109,6 +111,7 @@ export function Button({
     <button
       type={type}
       onClick={onClick}
+      onBlur={onBlur}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={buttonClassName(variant, tone, className)}

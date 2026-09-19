@@ -35,7 +35,11 @@ export default defineConfig({
     // stays inside the client workspace rather than being written up into the
     // server's tree - one build, one owner of the folder it writes.
     outDir: 'dist',
-    sourcemap: true,
+    // Off, not 'hidden': there's no error reporter wired up in this app yet
+    // to consume a hidden map, so shipping one (even unlinked) would just be
+    // full source sitting on the server for no reader. Revisit if/when one
+    // lands.
+    sourcemap: false,
   },
   server: {
     port: 5173,

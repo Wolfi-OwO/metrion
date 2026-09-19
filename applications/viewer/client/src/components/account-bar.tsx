@@ -30,16 +30,24 @@ export function AccountBar({
 }) {
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const handleSignOut = () => {
     setPending(true);
+    setFailed(false);
     const controller = new AbortController();
     logout(controller.signal)
       .then(() => {
         onSignedOut();
         navigate('/');
       })
-      .catch(() => setPending(false));
+      .catch(() => {
+        // Server-side session is still live here - don't navigate, that would
+        // show a signed-out-looking shell over a session that never actually
+        // ended. Surface it and let the button be pressed again instead.
+        setPending(false);
+        setFailed(true);
+      });
   };
 
   return (
@@ -50,6 +58,11 @@ export function AccountBar({
       </div>
       <div className="flex items-center justify-between gap-3 sm:ml-auto sm:justify-end sm:gap-x-4">
         <span className="min-w-0 truncate font-mono text-meta text-ink-muted">{email}</span>
+        {failed && (
+          <p role="alert" className="text-label text-text-danger">
+            Could not sign out. Try again.
+          </p>
+        )}
         <Button variant="quiet" onClick={handleSignOut} loading={pending}>
           {pending ? 'Signing out…' : 'Sign out'}
         </Button>
