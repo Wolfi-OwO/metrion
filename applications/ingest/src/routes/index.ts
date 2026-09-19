@@ -3,6 +3,7 @@ import { rateLimit } from 'express-rate-limit';
 import { config } from '../config/index.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 import { ingestMetrics } from '../handlers/ingest.handlers.js';
+import { getPublicProjectUptime } from '../handlers/public-status.handlers.js';
 import { requireApiKey } from '../middlewares/api-key.js';
 import { asyncHandler } from '../middlewares/error.js';
 import { validateBody } from '../middlewares/validate.js';
@@ -50,4 +51,34 @@ routes.post(
   express.json({ limit: '256kb' }),
   validateBody(ingestBodySchema),
   asyncHandler(ingestMetrics),
+);
+
+/**
+ * One shared bucket for every caller (`keyGenerator: () => 'public-status'`),
+ * not per IP: this route takes no API key and no session at all - there is
+ * no per-caller identity to key on - so unlike `ingestRateLimiter` above,
+ * this is the only thing standing between an unauthenticated GET and being
+ * unthrottled. Mounted ahead of the handler, same position `requireApiKey`
+ * holds for `/api/v1/ingest`.
+ */
+const publicStatusRateLimiter = rateLimit({
+  windowMs: config.publicStatusRateLimitWindowMs,
+  limit: config.publicStatusRateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: () => 'public-status',
+  message: { error: 'TooManyRequestsError', message: 'Too many requests.', statusCode: 429 },
+});
+
+/**
+ * The one route a session-less caller can read - moved here from
+ * `applications/viewer` so ingest, not the viewer, is what a public status
+ * page depends on. No `requireApiKey`: visibility is the project's own
+ * `public_status_enabled` opt-in, checked inside `getPublicUptime` directly
+ * against the `:id` path param.
+ */
+routes.get(
+  '/api/v1/public/projects/:id/uptime',
+  publicStatusRateLimiter,
+  asyncHandler(getPublicProjectUptime),
 );

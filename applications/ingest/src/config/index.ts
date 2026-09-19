@@ -19,6 +19,18 @@ export const config = {
   /** Requests per window per API key on the ingest endpoint - never per IP, see ADR 0005. */
   ingestRateLimitMax: Number(process.env['INGEST_RATE_LIMIT_MAX']) || 120,
   ingestRateLimitWindowMs: Number(process.env['INGEST_RATE_LIMIT_WINDOW_MS']) || 60_000,
+
+  /**
+   * Requests per window for `GET /api/v1/public/projects/:id/uptime` -
+   * shared across every caller (`keyGenerator: () => 'public-status'` in
+   * `routes/index.ts`), never per IP: the route takes no API key at all, so
+   * there is no per-caller identity to key on, and IP alone is spoofable/
+   * shared behind proxies. Unlike `/api/v1/ingest`, this route has no auth
+   * step ahead of it to reject a flood before it reaches the limiter, so a
+   * global cap exists here where the ingest route has none.
+   */
+  publicStatusRateLimitMax: Number(process.env['PUBLIC_STATUS_RATE_LIMIT_MAX']) || 120,
+  publicStatusRateLimitWindowMs: Number(process.env['PUBLIC_STATUS_RATE_LIMIT_WINDOW_MS']) || 60_000,
 } as const;
 
 export const isProduction = config.nodeEnv === 'production';

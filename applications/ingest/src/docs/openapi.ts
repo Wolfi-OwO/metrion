@@ -57,6 +57,7 @@ export function buildOpenApiDocument(): object {
     tags: [
       { name: 'ingest', description: 'Submitting metrics.' },
       { name: 'health', description: 'Liveness.' },
+      { name: 'public-status', description: 'Unauthenticated public uptime.' },
     ],
     components: {
       securitySchemes: {
@@ -120,6 +121,44 @@ export function buildOpenApiDocument(): object {
             },
             '400': errorResponse,
             '401': errorResponse,
+            '429': errorResponse,
+          },
+        },
+      },
+      '/api/v1/public/projects/{id}/uptime': {
+        get: {
+          tags: ['public-status'],
+          summary: "A project's public uptime, if it opted in.",
+          description:
+            'No API key or session required. Answers 404 for a nonexistent project id, a ' +
+            'malformed id, and an existing project with public_status_enabled=false - the same ' +
+            'response for all three, so no caller can distinguish "does not exist" from "exists ' +
+            'but is private". Rate limited on one shared bucket, not per API key or IP.',
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'The public uptime for this project.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      projectId: { type: 'string', format: 'uuid' },
+                      generatedAt: { type: 'string', format: 'date-time' },
+                      applications: { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+            '404': errorResponse,
             '429': errorResponse,
           },
         },
