@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { ApiError, createApiKey, fetchApiKeys, revokeApiKey, type Project } from '../api/client.ts';
 import { CopyButton } from '../components/copy-button.tsx';
+import { StatusIcon } from '../components/icon.tsx';
 import { ProjectShell } from '../components/project-shell.tsx';
 import { Body, Button, buttonClassName, Heading } from '../components/states.tsx';
 import type { AuthState } from '../lib/use-auth.ts';
@@ -40,8 +41,8 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
 
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-3">
-      <span className="font-mono text-[13px] text-ink">mtr_{row.keyPrefix}_••••••••</span>
-      <span className="font-mono text-[11px] text-ink-muted">
+      <span className="font-mono text-body text-ink">mtr_{row.keyPrefix}_••••••••</span>
+      <span className="font-mono text-meta text-ink-muted">
         created{' '}
         {new Date(row.createdAt).toLocaleString(undefined, {
           dateStyle: 'medium',
@@ -49,14 +50,17 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
         })}
       </span>
       {row.revoked ? (
-        <span className="ml-auto text-[12px] text-ink-muted">Revoked</span>
+        <span className="ml-auto text-label text-ink-muted">Revoked</span>
       ) : (
-        <Button className="ml-auto" onClick={handleRevoke} loading={revoking}>
+        // Solid fill, not the outlined default every other action on this page
+        // uses - the one place in the app a destructive action is irreversible
+        // with no undo, so it reads that way at rest, not only on hover.
+        <Button className="ml-auto" variant="primary" tone="danger" onClick={handleRevoke} loading={revoking}>
           {revoking ? 'Revoking…' : 'Revoke'}
         </Button>
       )}
       {error && (
-        <p role="alert" className="w-full text-[12px] text-series-8">
+        <p role="alert" className="w-full text-label text-text-danger">
           {error}
         </p>
       )}
@@ -67,29 +71,45 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
 /** Shown once, right after creation, then discarded from state entirely -
  * not merely hidden - when the caller confirms they copied it. From that
  * point on nothing in this page can put the secret back on screen, because
- * nothing in this page still holds it. */
+ * nothing in this page still holds it. Styled as the highest-stakes moment
+ * in the product: an elevated, caution-bordered panel rather than a plain
+ * bordered div, so it reads as a one-time, unrepeatable action rather than
+ * an ordinary status message. */
 function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void }) {
   return (
-    <div className="mt-4 border border-line-strong bg-bg-800 px-4 py-3">
-      <Heading>Your new key</Heading>
-      <Body>
-        This is the only time the full key is shown. Copy it now and store it wherever your
-        collector reads its credentials from.
-      </Body>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input
-          type="text"
-          readOnly
-          value={apiKey}
-          onFocus={(event) => event.currentTarget.select()}
-          aria-label="New API key"
-          className="w-full min-w-0 flex-1 rounded-sm border border-line-strong bg-bg-900 px-2.5 py-1.5 font-mono text-[12px] text-ink sm:w-auto"
-        />
-        <CopyButton text={apiKey} />
+    <div className="mt-4 overflow-hidden rounded-surface border border-text-caution/50 bg-bg-900 shadow-raised">
+      <div className="flex items-start gap-3 border-b border-text-caution/30 bg-text-caution/10 px-5 py-4">
+        <span className="mt-0.5 shrink-0 text-text-caution">
+          <StatusIcon status="warning" />
+        </span>
+        <div>
+          <Heading>Your new key</Heading>
+          <Body>
+            This is the only time the full key is shown. Copy it now and store it wherever your
+            collector reads its credentials from - it cannot be recovered once you leave this
+            page.
+          </Body>
+        </div>
       </div>
-      <Button className="mt-3" onClick={onDone}>
-        I've saved it
-      </Button>
+      <div className="px-5 py-4">
+        <label htmlFor="just-created-key" className="text-label text-ink-dim">
+          Full key
+        </label>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <input
+            id="just-created-key"
+            type="text"
+            readOnly
+            value={apiKey}
+            onFocus={(event) => event.currentTarget.select()}
+            className="w-full min-w-0 flex-1 rounded-control border border-line-strong bg-bg-950 px-2.5 py-1.5 font-mono text-label text-ink sm:w-auto"
+          />
+          <CopyButton text={apiKey} />
+        </div>
+        <Button className="mt-3" variant="primary" onClick={onDone}>
+          I've saved it
+        </Button>
+      </div>
     </div>
   );
 }
@@ -102,6 +122,7 @@ export default function ProjectSettingsRoute() {
   const [keys, setKeys] = useState<KeyRow[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
   const [keysError, setKeysError] = useState<string | null>(null);
+  const [keysReloadToken, setKeysReloadToken] = useState(0);
   const [justCreated, setJustCreated] = useState<{ id: string; key: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -136,7 +157,7 @@ export default function ProjectSettingsRoute() {
         if (!controller.signal.aborted) setKeysLoading(false);
       });
     return () => controller.abort();
-  }, [projectIdForKeys]);
+  }, [projectIdForKeys, keysReloadToken]);
 
   const handleCreate = (project: Project) => {
     setCreating(true);
@@ -167,14 +188,14 @@ export default function ProjectSettingsRoute() {
       lookup={lookup}
       breadcrumb={
         <>
-          <Link to="/" className="transition-colors duration-150 hover:text-ink">
+          <Link to="/" className="transition-colors duration-fast hover:text-ink">
             Projects
           </Link>
           <span aria-hidden="true">/</span>
           {lookup.project ? (
             <Link
               to={`/projects/${lookup.project.id}`}
-              className="transition-colors duration-150 hover:text-ink"
+              className="transition-colors duration-fast hover:text-ink"
             >
               {lookup.project.name}
             </Link>
@@ -189,12 +210,12 @@ export default function ProjectSettingsRoute() {
       {(project) => (
         <main className="flex-1 px-5 py-8 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-[15px] font-semibold text-ink">API keys</h1>
+            <h1 className="text-heading font-semibold text-ink">API keys</h1>
             <Link to={`/projects/${project.id}/status`} className={buttonClassName('quiet')}>
               Status, dependencies and thresholds
             </Link>
           </div>
-          <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-ink-dim">
+          <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-dim">
             A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code>{' '}
             for <span className="font-mono text-ink">{project.name}</span>. Revoking one takes
             effect immediately - a collector still presenting it starts getting 401s on its next
@@ -211,26 +232,48 @@ export default function ProjectSettingsRoute() {
             </Button>
           )}
           {createError && (
-            <p role="alert" className="mt-2 text-[12px] text-series-8">
+            <p role="alert" className="mt-2 text-label text-text-danger">
               {createError}
             </p>
           )}
 
           <div className="mt-8 border-t border-line pt-4">
-            <h2 className="font-mono text-[12px] text-ink-dim">Existing keys</h2>
+            <h2 className="font-mono text-label text-ink-dim">Existing keys</h2>
+
             {keysError && (
-              <p role="alert" className="mt-2 text-[13px] text-series-8">
-                {keysError}
-              </p>
+              <div className="mt-3 rounded-surface border border-line px-4 py-3.5" role="alert">
+                <p className="font-medium text-label text-text-danger">Could not load API keys</p>
+                <p className="mt-1 text-label text-ink-dim">{keysError}</p>
+                <Button
+                  className="mt-3"
+                  variant="secondary"
+                  onClick={() => setKeysReloadToken((token) => token + 1)}
+                >
+                  Try again
+                </Button>
+              </div>
             )}
-            {!keysError && keysLoading ? (
-              <p className="mt-2 text-[13px] text-ink-dim">Loading…</p>
-            ) : !keysError && keys.length === 0 ? (
-              <p className="mt-2 text-[13px] text-ink-dim">
-                None yet. A key created here shows up in this list right away.
-              </p>
-            ) : !keysError ? (
-              <ul className="mt-2 divide-y divide-line border-y border-line">
+
+            {!keysError && keysLoading && (
+              <div className="mt-3 space-y-2" role="status" aria-live="polite">
+                <span className="sr-only">Loading API keys…</span>
+                <div className="h-11 animate-pulse rounded-control bg-bg-800" aria-hidden="true" />
+                <div className="h-11 animate-pulse rounded-control bg-bg-800" aria-hidden="true" />
+              </div>
+            )}
+
+            {!keysError && !keysLoading && keys.length === 0 && (
+              <div className="mt-3 rounded-surface border border-dashed border-line px-4 py-4">
+                <p className="text-body text-ink-dim">No keys yet</p>
+                <p className="mt-1 text-label text-ink-muted">
+                  Create one above - it appears here immediately, and that moment is the only
+                  chance to copy its full value.
+                </p>
+              </div>
+            )}
+
+            {!keysError && !keysLoading && keys.length > 0 && (
+              <ul className="mt-3 divide-y divide-line border-y border-line">
                 {keys.map((row) => (
                   <KeyListItem
                     key={row.id}
@@ -243,7 +286,7 @@ export default function ProjectSettingsRoute() {
                   />
                 ))}
               </ul>
-            ) : null}
+            )}
           </div>
         </main>
       )}
