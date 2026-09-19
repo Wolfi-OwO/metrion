@@ -58,12 +58,81 @@
   --color-status-warning: var(--color-series-2);
   --color-status-critical: var(--color-series-8);
 
+  /* Text-role aliases for the series ramp above, same rationale as the status
+     tokens two lines up: a call site that means "this failed" should never
+     have to know it is reaching for series-8 to say so. Aliased, not
+     re-typed, to the same vetted hexes - one place these colours are ever
+     defined, one contrast measurement backs all of them. */
+  --color-text-danger: var(--color-series-8); /* 5.65:1 on bg-950 - the hex every role="alert" text already uses directly */
+  --color-text-success: var(--color-series-4); /* 7.45:1 on bg-950 - mirrors --color-status-ok */
+  --color-text-caution: var(--color-series-2); /* 7.50:1 on bg-950 - mirrors --color-status-warning */
+
   --font-sans: 'Inter Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 
   /* One curve, one duration, everywhere. A second easing would be a second
      personality. */
   --ease-instrument: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Two speeds pair with that one curve. --duration-fast is the 150ms
+     already hardcoded at all 31 `duration-150` call sites across this app
+     (hover/focus colour changes on a control) - named here so those sites
+     have a token to migrate onto rather than a number to keep retyping.
+     --duration-base is not in use anywhere yet; it is the next step up, for
+     a larger surface moving (a panel opening) rather than a control's colour
+     - slow enough past --duration-fast to read as a different, deliberate
+     motion, not so slow it feels laggy. */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+
+  /* Text roles, not sizes: a call site says what the text IS (a page title,
+     not "15px"), so the scale can move later without re-reading every
+     component for a magic number. Every value below is a literal already
+     rendered somewhere in this app today - captured, not designed fresh - so
+     adding these tokens changes the mechanism, not the look. Line-heights
+     are bound with Tailwind v4's `--text-*--line-height` pairing; where that
+     matches 1.5 it is because that is what the role already renders at today,
+     inherited from the body rule below through the normal cascade. */
+  --text-display: 42px; /* landing.tsx hero h1, desktop half of `text-[32px] sm:text-[42px]` */
+  --text-display--line-height: 1.15; /* the hero h1's own `leading-[1.15]` */
+  --text-display-sm: 32px; /* the same hero h1, mobile half of the pair - shares its line-height */
+  --text-display-sm--line-height: 1.15;
+  --text-heading: 15px; /* states.tsx Heading, brand.tsx wordmark, every route's section <h1>/<h2> */
+  --text-heading--line-height: 1.5;
+  --text-title: 14px; /* dashboard.tsx project-row title, landing.tsx metric-kind card title */
+  --text-title--line-height: 1.5;
+  --text-body: 13px; /* the body element's own size below; states.tsx Body, every route's paragraph copy */
+  --text-body--line-height: 1.5;
+  --text-label: 12px; /* form labels and secondary button text - the single most common size in the app */
+  --text-label--line-height: 1.5;
+  --text-meta: 11px; /* metadata: mono timestamps, unit labels, uppercase eyebrow text */
+  --text-meta--line-height: 1.5;
+
+  /* Two radii, not a scale: everything here is either a control (something a
+     cursor or a focus ring lands on) or a surface (a panel it sits inside),
+     and nothing in this app has ever needed a third size.
+     --radius-control is the same 2px Tailwind's own `rounded-sm` already
+     resolves to - named here so the :focus-visible rule below can share the
+     literal instead of a coincidence that would silently drift if Tailwind's
+     default scale ever changed under it. */
+  --radius-control: 2px; /* buttons, inputs, badges - and the focus ring that traces them */
+  --radius-surface: 6px; /* panels and cards - landing.tsx's hero and pricing-card corners, same as `rounded-md` */
+  --radius-pill: 9999px; /* fully round - the status dots in landing.tsx's feature list */
+
+  /* One elevation: raised, for the one card that sits above the page surface
+     today. Seeded from the exact shadow already measured and shipped at
+     landing.tsx:190 (`shadow-[0_12px_32px_-18px_rgba(0,0,0,0.65)]`) rather
+     than a fresh value - a second shadow would be a second answer to a
+     question this app has only asked once so far. */
+  --shadow-raised: 0 12px 32px -18px rgba(0, 0, 0, 0.65);
+
+  /* The page gutter, currently retyped as `px-5 ... sm:px-8` in 11 files -
+     one pair of numbers with one name, so changing the gutter later is one
+     edit instead of an 11-file grep. Values match Tailwind's own p-5/p-8
+     (5 and 8 times its 4px base unit) exactly, because that is what every
+     one of those 11 files already renders. */
+  --spacing-gutter: 20px; /* px-5 today */
+  --spacing-gutter-lg: 32px; /* sm:px-8 today */
 }
 
 html {
@@ -77,8 +146,10 @@ body {
   background-color: var(--color-bg-950);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
+  /* Same 13px/1.5 as --text-body above, read from the token so there is one
+     place this app's base size is ever set instead of two. */
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -111,7 +182,9 @@ input:focus-visible + span {
   outline-style: solid;
   outline-color: var(--color-series-1);
   outline-offset: 2px;
-  border-radius: 2px;
+  /* Was a hardcoded 2px; now the same --radius-control every control itself
+     rounds to, so the ring traces the corner the element actually has. */
+  border-radius: var(--radius-control);
 
   /* Tailwind's `transition-colors` includes `outline-color`, so the ring was
      fading in over 150ms: measured 400ms after focus it is rgb(88,166,255),

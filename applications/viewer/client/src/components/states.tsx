@@ -13,18 +13,18 @@ import type { TimeRange } from '../lib/range.ts';
 // slightly different one.
 export function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-64 flex-col items-start justify-center gap-3 px-5 py-14 sm:px-8">
+    <div className="flex min-h-64 flex-col items-start justify-center gap-3 px-gutter py-14 sm:px-gutter-lg">
       <div className="max-w-prose">{children}</div>
     </div>
   );
 }
 
 export function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-[15px] font-semibold text-ink">{children}</h2>;
+  return <h2 className="text-heading font-semibold text-ink">{children}</h2>;
 }
 
 export function Body({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1.5 text-[13px] leading-relaxed text-ink-dim">{children}</p>;
+  return <p className="mt-1.5 text-body leading-relaxed text-ink-dim">{children}</p>;
 }
 
 export function ActionButton({
@@ -45,7 +45,7 @@ export function ActionButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-sm border border-line-strong bg-bg-800 px-3 py-1.5 text-[12px] font-medium text-ink transition-colors duration-150 hover:border-series-1 hover:text-series-1 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`rounded-control border border-line-strong bg-bg-800 px-3 py-1.5 text-label font-medium text-ink transition-colors duration-fast hover:border-series-1 hover:text-series-1 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {children}
     </button>
@@ -80,7 +80,7 @@ function AxisGhost({ sweeping }: { sweeping: boolean }) {
  */
 export function LoadingState({ waking, seconds }: { waking: boolean; seconds: number }) {
   return (
-    <div className="px-5 py-8 sm:px-8">
+    <div className="px-gutter py-8 sm:px-gutter-lg">
       <div
         role="status"
         aria-live="polite"
