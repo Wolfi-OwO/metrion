@@ -8,10 +8,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const cssPath = path.join(
-  __dirname,
-  '../applications/viewer/client/src/styles/index.css',
-);
+const cssPath = path.join(__dirname, '../applications/viewer/client/src/styles/index.css');
 const css = readFileSync(cssPath, 'utf8');
 
 // Every "--color-xxx: value;" declaration, in source order.
