@@ -42,12 +42,14 @@ export class RouteErrorBoundary extends Component<Props, State> {
                   vocabulary (filled diamond, `components/icon.tsx`) rather
                   than a fresh glyph - this genuinely is that severity, not a
                   borrowed one. */}
-              <div className="flex items-center gap-2 font-mono text-meta uppercase tracking-wide text-text-danger">
+              <div className="flex items-center gap-2 font-mono text-meta uppercase tracking-eyebrow text-text-danger">
                 <StatusIcon status="critical" />
                 <span>Error</span>
               </div>
-              <Heading>Something went wrong</Heading>
-              <Body>This screen hit an unexpected error. Reloading the page usually clears it.</Body>
+              <Heading level="h1">Something went wrong</Heading>
+              <Body>
+                This screen hit an unexpected error. Reloading the page usually clears it.
+              </Body>
               <div className="mt-1 flex flex-wrap gap-3">
                 <Button variant="primary" onClick={() => window.location.reload()}>
                   Reload page

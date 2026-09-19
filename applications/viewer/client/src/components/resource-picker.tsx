@@ -43,7 +43,7 @@ const KIND_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
 // control language, plus the truncation and hover this one needs for a value
 // that can be a full hostname.
 const SELECT_CLASS =
-  'max-w-[16rem] truncate rounded-control border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-body text-ink transition-colors duration-fast hover:border-ink-muted';
+  'max-w-[16rem] truncate rounded-control border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-body text-ink transition-colors duration-(--duration-fast) hover:border-ink-muted';
 
 /** Which `ScopeIcon` a sub-resource's prefix stands for; `host` covers the
  * whole-server option and anything with no recognised prefix. */

@@ -63,9 +63,13 @@
      have to know it is reaching for series-8 to say so. Aliased, not
      re-typed, to the same vetted hexes - one place these colours are ever
      defined, one contrast measurement backs all of them. */
-  --color-text-danger: var(--color-series-8); /* 5.65:1 on bg-950 - the hex every role="alert" text already uses directly */
+  --color-text-danger: var(
+    --color-series-8
+  ); /* 5.65:1 on bg-950 - the hex every role="alert" text already uses directly */
   --color-text-success: var(--color-series-4); /* 7.45:1 on bg-950 - mirrors --color-status-ok */
-  --color-text-caution: var(--color-series-2); /* 7.50:1 on bg-950 - mirrors --color-status-warning */
+  --color-text-caution: var(
+    --color-series-2
+  ); /* 7.50:1 on bg-950 - mirrors --color-status-warning */
 
   --font-sans: 'Inter Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
@@ -74,10 +78,11 @@
      personality. */
   --ease-instrument: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Two speeds pair with that one curve. --duration-fast is the 150ms
-     already hardcoded at all 31 `duration-150` call sites across this app
-     (hover/focus colour changes on a control) - named here so those sites
-     have a token to migrate onto rather than a number to keep retyping.
+  /* Two speeds pair with that one curve. --duration-fast is the 150
+     milliseconds already hardcoded at 31 call sites across this app, all on
+     Tailwind's own duration scale (hover/focus colour changes on a control) -
+     named here so those sites have a token to migrate onto rather than a
+     number to keep retyping.
      --duration-base is not in use anywhere yet; it is the next step up, for
      a larger surface moving (a panel opening) rather than a control's colour
      - slow enough past --duration-fast to read as a different, deliberate
@@ -93,7 +98,7 @@
      are bound with Tailwind v4's `--text-*--line-height` pairing; where that
      matches 1.5 it is because that is what the role already renders at today,
      inherited from the body rule below through the normal cascade. */
-  --text-display: 42px; /* landing.tsx hero h1, desktop half of `text-[32px] sm:text-[42px]` */
+  --text-display: 42px; /* landing.tsx hero h1, desktop half of the old hardcoded 32/42px pair */
   --text-display--line-height: 1.15; /* the hero h1's own `leading-[1.15]` */
   --text-display-sm: 32px; /* the same hero h1, mobile half of the pair - shares its line-height */
   --text-display-sm--line-height: 1.15;
@@ -126,13 +131,21 @@
      question this app has only asked once so far. */
   --shadow-raised: 0 12px 32px -18px rgba(0, 0, 0, 0.65);
 
-  /* The page gutter, currently retyped as `px-5 ... sm:px-8` in 11 files -
-     one pair of numbers with one name, so changing the gutter later is one
-     edit instead of an 11-file grep. Values match Tailwind's own p-5/p-8
-     (5 and 8 times its 4px base unit) exactly, because that is what every
-     one of those 11 files already renders. */
-  --spacing-gutter: 20px; /* px-5 today */
-  --spacing-gutter-lg: 32px; /* sm:px-8 today */
+  /* The page gutter - one pair of numbers with one name, consumed by every
+     route and shared-chrome file's edge padding, so changing it later is one
+     edit instead of an app-wide grep. Was independently retyped as the
+     literal pixel pair at 11 call sites until the final cross-page review
+     swept the stragglers onto this token. Values match Tailwind's own
+     p-5/p-8 (5 and 8 times its 4px base unit) exactly, because that is what
+     every one of those call sites already rendered. */
+  --spacing-gutter: 20px;
+  --spacing-gutter-lg: 32px;
+
+  /* Named by role, same convention as the type scale above: the one letter-
+     spacing value this app uses, on the uppercase mono eyebrow labels above a
+     section/panel/card (metric-chart.tsx, dependency-graph.tsx, landing.tsx -
+     7 call sites total). Was hardcoded as `tracking-[0.14em]` at each one. */
+  --tracking-eyebrow: 0.14em;
 }
 
 html {

@@ -396,7 +396,7 @@ export function DependencyGraph({
   if (applications.length > 1 && edges.length === 0) {
     return (
       <div className="rounded-surface border border-dashed border-line-strong p-5">
-        <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
+        <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
           No connections yet
         </p>
         <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-dim">
@@ -419,7 +419,7 @@ export function DependencyGraph({
   return (
     <div>
       {edges.length > 0 && (
-        <p className="mb-4 flex items-center gap-1.5 font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
+        <p className="mb-4 flex items-center gap-1.5 font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
           <span aria-hidden="true" className="text-series-1">
             →
           </span>

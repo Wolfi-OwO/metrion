@@ -133,7 +133,7 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
             Caused by{' '}
             <a
               href={`#app-${app.causedBy.id}`}
-              className="font-mono font-medium text-ink underline decoration-line-strong underline-offset-2 transition-colors duration-fast hover:text-series-1 hover:decoration-series-1"
+              className="font-mono font-medium text-ink underline decoration-line-strong underline-offset-2 transition-colors duration-(--duration-fast) hover:text-series-1 hover:decoration-series-1"
             >
               {app.causedBy.key}
             </a>
@@ -164,7 +164,7 @@ function DisclosureMark() {
   return (
     <span
       aria-hidden="true"
-      className="inline-block text-ink-muted transition-transform duration-fast group-open:rotate-90"
+      className="inline-block text-ink-muted transition-transform duration-(--duration-fast) group-open:rotate-90"
     >
       {'›'}
     </span>
@@ -246,7 +246,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         </section>
 
         <details className="group mt-10 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-fast hover:text-ink [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
             <DisclosureMark />
             Dependency graph
           </summary>
@@ -261,7 +261,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         </details>
 
         <details className="group mt-6 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-fast hover:text-ink [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
             <DisclosureMark />
             Thresholds
           </summary>
@@ -275,7 +275,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         </details>
 
         <details className="group mt-6 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-fast hover:text-ink [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
             <DisclosureMark />
             Recent transitions
           </summary>
@@ -299,14 +299,14 @@ export default function ProjectStatusRoute() {
       lookup={lookup}
       breadcrumb={
         <>
-          <Link to="/" className="transition-colors duration-fast hover:text-ink">
+          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
             Projects
           </Link>
           <span aria-hidden="true">/</span>
           {lookup.project ? (
             <Link
               to={`/projects/${lookup.project.id}`}
-              className="transition-colors duration-fast hover:text-ink"
+              className="transition-colors duration-(--duration-fast) hover:text-ink"
             >
               {lookup.project.name}
             </Link>

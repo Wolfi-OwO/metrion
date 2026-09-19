@@ -19,8 +19,25 @@ export function Panel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-heading font-semibold text-ink">{children}</h2>;
+// h2 by default: every other call site (EmptyState, ErrorState, the
+// registration panels) sits inside a page that already renders its own h1
+// elsewhere, so this is a subheading nested under it. not-found.tsx and
+// error-boundary.tsx are the one exception - a standalone page with no other
+// heading - and pass `level="h1"` so that page still has a real, single h1
+// rather than starting its heading structure at level 2.
+export function Heading({
+  children,
+  level = 'h2',
+}: {
+  children: React.ReactNode;
+  level?: 'h1' | 'h2';
+}) {
+  const className = 'text-heading font-semibold text-ink';
+  return level === 'h1' ? (
+    <h1 className={className}>{children}</h1>
+  ) : (
+    <h2 className={className}>{children}</h2>
+  );
 }
 
 export function Body({ children }: { children: React.ReactNode }) {
@@ -31,7 +48,7 @@ export type ButtonVariant = 'primary' | 'secondary' | 'quiet';
 export type ButtonTone = 'default' | 'danger';
 
 const BUTTON_BASE =
-  'inline-flex items-center justify-center gap-1.5 rounded-control text-label font-medium transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-70';
+  'inline-flex items-center justify-center gap-1.5 rounded-control text-label font-medium transition-colors duration-(--duration-fast) disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-70';
 
 // Every fragment below is a real, static Tailwind class string (never built
 // from a template literal) so the v4 build's source scan can see it - a

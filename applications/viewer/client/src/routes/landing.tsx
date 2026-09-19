@@ -90,10 +90,10 @@ function SignInButtons() {
         <a
           key={provider.id}
           href={`/auth/${provider.id}`}
-          className="group flex items-center gap-3 rounded-md border border-line-strong bg-bg-800 px-4 py-3 text-body font-medium text-ink transition-colors duration-fast hover:border-series-1 hover:bg-bg-900"
+          className="group flex items-center gap-3 rounded-md border border-line-strong bg-bg-800 px-4 py-3 text-body font-medium text-ink transition-colors duration-(--duration-fast) hover:border-series-1 hover:bg-bg-900"
         >
           <ProviderIcon id={provider.id} />
-          <span className="transition-colors duration-fast group-hover:text-series-1">
+          <span className="transition-colors duration-(--duration-fast) group-hover:text-series-1">
             {provider.label}
           </span>
         </a>
@@ -140,7 +140,7 @@ const RESOURCE_KINDS: ReadonlyArray<{
 function TimeAxisPreview() {
   return (
     <div className="relative overflow-hidden rounded-md border border-line bg-bg-900 p-5 shadow-raised sm:p-6">
-      <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
+      <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
         One shared axis
       </p>
       <svg
@@ -229,7 +229,7 @@ const QUICKSTART = `curl https://ingest.metrion.example.at/api/v1/ingest \\
 export default function LandingRoute() {
   return (
     <>
-      <header className="border-b border-line px-5 py-4 sm:px-8">
+      <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
         <div className="flex items-center justify-between">
           <Brand />
           <span className="font-mono text-meta text-ink-muted">v{__APP_VERSION__}</span>
@@ -237,10 +237,10 @@ export default function LandingRoute() {
       </header>
 
       <main className="flex-1">
-        <section className="border-b border-line px-5 py-16 sm:px-8 sm:py-24">
+        <section className="border-b border-line px-gutter py-16 sm:px-gutter-lg sm:py-24">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
             <div className="max-w-xl">
-              <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
+              <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
                 Metrics platform
               </p>
               <h1 className="mt-3 text-display-sm font-semibold text-ink sm:text-display">
@@ -263,15 +263,20 @@ export default function LandingRoute() {
           </div>
         </section>
 
-        <section className="border-b border-line px-5 py-14 sm:px-8">
-          <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
+        <section className="border-b border-line px-gutter py-14 sm:px-gutter-lg">
+          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
             What it tracks
           </p>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             {RESOURCE_KINDS.map((kind) => (
               <div key={kind.id} className="rounded-md border border-line bg-bg-900 p-5">
                 <ScopeIcon id={kind.id} />
-                <h3 className="mt-3 text-title font-semibold text-ink">{kind.scope}</h3>
+                {/* h2, not h3: the page's only other heading is the hero's
+                    h1 above, and the eyebrow labels ("What it tracks") are
+                    deliberately plain text, not headings, so a screen
+                    reader's heading list stays short - which makes this the
+                    first heading past the h1, not a third level down. */}
+                <h2 className="mt-3 text-title font-semibold text-ink">{kind.scope}</h2>
                 {kind.prefix && (
                   <p className="mt-1 font-mono text-meta text-ink-muted">{kind.prefix}</p>
                 )}
@@ -290,8 +295,8 @@ export default function LandingRoute() {
           </div>
         </section>
 
-        <section className="px-5 py-14 sm:px-8">
-          <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
+        <section className="px-gutter py-14 sm:px-gutter-lg">
+          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
             Already have a key? Send your first metric.
           </p>
           <div className="mt-5 max-w-2xl rounded-md border border-line bg-bg-900 p-5">

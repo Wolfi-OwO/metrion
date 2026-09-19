@@ -29,7 +29,7 @@ export function ProjectHeader({
   return (
     <header className={`border-b border-line bg-bg-900${sticky ? ' sticky top-0 z-10' : ''}`}>
       <AccountBar email={email} onSignedOut={onSignedOut}>
-        <nav aria-label="Breadcrumb" className="flex items-center gap-x-2 text-[12px] text-ink-dim">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-x-2 text-label text-ink-dim">
           {breadcrumb}
         </nav>
       </AccountBar>

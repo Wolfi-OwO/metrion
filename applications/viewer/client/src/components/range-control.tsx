@@ -39,7 +39,7 @@ export function RangeControl({
               className="peer sr-only"
             />
             <span
-              className={`block cursor-pointer px-3 py-1.5 font-mono text-label transition-colors duration-fast ${
+              className={`block cursor-pointer px-3 py-1.5 font-mono text-label transition-colors duration-(--duration-fast) ${
                 last ? '' : 'border-r border-line'
               } ${
                 selected

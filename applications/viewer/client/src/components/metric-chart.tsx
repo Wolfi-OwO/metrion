@@ -135,12 +135,12 @@ export function MetricChart({
 
   return (
     <section className="border-t border-line pt-3 pb-1 first:border-t-0">
-      <header className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-5 sm:px-8">
+      <header className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-gutter sm:px-gutter-lg">
         {/* --text-meta is documented for exactly this: "unit labels". Kept at
             text-ink-dim rather than the dimmer text-ink-muted the app's other
             eyebrows use - this one is read on every strip while scanning, not
             once as a section title, and needs the extra contrast step. */}
-        <h2 className="font-mono text-meta uppercase tracking-[0.14em] text-ink-dim">
+        <h2 className="font-mono text-meta uppercase tracking-eyebrow text-ink-dim">
           {group.unit ?? 'unitless'}
         </h2>
         <ul className="flex flex-wrap items-baseline gap-x-5 gap-y-1">

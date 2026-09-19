@@ -104,7 +104,7 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
 function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void }) {
   return (
     <div className="mt-4 overflow-hidden rounded-surface border border-text-caution/50 bg-bg-900 shadow-raised">
-      <div className="flex items-start gap-3 border-b border-text-caution/30 bg-text-caution/10 px-5 py-4">
+      <div className="flex items-start gap-3 border-b border-text-caution/30 bg-text-caution/10 px-gutter py-4">
         <span className="mt-0.5 shrink-0 text-text-caution">
           <StatusIcon status="warning" />
         </span>
@@ -112,12 +112,11 @@ function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void
           <Heading>Your new key</Heading>
           <Body>
             This is the only time the full key is shown. Copy it now and store it wherever your
-            collector reads its credentials from - it cannot be recovered once you leave this
-            page.
+            collector reads its credentials from - it cannot be recovered once you leave this page.
           </Body>
         </div>
       </div>
-      <div className="px-5 py-4">
+      <div className="px-gutter py-4">
         <label htmlFor="just-created-key" className="text-label text-ink-dim">
           Full key
         </label>
@@ -216,14 +215,14 @@ export default function ProjectSettingsRoute() {
       lookup={lookup}
       breadcrumb={
         <>
-          <Link to="/" className="transition-colors duration-fast hover:text-ink">
+          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
             Projects
           </Link>
           <span aria-hidden="true">/</span>
           {lookup.project ? (
             <Link
               to={`/projects/${lookup.project.id}`}
-              className="transition-colors duration-fast hover:text-ink"
+              className="transition-colors duration-(--duration-fast) hover:text-ink"
             >
               {lookup.project.name}
             </Link>
@@ -236,7 +235,7 @@ export default function ProjectSettingsRoute() {
       }
     >
       {(project) => (
-        <main className="flex-1 px-5 py-8 sm:px-8">
+        <main className="flex-1 px-gutter py-8 sm:px-gutter-lg">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-heading font-semibold text-ink">API keys</h1>
             <Link to={`/projects/${project.id}/status`} className={buttonClassName('quiet')}>
@@ -244,10 +243,9 @@ export default function ProjectSettingsRoute() {
             </Link>
           </div>
           <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-dim">
-            A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code>{' '}
-            for <span className="font-mono text-ink">{project.name}</span>. Revoking one takes
-            effect immediately - a collector still presenting it starts getting 401s on its next
-            write.
+            A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code> for{' '}
+            <span className="font-mono text-ink">{project.name}</span>. Revoking one takes effect
+            immediately - a collector still presenting it starts getting 401s on its next write.
           </p>
 
           {justCreated && (
@@ -294,8 +292,8 @@ export default function ProjectSettingsRoute() {
               <div className="mt-3 rounded-surface border border-dashed border-line px-4 py-4">
                 <p className="text-body text-ink-dim">No keys yet</p>
                 <p className="mt-1 text-label text-ink-muted">
-                  Create one above - it appears here immediately, and that moment is the only
-                  chance to copy its full value.
+                  Create one above - it appears here immediately, and that moment is the only chance
+                  to copy its full value.
                 </p>
               </div>
             )}

@@ -199,7 +199,7 @@ export default function DashboardRoute({
                     <div className="flex min-w-0 flex-1 items-center gap-2.5">
                       <Link
                         to={`/projects/${project.id}`}
-                        className="min-w-0 truncate text-title font-medium text-ink transition-colors duration-fast hover:text-series-1"
+                        className="min-w-0 truncate text-title font-medium text-ink transition-colors duration-(--duration-fast) hover:text-series-1"
                       >
                         {project.name}
                       </Link>
@@ -223,13 +223,13 @@ export default function DashboardRoute({
                     <div className="flex shrink-0 items-center gap-4">
                       <Link
                         to={`/projects/${project.id}/status`}
-                        className="text-label text-ink-dim transition-colors duration-fast hover:text-ink"
+                        className="text-label text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink"
                       >
                         Status
                       </Link>
                       <Link
                         to={`/projects/${project.id}/settings`}
-                        className="text-label text-ink-dim transition-colors duration-fast hover:text-ink"
+                        className="text-label text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink"
                       >
                         Settings
                       </Link>

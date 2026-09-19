@@ -36,7 +36,7 @@ export default function ProjectMetricsRoute() {
       lookup={lookup}
       breadcrumb={
         <>
-          <Link to="/" className="transition-colors duration-fast hover:text-ink">
+          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
             Projects
           </Link>
           <span aria-hidden="true">/</span>
@@ -148,7 +148,7 @@ function ProjectMetricsPanel({
         sticky
         breadcrumb={
           <>
-            <Link to="/" className="transition-colors duration-fast hover:text-ink">
+            <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
               Projects
             </Link>
             <span aria-hidden="true">/</span>
@@ -161,13 +161,13 @@ function ProjectMetricsPanel({
             <span className="ml-2 flex items-center gap-x-4 border-l border-line pl-4">
               <Link
                 to={`/projects/${project.id}/status`}
-                className="transition-colors duration-fast hover:text-ink"
+                className="transition-colors duration-(--duration-fast) hover:text-ink"
               >
                 Status
               </Link>
               <Link
                 to={`/projects/${project.id}/settings`}
-                className="transition-colors duration-fast hover:text-ink"
+                className="transition-colors duration-(--duration-fast) hover:text-ink"
               >
                 Settings
               </Link>
@@ -182,7 +182,7 @@ function ProjectMetricsPanel({
             narrows an answer rather than picking one - with Refresh, its
             supporting last-sample readout, demoted to the row's trailing
             corner as the one secondary action here. */}
-        <div className="flex flex-col gap-y-3 border-t border-line px-5 py-3 sm:px-8">
+        <div className="flex flex-col gap-y-3 border-t border-line px-gutter py-3 sm:px-gutter-lg">
           {list.length > 0 && active && (
             <ResourcePicker resources={list} value={active} onChange={setSelection} />
           )}
@@ -221,7 +221,16 @@ function ProjectMetricsPanel({
           component is a new type on every render, so React would unmount and
           rebuild the whole chart tree - and recharts' hover state with it -
           every time the header ticks. */}
-      <main className="flex-1">{renderBody()}</main>
+      <main className="flex-1">
+        {/* sr-only: unlike project-status.tsx and project-settings.tsx, this
+            route's visible title lives in the breadcrumb, not a heading - the
+            page is dense by design and a second, duplicate "Metrics" title
+            would only take up room the charts need. Screen-reader heading
+            navigation still needs a real h1 to land on, so it is here without
+            changing what a sighted visitor sees. */}
+        <h1 className="sr-only">{project.name} metrics</h1>
+        {renderBody()}
+      </main>
     </>
   );
 
@@ -278,16 +287,15 @@ function ProjectMetricsPanel({
             in the app. Loading/skipped-lines notices below it are the
             opposite - they change with this fetch - so they stay always
             visible rather than hidden behind a click. */}
-        <div className="border-t border-line px-5 py-4 text-meta text-ink-muted sm:px-8">
+        <div className="border-t border-line px-gutter py-4 text-meta text-ink-muted sm:px-gutter-lg">
           <details>
-            <summary className="cursor-pointer text-ink-dim transition-colors duration-fast hover:text-ink">
+            <summary className="cursor-pointer text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink">
               How to read this data
             </summary>
             <p className="mt-2 max-w-prose leading-relaxed">
               Times in {timeZoneLabel()}; the collector records in UTC. Each point is a{' '}
               {formatDuration(stepSeconds)} average, and a gap in a line is a bucket that held no
-              sample - never a zero. Shaded columns are stretches where nothing at all was
-              recorded.
+              sample - never a zero. Shaded columns are stretches where nothing at all was recorded.
             </p>
           </details>
           {(series.phase === 'loading' || series.phase === 'waking') && (
