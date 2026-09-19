@@ -6,7 +6,7 @@ import { MetricChart } from '../components/metric-chart.tsx';
 import { ProjectHeader, ProjectShell } from '../components/project-shell.tsx';
 import { RangeControl } from '../components/range-control.tsx';
 import { ResourcePicker, type Selection } from '../components/resource-picker.tsx';
-import { Button, buttonClassName, EmptyState, ErrorState, LoadingState } from '../components/states.tsx';
+import { Button, EmptyState, ErrorState, LoadingState } from '../components/states.tsx';
 import { formatAge, formatDuration, timeZoneLabel } from '../lib/format.ts';
 import { groupByUnit } from '../lib/groups.ts';
 import { chooseStepSeconds, RANGE_PRESETS, rangeFor } from '../lib/range.ts';
@@ -36,7 +36,7 @@ export default function ProjectMetricsRoute() {
       lookup={lookup}
       breadcrumb={
         <>
-          <Link to="/" className="transition-colors duration-150 hover:text-ink">
+          <Link to="/" className="transition-colors duration-fast hover:text-ink">
             Projects
           </Link>
           <span aria-hidden="true">/</span>
@@ -148,35 +148,57 @@ function ProjectMetricsPanel({
         sticky
         breadcrumb={
           <>
-            <Link to="/" className="transition-colors duration-150 hover:text-ink">
+            <Link to="/" className="transition-colors duration-fast hover:text-ink">
               Projects
             </Link>
             <span aria-hidden="true">/</span>
             <span className="text-ink">{project.name}</span>
+            {/* Navigation, not path - Status and Settings live beside the
+                breadcrumb rather than in the data toolbar below, which is for
+                controls that change what the charts show. A border separates
+                the two groups so the divide reads visually, not just by
+                gap. */}
+            <span className="ml-2 flex items-center gap-x-4 border-l border-line pl-4">
+              <Link
+                to={`/projects/${project.id}/status`}
+                className="transition-colors duration-fast hover:text-ink"
+              >
+                Status
+              </Link>
+              <Link
+                to={`/projects/${project.id}/settings`}
+                className="transition-colors duration-fast hover:text-ink"
+              >
+                Settings
+              </Link>
+            </span>
           </>
         }
       >
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line px-5 py-2.5 sm:px-8">
+        {/* Two explicit rows, not one that wraps wherever it runs out of
+            space: resource selection (which server, which part of it) is the
+            first question every reading on this screen depends on, so it
+            gets its own row. Time range comes second - still primary, but it
+            narrows an answer rather than picking one - with Refresh, its
+            supporting last-sample readout, demoted to the row's trailing
+            corner as the one secondary action here. */}
+        <div className="flex flex-col gap-y-3 border-t border-line px-5 py-3 sm:px-8">
           {list.length > 0 && active && (
             <ResourcePicker resources={list} value={active} onChange={setSelection} />
           )}
 
-          <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-            {newestSample > 0 && (
-              <span className="font-mono text-[11px] text-ink-muted">
-                last sample {formatAge(now.getTime() - newestSample)}
-              </span>
-            )}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <RangeControl value={preset} onChange={setPreset} />
-            <Button variant="quiet" onClick={refresh}>
-              Refresh
-            </Button>
-            <Link to={`/projects/${project.id}/status`} className={buttonClassName('quiet')}>
-              Status
-            </Link>
-            <Link to={`/projects/${project.id}/settings`} className={buttonClassName('quiet')}>
-              Settings
-            </Link>
+            <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+              {newestSample > 0 && (
+                <span className="font-mono text-meta text-ink-muted">
+                  last sample {formatAge(now.getTime() - newestSample)}
+                </span>
+              )}
+              <Button variant="quiet" onClick={refresh}>
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -250,17 +272,29 @@ function ProjectMetricsPanel({
           ))}
         </div>
 
-        <div className="border-t border-line px-5 py-4 text-[11px] leading-relaxed text-ink-muted sm:px-8">
-          <p>
-            Times in {timeZoneLabel()}; the collector records in UTC. Each point is a{' '}
-            {formatDuration(stepSeconds)} average, and a gap in a line is a bucket that held no
-            sample - never a zero. Shaded columns are stretches where nothing at all was recorded.
-          </p>
+        {/* The explanation is static and only worth reading once, so it lives
+            collapsed behind a native disclosure rather than as a paragraph
+            everyone scrolls past on every visit to this, the densest screen
+            in the app. Loading/skipped-lines notices below it are the
+            opposite - they change with this fetch - so they stay always
+            visible rather than hidden behind a click. */}
+        <div className="border-t border-line px-5 py-4 text-meta text-ink-muted sm:px-8">
+          <details>
+            <summary className="cursor-pointer text-ink-dim transition-colors duration-fast hover:text-ink">
+              How to read this data
+            </summary>
+            <p className="mt-2 max-w-prose leading-relaxed">
+              Times in {timeZoneLabel()}; the collector records in UTC. Each point is a{' '}
+              {formatDuration(stepSeconds)} average, and a gap in a line is a bucket that held no
+              sample - never a zero. Shaded columns are stretches where nothing at all was
+              recorded.
+            </p>
+          </details>
           {(series.phase === 'loading' || series.phase === 'waking') && (
-            <p className="mt-1 text-ink-dim">Reading the day-blobs for this window.</p>
+            <p className="mt-2 text-ink-dim">Reading the day-blobs for this window.</p>
           )}
           {skippedLines > 0 && (
-            <p className="mt-1 text-series-2">
+            <p className="mt-2 text-text-caution">
               {skippedLines} unreadable {skippedLines === 1 ? 'line was' : 'lines were'} skipped in
               storage, so this window may be missing points.
             </p>

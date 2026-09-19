@@ -19,7 +19,7 @@ export function RangeControl({
   onChange: (next: RangePreset) => void;
 }) {
   return (
-    <fieldset className="flex items-center rounded-sm border border-line-strong">
+    <fieldset className="flex items-center rounded-control border border-line-strong">
       <legend className="sr-only">Time range</legend>
       {RANGE_PRESETS.map((preset, index) => {
         const selected = preset.id === value.id;
@@ -39,7 +39,7 @@ export function RangeControl({
               className="peer sr-only"
             />
             <span
-              className={`block cursor-pointer px-2.5 py-1 font-mono text-[12px] transition-colors duration-150 ${
+              className={`block cursor-pointer px-3 py-1.5 font-mono text-label transition-colors duration-fast ${
                 last ? '' : 'border-r border-line'
               } ${
                 selected

@@ -1,4 +1,5 @@
 import type { ResourceSummary } from '../api/client.ts';
+import { ScopeIcon, type ScopeIconId } from './icon.tsx';
 
 /**
  * Server first, then what runs on it.
@@ -12,10 +13,18 @@ import type { ResourceSummary } from '../api/client.ts';
  * Sub-resources carry their kind as a `type:name` prefix (`container:`,
  * `requests:`, and the bare `collector`), which is exactly an `<optgroup>`:
  * the prefix becomes the group heading and the option shows the plain name.
+ * The same prefix picks the `ScopeIcon` shown beside each select, so the
+ * icon is a second, non-colour channel for "what kind of thing is this",
+ * not decoration.
  *
  * Native `<select>` over a custom menu because the browser already gives this
  * keyboard support, type-ahead, a popup that escapes the header, and correct
  * behaviour on a phone.
+ *
+ * This is the toolbar's primary control - "which server am I looking at" is
+ * the first question every other reading on this screen depends on - so it
+ * gets the label-above-control shape `Field` uses for a real form control,
+ * not the inline "label: value" chip `RangeControl` uses for a secondary one.
  */
 
 export interface Selection {
@@ -29,8 +38,20 @@ const KIND_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
   ['requests:', 'Request hosts'],
 ];
 
+// Mirrors `Field`'s input styling exactly (`rounded-control`, `px-2.5 py-1.5`,
+// `font-mono text-body`) - the two primary controls on this screen share one
+// control language, plus the truncation and hover this one needs for a value
+// that can be a full hostname.
 const SELECT_CLASS =
-  'max-w-[16rem] truncate rounded-sm border border-line-strong bg-bg-800 px-2 py-1 font-mono text-[12px] text-ink transition-colors duration-150 hover:border-ink-muted';
+  'max-w-[16rem] truncate rounded-control border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-body text-ink transition-colors duration-fast hover:border-ink-muted';
+
+/** Which `ScopeIcon` a sub-resource's prefix stands for; `host` covers the
+ * whole-server option and anything with no recognised prefix. */
+function scopeIconFor(subResource: string | undefined): ScopeIconId {
+  if (subResource?.startsWith('container:')) return 'container';
+  if (subResource?.startsWith('requests:')) return 'request';
+  return 'host';
+}
 
 /** `container:preussen-mongo` -> `preussen-mongo`. */
 function plainName(subResource: string, prefix: string): string {
@@ -63,61 +84,71 @@ export function ResourcePicker({
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <label htmlFor="server-picker" className="text-[12px] text-ink-dim">
-        Server
-      </label>
-      <select
-        id="server-picker"
-        value={value.resource}
-        onChange={(event) => onChange({ resource: event.target.value })}
-        className={SELECT_CLASS}
-      >
-        {resources.map((candidate) => (
-          <option key={candidate.resource} value={candidate.resource}>
-            {candidate.resource}
-          </option>
-        ))}
-      </select>
-
-      <label htmlFor="scope-picker" className="text-[12px] text-ink-dim">
-        Showing
-      </label>
-      <select
-        id="scope-picker"
-        value={value.subResource ?? ''}
-        onChange={(event) =>
-          onChange({
-            resource: value.resource,
-            subResource: event.target.value === '' ? undefined : event.target.value,
-          })
-        }
-        className={SELECT_CLASS}
-      >
-        {/* The whole machine: the host-level envelope, which is what the
-            collector writes with no sub-resource at all. */}
-        <option value="">Whole server</option>
-
-        {grouped.map((group) => (
-          <optgroup key={group.prefix} label={group.label}>
-            {group.items.map((sub) => (
-              <option key={sub} value={sub}>
-                {plainName(sub, group.prefix)}
+    <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <div className="flex flex-col gap-1">
+        <label htmlFor="server-picker" className="text-label text-ink-dim">
+          Server
+        </label>
+        <div className="flex items-center gap-1.5">
+          <ScopeIcon id="host" />
+          <select
+            id="server-picker"
+            value={value.resource}
+            onChange={(event) => onChange({ resource: event.target.value })}
+            className={SELECT_CLASS}
+          >
+            {resources.map((candidate) => (
+              <option key={candidate.resource} value={candidate.resource}>
+                {candidate.resource}
               </option>
             ))}
-          </optgroup>
-        ))}
+          </select>
+        </div>
+      </div>
 
-        {ungrouped.length > 0 && (
-          <optgroup label="Other">
-            {ungrouped.map((sub) => (
-              <option key={sub} value={sub}>
-                {sub}
-              </option>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="scope-picker" className="text-label text-ink-dim">
+          Showing
+        </label>
+        <div className="flex items-center gap-1.5">
+          <ScopeIcon id={scopeIconFor(value.subResource)} />
+          <select
+            id="scope-picker"
+            value={value.subResource ?? ''}
+            onChange={(event) =>
+              onChange({
+                resource: value.resource,
+                subResource: event.target.value === '' ? undefined : event.target.value,
+              })
+            }
+            className={SELECT_CLASS}
+          >
+            {/* The whole machine: the host-level envelope, which is what the
+                collector writes with no sub-resource at all. */}
+            <option value="">Whole server</option>
+
+            {grouped.map((group) => (
+              <optgroup key={group.prefix} label={group.label}>
+                {group.items.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {plainName(sub, group.prefix)}
+                  </option>
+                ))}
+              </optgroup>
             ))}
-          </optgroup>
-        )}
-      </select>
+
+            {ungrouped.length > 0 && (
+              <optgroup label="Other">
+                {ungrouped.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </div>
+      </div>
     </div>
   );
 }
