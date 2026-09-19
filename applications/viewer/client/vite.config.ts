@@ -16,11 +16,11 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     /**
-     * Measured, not guessed: the bundle is 566 kB raw / 169 kB gzipped, and
-     * roughly 120 kB of the gzipped total is recharts. Vite's default 500 kB
-     * warning would fire on every build, and a warning that always fires is a
-     * warning nobody reads - so the limit is moved once, deliberately, rather
-     * than the message being ignored.
+     * Measured, not guessed: after the Tasks 5-11 redesign the bundle is
+     * 668 kB raw / 198 kB gzipped (was 566 kB / 169 kB before). Vite's
+     * default 500 kB warning would fire on every build, and a warning that
+     * always fires is a warning nobody reads - so the limit is moved once,
+     * deliberately, rather than the message being ignored.
      *
      * ponytail: accepted, not solved. Express serves this bundle from the same
      * scale-to-zero container as the API, so it is fetched during the same
