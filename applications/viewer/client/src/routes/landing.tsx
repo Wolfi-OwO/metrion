@@ -90,10 +90,10 @@ function SignInButtons() {
         <a
           key={provider.id}
           href={`/auth/${provider.id}`}
-          className="group flex items-center gap-3 rounded-md border border-line-strong bg-bg-800 px-4 py-3 text-[13px] font-medium text-ink transition-colors duration-150 hover:border-series-1 hover:bg-bg-900"
+          className="group flex items-center gap-3 rounded-md border border-line-strong bg-bg-800 px-4 py-3 text-body font-medium text-ink transition-colors duration-fast hover:border-series-1 hover:bg-bg-900"
         >
           <ProviderIcon id={provider.id} />
-          <span className="transition-colors duration-150 group-hover:text-series-1">
+          <span className="transition-colors duration-fast group-hover:text-series-1">
             {provider.label}
           </span>
         </a>
@@ -139,8 +139,8 @@ const RESOURCE_KINDS: ReadonlyArray<{
  */
 function TimeAxisPreview() {
   return (
-    <div className="relative overflow-hidden rounded-md border border-line bg-bg-900 p-5 shadow-[0_12px_32px_-18px_rgba(0,0,0,0.65)] sm:p-6">
-      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted">
+    <div className="relative overflow-hidden rounded-md border border-line bg-bg-900 p-5 shadow-raised sm:p-6">
+      <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
         One shared axis
       </p>
       <svg
@@ -193,7 +193,7 @@ function TimeAxisPreview() {
           now
         </text>
       </svg>
-      <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-[11px] text-ink-dim">
+      <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-meta text-ink-dim">
         <li className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-series-1" aria-hidden="true" />
           cpu.usage
@@ -232,7 +232,7 @@ export default function LandingRoute() {
       <header className="border-b border-line px-5 py-4 sm:px-8">
         <div className="flex items-center justify-between">
           <Brand />
-          <span className="font-mono text-[11px] text-ink-muted">v{__APP_VERSION__}</span>
+          <span className="font-mono text-meta text-ink-muted">v{__APP_VERSION__}</span>
         </div>
       </header>
 
@@ -240,19 +240,19 @@ export default function LandingRoute() {
         <section className="border-b border-line px-5 py-16 sm:px-8 sm:py-24">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
             <div className="max-w-xl">
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted">
+              <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
                 Metrics platform
               </p>
-              <h1 className="mt-3 text-[32px] font-semibold leading-[1.15] text-ink sm:text-[42px]">
+              <h1 className="mt-3 text-display-sm font-semibold text-ink sm:text-display">
                 One shared time axis for every server you run.
               </h1>
-              <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-ink-dim">
+              <p className="mt-5 max-w-prose text-heading leading-relaxed text-ink-dim">
                 metrion collects CPU, memory, disk, network and per-container metrics once a minute
                 and lines every reading up against the same clock, so a CPU spike and a network
                 spike read as one instant, not two dashboards you have to cross-reference by hand.
               </p>
               <div className="mt-9">
-                <p className="mb-3 text-[12px] text-ink-muted">
+                <p className="mb-3 text-label text-ink-muted">
                   Sign in to create a project and mint an API key.
                 </p>
                 <SignInButtons />
@@ -264,22 +264,22 @@ export default function LandingRoute() {
         </section>
 
         <section className="border-b border-line px-5 py-14 sm:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted">
+          <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
             What it tracks
           </p>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             {RESOURCE_KINDS.map((kind) => (
               <div key={kind.id} className="rounded-md border border-line bg-bg-900 p-5">
                 <ScopeIcon id={kind.id} />
-                <h3 className="mt-3 text-[14px] font-semibold text-ink">{kind.scope}</h3>
+                <h3 className="mt-3 text-title font-semibold text-ink">{kind.scope}</h3>
                 {kind.prefix && (
-                  <p className="mt-1 font-mono text-[11px] text-ink-muted">{kind.prefix}</p>
+                  <p className="mt-1 font-mono text-meta text-ink-muted">{kind.prefix}</p>
                 )}
                 <ul className="mt-3 flex flex-wrap gap-1.5">
                   {kind.metrics.map((metric) => (
                     <li
                       key={metric}
-                      className="rounded-sm border border-line px-1.5 py-0.5 font-mono text-[11px] text-ink-dim"
+                      className="rounded-sm border border-line px-1.5 py-0.5 font-mono text-meta text-ink-dim"
                     >
                       {metric}
                     </li>
@@ -291,15 +291,15 @@ export default function LandingRoute() {
         </section>
 
         <section className="px-5 py-14 sm:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted">
+          <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
             Already have a key? Send your first metric.
           </p>
           <div className="mt-5 max-w-2xl rounded-md border border-line bg-bg-900 p-5">
-            <pre className="overflow-x-auto rounded-sm border border-line bg-bg-950 p-4 font-mono text-[12px] leading-relaxed text-ink">
+            <pre className="overflow-x-auto rounded-sm border border-line bg-bg-950 p-4 font-mono text-label leading-relaxed text-ink">
               <code>{QUICKSTART}</code>
             </pre>
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[12px] text-ink-muted">
+              <p className="text-label text-ink-muted">
                 No key yet? Sign in above, create a project, then mint one from its settings page.
               </p>
               <CopyButton text={QUICKSTART} label="Copy snippet" />
