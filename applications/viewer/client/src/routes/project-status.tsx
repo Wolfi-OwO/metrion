@@ -6,9 +6,11 @@ import {
   fetchProjectStatus,
   type ApplicationStatus,
   type Project,
+  type Status,
 } from '../api/client.ts';
 import { DependencyGraph } from '../components/dependency-graph.tsx';
 import { Field } from '../components/field.tsx';
+import { StatusIcon } from '../components/icon.tsx';
 import { ProjectShell } from '../components/project-shell.tsx';
 import { StatusBadge } from '../components/status-badge.tsx';
 import { StatusEventsPanel } from '../components/status-events.tsx';
@@ -94,7 +96,7 @@ function CreateApplicationForm({
         {submitting ? 'Registering…' : 'Register application'}
       </Button>
       {submitError && (
-        <p role="alert" className="w-full text-[12px] text-series-8">
+        <p role="alert" className="w-full text-label text-text-danger">
           {submitError}
         </p>
       )}
@@ -106,27 +108,41 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
   return (
     <li id={`app-${app.id}`} className="scroll-mt-20 px-1 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-mono text-[13px] font-medium text-ink">
+        <span className="font-mono text-body font-medium text-ink">
           {app.displayName ?? app.key}
         </span>
         <StatusBadge status={app.effectiveStatus} />
       </div>
       {app.causedBy && (
-        <p className="mt-1 text-[12px] text-ink-dim">
-          Caused by{' '}
-          <a href={`#app-${app.causedBy.id}`} className="font-mono text-ink hover:text-series-1">
-            {app.causedBy.key}
-          </a>
-          {/* `causedBy` is only ever set when the dependency's status is
-              strictly worse than this application's own - see
-              `status-service.ts`'s comment - so `app.status` here always
-              differs from the badge above; naming it is the whole point of
-              the attribution, not a hedge against a case that cannot occur. */}
-          {' - '}this application's own thresholds read {app.status}.
+        // The single most useful line on this page: full body size and
+        // bright ink, not a dim footnote, and it leads with the same status
+        // icon `StatusBadge` already uses above - reusing that three-channel
+        // vocabulary (shape + colour + word, see `status-badge.tsx`) instead
+        // of inventing a new container to draw the eye.
+        <p className="mt-1.5 flex max-w-prose items-baseline gap-1.5 text-body text-ink">
+          <span
+            className={
+              app.effectiveStatus === 'critical'
+                ? 'shrink-0 text-status-critical'
+                : 'shrink-0 text-status-warning'
+            }
+          >
+            <StatusIcon status={app.effectiveStatus} />
+          </span>
+          <span>
+            Caused by{' '}
+            <a
+              href={`#app-${app.causedBy.id}`}
+              className="font-mono font-medium text-ink underline decoration-line-strong underline-offset-2 transition-colors duration-fast hover:text-series-1 hover:decoration-series-1"
+            >
+              {app.causedBy.key}
+            </a>
+            {' - '}this application's own thresholds read {app.status}.
+          </span>
         </p>
       )}
       {app.thresholds.length > 0 && (
-        <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-ink-muted">
+        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-meta text-ink-muted">
           {app.thresholds
             .filter((t) => t.state !== 'ok')
             .map((t) => (
@@ -140,11 +156,33 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
   );
 }
 
+/** Chevron-only disclosure marker for the three secondary `<details>`
+ * sections below - a text glyph, not a new entry in `icon.tsx`'s vocabulary,
+ * matching the `→` this route and `status-events.tsx` already render as
+ * plain `aria-hidden` text rather than an SVG. */
+function DisclosureMark() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block text-ink-muted transition-transform duration-fast group-open:rotate-90"
+    >
+      {'›'}
+    </span>
+  );
+}
+
 function ProjectStatusPanel({ project }: { project: Project }) {
   const status = useLoader(`status/${project.id}`, (signal) =>
     fetchProjectStatus(project.id, signal),
   );
   const applications = status.data ?? [];
+  const counts = applications.reduce(
+    (acc, app) => {
+      acc[app.effectiveStatus] += 1;
+      return acc;
+    },
+    { ok: 0, warning: 0, critical: 0 } as Record<Status, number>,
+  );
 
   return <main className="flex-1">{renderBody()}</main>;
 
@@ -170,11 +208,32 @@ function ProjectStatusPanel({ project }: { project: Project }) {
       );
     }
 
+    // Applications is the answer to the question this whole route exists
+    // for ("which application is at fault, and why") and stays fully open,
+    // full weight. The graph and threshold editors are configuration, and
+    // recent transitions is history rather than current state - all three
+    // are real `<details>`, collapsed by default, so they never compete with
+    // the answer above for either space or attention. Native disclosure, not
+    // a hand-rolled toggle: keyboard and screen-reader behaviour come free.
     return (
-      <div className="px-5 py-8 sm:px-8">
+      <div className="px-gutter py-8 sm:px-gutter-lg">
         <section>
-          <h1 className="text-[15px] font-semibold text-ink">Applications</h1>
-          <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink-dim">
+          <h1 className="text-heading font-semibold text-ink">Applications</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-meta text-ink-muted">
+            <span className="flex items-center gap-1.5 text-status-critical">
+              <StatusIcon status="critical" />
+              {counts.critical} critical
+            </span>
+            <span className="flex items-center gap-1.5 text-status-warning">
+              <StatusIcon status="warning" />
+              {counts.warning} warning
+            </span>
+            <span className="flex items-center gap-1.5 text-status-ok">
+              <StatusIcon status="ok" />
+              {counts.ok} ok
+            </span>
+          </div>
+          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-dim">
             Effective status folds in every application this one depends on - when it differs from
             what this application's own thresholds say, the cause is named underneath it.
           </p>
@@ -186,9 +245,12 @@ function ProjectStatusPanel({ project }: { project: Project }) {
           <CreateApplicationForm projectId={project.id} onCreated={status.reload} />
         </section>
 
-        <section className="mt-10 border-t border-line pt-6">
-          <h2 className="text-[15px] font-semibold text-ink">Dependency graph</h2>
-          <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink-dim">
+        <details className="group mt-10 border-t border-line pt-5">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-fast hover:text-ink [&::-webkit-details-marker]:hidden">
+            <DisclosureMark />
+            Dependency graph
+          </summary>
+          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-dim">
             Each application's direct dependencies. Editing saves the whole set at once; a save that
             would create a cycle is rejected and the offending path is shown here, not a generic
             error.
@@ -196,25 +258,31 @@ function ProjectStatusPanel({ project }: { project: Project }) {
           <div className="mt-3">
             <DependencyGraph applications={applications} onChanged={status.reload} />
           </div>
-        </section>
+        </details>
 
-        <section className="mt-10 border-t border-line pt-6">
-          <h2 className="text-[15px] font-semibold text-ink">Thresholds</h2>
-          <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink-dim">
+        <details className="group mt-6 border-t border-line pt-5">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-fast hover:text-ink [&::-webkit-details-marker]:hidden">
+            <DisclosureMark />
+            Thresholds
+          </summary>
+          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-dim">
             Per application and metric. Either bound may be left empty, and "below" is exactly as
             easy to set up as "above" - free memory and request-rate alerts need it just as much.
           </p>
           <div className="mt-3">
             <ThresholdPanel projectId={project.id} applications={applications} />
           </div>
-        </section>
+        </details>
 
-        <section className="mt-10 border-t border-line pt-6">
-          <h2 className="text-[15px] font-semibold text-ink">Recent transitions</h2>
+        <details className="group mt-6 border-t border-line pt-5">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-fast hover:text-ink [&::-webkit-details-marker]:hidden">
+            <DisclosureMark />
+            Recent transitions
+          </summary>
           <div className="mt-3">
             <StatusEventsPanel projectId={project.id} applications={applications} />
           </div>
-        </section>
+        </details>
       </div>
     );
   }
@@ -231,14 +299,14 @@ export default function ProjectStatusRoute() {
       lookup={lookup}
       breadcrumb={
         <>
-          <Link to="/" className="transition-colors duration-150 hover:text-ink">
+          <Link to="/" className="transition-colors duration-fast hover:text-ink">
             Projects
           </Link>
           <span aria-hidden="true">/</span>
           {lookup.project ? (
             <Link
               to={`/projects/${lookup.project.id}`}
-              className="transition-colors duration-150 hover:text-ink"
+              className="transition-colors duration-fast hover:text-ink"
             >
               {lookup.project.name}
             </Link>

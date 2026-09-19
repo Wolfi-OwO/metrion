@@ -87,16 +87,16 @@ function EdgeEditor({
     // a card nested inside a card.
     <div className="-mx-3 -mb-3 mt-2 border-t border-line-strong bg-bg-800 p-3">
       {candidates.length === 0 ? (
-        <p className="text-[12px] text-ink-dim">
+        <p className="text-label text-ink-dim">
           No other applications in this project to depend on yet.
         </p>
       ) : (
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1 text-[12px] text-ink-dim">
+          <legend className="mb-1 text-label text-ink-dim">
             {appLabel(application)} depends on
           </legend>
           {candidates.map((app) => (
-            <label key={app.id} className="flex items-start gap-2 text-[13px] text-ink">
+            <label key={app.id} className="flex items-start gap-2 text-body text-ink">
               <input
                 type="checkbox"
                 checked={selected.has(app.id)}
@@ -111,10 +111,10 @@ function EdgeEditor({
 
       {cyclePath && (
         <div role="alert" className="mt-3 border border-status-critical/40 bg-bg-900 p-2.5">
-          <p className="text-[12px] font-medium text-status-critical">
+          <p className="text-label font-medium text-status-critical">
             That would create a dependency cycle
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-1 font-mono text-[12px] text-ink">
+          <p className="mt-1 flex flex-wrap items-center gap-1 font-mono text-label text-ink">
             {cyclePath.map((key, index) => (
               <span key={`${key}-${index}`} className="flex items-center gap-1">
                 {index > 0 && (
@@ -126,13 +126,13 @@ function EdgeEditor({
               </span>
             ))}
           </p>
-          <p className="mt-1 text-[11px] text-ink-muted">
+          <p className="mt-1 text-meta text-ink-muted">
             Remove one of the edges above to break the loop, then save again.
           </p>
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-2 text-[12px] text-series-8">
+        <p role="alert" className="mt-2 text-label text-text-danger">
           {error}
         </p>
       )}
@@ -141,13 +141,9 @@ function EdgeEditor({
         <Button onClick={handleSave} loading={saving}>
           {saving ? 'Saving…' : 'Save dependencies'}
         </Button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-sm px-2.5 py-1.5 text-[12px] text-ink-dim transition-colors duration-150 hover:text-ink"
-        >
+        <Button variant="quiet" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -330,13 +326,13 @@ export function DependencyGraph({
 
   if (loader.phase === 'error' && loader.error) {
     return (
-      <p role="alert" className="text-[13px] text-series-8">
+      <p role="alert" className="text-body text-text-danger">
         {loader.error.message}
       </p>
     );
   }
   if (loader.phase === 'loading' || loader.phase === 'waking') {
-    return <p className="text-[13px] text-ink-dim">Loading the dependency graph…</p>;
+    return <p className="text-body text-ink-dim">Loading the dependency graph…</p>;
   }
 
   function renderNode(app: ApplicationStatus) {
@@ -354,7 +350,7 @@ export function DependencyGraph({
           if (el) nodeRefs.current.set(app.id, el);
           else nodeRefs.current.delete(app.id);
         }}
-        className="rounded-md border border-line-strong bg-bg-900 p-3"
+        className="rounded-surface border border-line-strong bg-bg-900 p-3"
       >
         {/* The lines carry this relationship visually; screen reader users
             get the same fact as text, same pairing as
@@ -363,16 +359,16 @@ export function DependencyGraph({
           {depNames.length > 0 ? `Depends on ${depNames.join(', ')}.` : 'Depends on nothing yet.'}
         </p>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-mono text-[13px] text-ink">{appLabel(app)}</span>
+          <span className="font-mono text-body text-ink">{appLabel(app)}</span>
           <StatusBadge status={app.effectiveStatus} />
         </div>
-        <button
-          type="button"
+        <Button
+          variant="quiet"
+          className="mt-2"
           onClick={() => setEditingId(editing ? null : app.id)}
-          className="mt-2 rounded-sm border border-line-strong px-2 py-1 text-[11px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
         >
           {editing ? 'Close' : deps.length > 0 ? 'Edit dependencies' : 'Connect dependencies'}
-        </button>
+        </Button>
 
         {editing && (
           <EdgeEditor
@@ -399,11 +395,11 @@ export function DependencyGraph({
   // blank or broken-looking graph.
   if (applications.length > 1 && edges.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-line-strong p-5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted">
+      <div className="rounded-surface border border-dashed border-line-strong p-5">
+        <p className="font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
           No connections yet
         </p>
-        <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-ink-dim">
+        <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-dim">
           These applications aren't linked yet. Click one to set what it depends on - once an edge
           exists, this becomes a real graph instead of a shelf of unconnected nodes.
         </p>
@@ -423,7 +419,7 @@ export function DependencyGraph({
   return (
     <div>
       {edges.length > 0 && (
-        <p className="mb-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted">
+        <p className="mb-4 flex items-center gap-1.5 font-mono text-meta uppercase tracking-[0.14em] text-ink-muted">
           <span aria-hidden="true" className="text-series-1">
             →
           </span>

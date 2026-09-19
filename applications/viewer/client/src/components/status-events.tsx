@@ -25,19 +25,19 @@ export function StatusEventsPanel({
 
   if (loader.phase === 'error' && loader.error) {
     return (
-      <p role="alert" className="text-[13px] text-series-8">
+      <p role="alert" className="text-body text-text-danger">
         {loader.error.message}
       </p>
     );
   }
   if (loader.phase === 'loading' || loader.phase === 'waking') {
-    return <p className="text-[13px] text-ink-dim">Loading recent transitions…</p>;
+    return <p className="text-body text-ink-dim">Loading recent transitions…</p>;
   }
 
   const events = loader.data ?? [];
   if (events.length === 0) {
     return (
-      <p className="text-[13px] text-ink-dim">
+      <p className="text-body text-ink-dim">
         No transitions recorded yet - this fills in the first time a threshold's state changes.
       </p>
     );
@@ -49,10 +49,10 @@ export function StatusEventsPanel({
         const app = event.applicationId ? appById.get(event.applicationId) : null;
         return (
           <li key={event.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2.5">
-            <span className="font-mono text-[12px] text-ink">
+            <span className="font-mono text-label text-ink">
               {app ? (app.displayName ?? app.key) : 'project-wide'}
             </span>
-            <span className="font-mono text-[11px] text-ink-muted">{event.metricName}</span>
+            <span className="font-mono text-meta text-ink-muted">{event.metricName}</span>
             <span className="flex items-center gap-1.5">
               <StatusBadge status={asStatus(event.fromState)} />
               <span aria-hidden="true" className="text-ink-muted">
@@ -60,7 +60,7 @@ export function StatusEventsPanel({
               </span>
               <StatusBadge status={asStatus(event.toState)} />
             </span>
-            <span className="ml-auto font-mono text-[11px] text-ink-muted">
+            <span className="ml-auto font-mono text-meta text-ink-muted">
               {formatTimestamp(Date.parse(event.at))}
             </span>
           </li>

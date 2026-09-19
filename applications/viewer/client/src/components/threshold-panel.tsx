@@ -16,6 +16,7 @@ import {
   type ThresholdFormErrors,
   type ThresholdFormFields,
 } from '../lib/validate.ts';
+import { Field } from './field.tsx';
 import { Button } from './states.tsx';
 
 /**
@@ -26,8 +27,11 @@ import { Button } from './states.tsx';
  * in the project", the same meaning the column carries server-side.
  */
 
-const INPUT_CLASS =
-  'w-full rounded-sm border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-[13px] text-ink';
+// Only for the controls `Field` doesn't cover - a `<select>` and the two
+// number inputs whose hint/error swap rather than stack (`Field` always
+// shows description and error together, which does not fit that toggle).
+const CONTROL_CLASS =
+  'w-full rounded-control border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-body text-ink';
 
 function fieldsFrom(threshold?: Threshold): ThresholdFormFields {
   return {
@@ -131,14 +135,14 @@ function ThresholdEditor({
     <form onSubmit={handleSubmit} className="border border-line-strong bg-bg-800 p-4">
       {!existing && (
         <div className="mb-3 flex flex-col gap-1">
-          <label htmlFor="threshold-application" className="text-[12px] text-ink-dim">
+          <label htmlFor="threshold-application" className="text-label text-ink-dim">
             Application
           </label>
           <select
             id="threshold-application"
             value={applicationId}
             onChange={(event) => setApplicationId(event.target.value)}
-            className={INPUT_CLASS}
+            className={CONTROL_CLASS}
           >
             <option value="">Whole project (every application)</option>
             {applications.map((app) => (
@@ -150,7 +154,7 @@ function ThresholdEditor({
         </div>
       )}
       {existing && (
-        <p className="mb-3 text-[12px] text-ink-dim">
+        <p className="mb-3 text-label text-ink-dim">
           Applies to{' '}
           <span className="font-mono text-ink">
             {existing.applicationId
@@ -164,34 +168,23 @@ function ThresholdEditor({
         </p>
       )}
 
-      <div className="mb-3 flex flex-col gap-1">
-        <label htmlFor="threshold-metric" className="text-[12px] text-ink-dim">
-          Metric name
-        </label>
-        <input
+      <div className="mb-3">
+        <Field
           id="threshold-metric"
+          label="Metric name"
           type="text"
           value={fields.metricName}
           onChange={(event) =>
             setFields((current) => ({ ...current, metricName: event.target.value }))
           }
           onBlur={() => touch('metricName')}
-          aria-invalid={touched.metricName && !!errors.metricName}
-          aria-describedby={
-            touched.metricName && errors.metricName ? 'threshold-metric-error' : undefined
-          }
-          className={INPUT_CLASS}
+          error={touched.metricName ? (errors.metricName ?? null) : null}
         />
-        {touched.metricName && errors.metricName && (
-          <p id="threshold-metric-error" role="alert" className="text-[12px] text-series-8">
-            {errors.metricName}
-          </p>
-        )}
       </div>
 
       <fieldset className="mb-3 flex flex-col gap-2">
-        <legend className="mb-1 text-[12px] text-ink-dim">Direction</legend>
-        <label className="flex items-start gap-2 text-[13px] text-ink">
+        <legend className="mb-1 text-label text-ink-dim">Direction</legend>
+        <label className="flex items-start gap-2 text-body text-ink">
           <input
             type="radio"
             name="threshold-direction"
@@ -205,7 +198,7 @@ function ThresholdEditor({
             threshold.
           </span>
         </label>
-        <label className="flex items-start gap-2 text-[13px] text-ink">
+        <label className="flex items-start gap-2 text-body text-ink">
           <input
             type="radio"
             name="threshold-direction"
@@ -223,52 +216,30 @@ function ThresholdEditor({
       </fieldset>
 
       <div className="mb-3 grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-warning" className="text-[12px] text-ink-dim">
-            Warning value (optional)
-          </label>
-          <input
-            id="threshold-warning"
-            type="number"
-            step="any"
-            value={fields.warningValue}
-            onChange={(event) =>
-              setFields((current) => ({ ...current, warningValue: event.target.value }))
-            }
-            onBlur={() => touch('criticalValue')}
-            className={INPUT_CLASS}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-critical" className="text-[12px] text-ink-dim">
-            Critical value (optional)
-          </label>
-          <input
-            id="threshold-critical"
-            type="number"
-            step="any"
-            value={fields.criticalValue}
-            onChange={(event) =>
-              setFields((current) => ({ ...current, criticalValue: event.target.value }))
-            }
-            onBlur={() => touch('criticalValue')}
-            aria-invalid={touched.criticalValue && !!errors.criticalValue}
-            aria-describedby={
-              touched.criticalValue && errors.criticalValue ? 'threshold-critical-error' : undefined
-            }
-            className={INPUT_CLASS}
-          />
-        </div>
-        {touched.criticalValue && errors.criticalValue && (
-          <p
-            id="threshold-critical-error"
-            role="alert"
-            className="col-span-2 text-[12px] text-series-8"
-          >
-            {errors.criticalValue}
-          </p>
-        )}
-        <p className="col-span-2 text-[11px] leading-relaxed text-ink-muted">
+        <Field
+          id="threshold-warning"
+          label="Warning value (optional)"
+          type="number"
+          step="any"
+          value={fields.warningValue}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, warningValue: event.target.value }))
+          }
+          onBlur={() => touch('criticalValue')}
+        />
+        <Field
+          id="threshold-critical"
+          label="Critical value (optional)"
+          type="number"
+          step="any"
+          value={fields.criticalValue}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, criticalValue: event.target.value }))
+          }
+          onBlur={() => touch('criticalValue')}
+          error={touched.criticalValue ? (errors.criticalValue ?? null) : null}
+        />
+        <p className="col-span-2 text-meta leading-relaxed text-ink-muted">
           Leave a bound empty to skip alerting at that severity - a warning-only threshold with no
           critical value is fine.
         </p>
@@ -276,7 +247,7 @@ function ThresholdEditor({
 
       <div className="mb-3 grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-window" className="text-[12px] text-ink-dim">
+          <label htmlFor="threshold-window" className="text-label text-ink-dim">
             Evaluation window (seconds)
           </label>
           <input
@@ -294,21 +265,21 @@ function ThresholdEditor({
                 ? 'threshold-window-error'
                 : 'threshold-window-hint'
             }
-            className={INPUT_CLASS}
+            className={CONTROL_CLASS}
           />
           {!errors.windowSeconds && Number.isFinite(Number(fields.windowSeconds)) && (
-            <p id="threshold-window-hint" className="text-[11px] text-ink-muted">
+            <p id="threshold-window-hint" className="text-meta text-ink-muted">
               {formatDuration(Math.round(Number(fields.windowSeconds)))}
             </p>
           )}
           {touched.windowSeconds && errors.windowSeconds && (
-            <p id="threshold-window-error" role="alert" className="text-[12px] text-series-8">
+            <p id="threshold-window-error" role="alert" className="text-label text-text-danger">
               {errors.windowSeconds}
             </p>
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-breaches" className="text-[12px] text-ink-dim">
+          <label htmlFor="threshold-breaches" className="text-label text-ink-dim">
             Consecutive breaches before alerting
           </label>
           <input
@@ -326,17 +297,17 @@ function ThresholdEditor({
                 ? 'threshold-breaches-error'
                 : undefined
             }
-            className={INPUT_CLASS}
+            className={CONTROL_CLASS}
           />
           {touched.consecutiveBreaches && errors.consecutiveBreaches && (
-            <p id="threshold-breaches-error" role="alert" className="text-[12px] text-series-8">
+            <p id="threshold-breaches-error" role="alert" className="text-label text-text-danger">
               {errors.consecutiveBreaches}
             </p>
           )}
         </div>
       </div>
 
-      <label className="mb-4 flex items-center gap-2 text-[13px] text-ink">
+      <label className="mb-4 flex items-center gap-2 text-body text-ink">
         <input
           type="checkbox"
           checked={enabled}
@@ -349,16 +320,12 @@ function ThresholdEditor({
         <Button type="submit" loading={submitting}>
           {submitting ? 'Saving…' : existing ? 'Save changes' : 'Create threshold'}
         </Button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-sm px-2.5 py-1.5 text-[12px] text-ink-dim transition-colors duration-150 hover:text-ink"
-        >
+        <Button variant="quiet" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
       {submitError && (
-        <p role="alert" className="mt-2 text-[12px] text-series-8">
+        <p role="alert" className="mt-2 text-label text-text-danger">
           {submitError}
         </p>
       )}
@@ -440,21 +407,21 @@ function ThresholdRow({
   return (
     <li className="flex flex-wrap items-start gap-x-4 gap-y-1 px-1 py-3">
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-[13px] text-ink">
+        <p className="font-mono text-body text-ink">
           {threshold.metricName}{' '}
           <span className="text-ink-dim">
             alerts when the value goes {threshold.direction} - warning{' '}
             {bound(threshold.warningValue)}, critical {bound(threshold.criticalValue)}
           </span>
         </p>
-        <p className="mt-0.5 text-[11px] text-ink-muted">
+        <p className="mt-0.5 text-meta text-ink-muted">
           {applicationLabel} · every {formatDuration(threshold.windowSeconds)},{' '}
           {threshold.consecutiveBreaches} consecutive{' '}
           {threshold.consecutiveBreaches === 1 ? 'breach' : 'breaches'} ·{' '}
           {threshold.enabled ? 'enabled' : 'disabled'}
         </p>
         {deleteError && (
-          <p role="alert" className="mt-1 text-[12px] text-series-8">
+          <p role="alert" className="mt-1 text-label text-text-danger">
             {deleteError}
           </p>
         )}
@@ -494,18 +461,18 @@ export function ThresholdPanel({
   return (
     <div>
       {loader.phase === 'error' && loader.error && (
-        <p role="alert" className="text-[13px] text-series-8">
+        <p role="alert" className="text-body text-text-danger">
           {loader.error.message}
         </p>
       )}
       {(loader.phase === 'loading' || loader.phase === 'waking') && (
-        <p className="text-[13px] text-ink-dim">Loading thresholds…</p>
+        <p className="text-body text-ink-dim">Loading thresholds…</p>
       )}
 
       {seeded && (
         <>
           {list.length === 0 && !creating && (
-            <p className="text-[13px] text-ink-dim">
+            <p className="text-body text-ink-dim">
               No thresholds yet. Every application answers "OK" until one is created for it.
             </p>
           )}
