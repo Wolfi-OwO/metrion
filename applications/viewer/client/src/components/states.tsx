@@ -27,25 +27,89 @@ export function Body({ children }: { children: React.ReactNode }) {
   return <p className="mt-1.5 text-body leading-relaxed text-ink-dim">{children}</p>;
 }
 
-export function ActionButton({
+export type ButtonVariant = 'primary' | 'secondary' | 'quiet';
+export type ButtonTone = 'default' | 'danger';
+
+const BUTTON_BASE =
+  'inline-flex items-center justify-center gap-1.5 rounded-control text-label font-medium transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-70';
+
+// Every fragment below is a real, static Tailwind class string (never built
+// from a template literal) so the v4 build's source scan can see it - a
+// `hover:border-series-${n}` built at runtime would compile to nothing.
+// Structure (border/padding/fill/text colour) and tone (which accent hover
+// and active reach for) vary independently, so each is named once and
+// combined per cell rather than retyped six times.
+const VARIANT_STRUCTURE: Record<ButtonVariant, string> = {
+  primary: 'border border-transparent px-3 py-1.5 text-bg-950',
+  secondary: 'border border-line-strong bg-bg-800 px-3 py-1.5 text-ink',
+  quiet: 'border border-line-strong px-2.5 py-1 text-ink-dim',
+};
+
+const FILL_TONE: Record<ButtonTone, string> = {
+  default: 'bg-series-1 hover:bg-series-1/85 active:bg-series-1/70',
+  danger: 'bg-series-8 hover:bg-series-8/85 active:bg-series-8/70',
+};
+
+const OUTLINE_TONE: Record<ButtonTone, string> = {
+  default: 'hover:border-series-1 hover:text-series-1 active:border-series-1/70 active:text-series-1/70',
+  danger: 'hover:border-series-8 hover:text-series-8 active:border-series-8/70 active:text-series-8/70',
+};
+
+const VARIANT_CLASS: Record<ButtonVariant, Record<ButtonTone, string>> = {
+  primary: {
+    default: `${VARIANT_STRUCTURE.primary} ${FILL_TONE.default}`,
+    danger: `${VARIANT_STRUCTURE.primary} ${FILL_TONE.danger}`,
+  },
+  secondary: {
+    default: `${VARIANT_STRUCTURE.secondary} ${OUTLINE_TONE.default}`,
+    danger: `${VARIANT_STRUCTURE.secondary} ${OUTLINE_TONE.danger}`,
+  },
+  quiet: {
+    default: `${VARIANT_STRUCTURE.quiet} ${OUTLINE_TONE.default}`,
+    danger: `${VARIANT_STRUCTURE.quiet} ${OUTLINE_TONE.danger}`,
+  },
+};
+
+/**
+ * Focus is deliberately not styled here: the global `button:focus-visible`
+ * rule in `styles/index.css` already draws one ring for every interactive
+ * element in the app, so a second, component-local ring would be a second
+ * place that colour could drift from the first.
+ */
+export function buttonClassName(
+  variant: ButtonVariant = 'secondary',
+  tone: ButtonTone = 'default',
+  className = '',
+): string {
+  return `${BUTTON_BASE} ${VARIANT_CLASS[variant][tone]} ${className}`.trim();
+}
+
+export function Button({
   onClick,
   children,
   type = 'button',
+  variant = 'secondary',
+  tone = 'default',
   disabled = false,
+  loading = false,
   className = '',
 }: {
   onClick?: () => void;
   children: React.ReactNode;
   type?: 'button' | 'submit';
+  variant?: ButtonVariant;
+  tone?: ButtonTone;
   disabled?: boolean;
+  loading?: boolean;
   className?: string;
 }) {
   return (
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled}
-      className={`rounded-control border border-line-strong bg-bg-800 px-3 py-1.5 text-label font-medium text-ink transition-colors duration-fast hover:border-series-1 hover:text-series-1 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={buttonClassName(variant, tone, className)}
     >
       {children}
     </button>
@@ -121,9 +185,9 @@ export function EmptyState({
         {formatTimestamp(range.from.getTime())} and {formatTimestamp(range.to.getTime())}.
       </Body>
       {onWiden && (
-        <ActionButton className="mt-4" onClick={onWiden}>
+        <Button className="mt-4" onClick={onWiden}>
           Look further back
-        </ActionButton>
+        </Button>
       )}
     </Panel>
   );
@@ -172,9 +236,9 @@ export function ErrorState({ error, onRetry }: { error: ApiError; onRetry: () =>
         <Heading>{errorHeading(error)}</Heading>
         <Body>{errorBody(error)}</Body>
       </div>
-      <ActionButton className="mt-4" onClick={onRetry}>
+      <Button className="mt-4" onClick={onRetry}>
         Try again
-      </ActionButton>
+      </Button>
     </Panel>
   );
 }

@@ -16,7 +16,7 @@ import {
   type ThresholdFormErrors,
   type ThresholdFormFields,
 } from '../lib/validate.ts';
-import { ActionButton } from './states.tsx';
+import { Button } from './states.tsx';
 
 /**
  * Per-application and per-metric alert rules: direction, warning/critical
@@ -346,9 +346,9 @@ function ThresholdEditor({
       </label>
 
       <div className="flex flex-wrap items-center gap-3">
-        <ActionButton type="submit" disabled={submitting}>
+        <Button type="submit" loading={submitting}>
           {submitting ? 'Saving…' : existing ? 'Save changes' : 'Create threshold'}
-        </ActionButton>
+        </Button>
         <button
           type="button"
           onClick={onCancel}
@@ -460,21 +460,12 @@ function ThresholdRow({
         )}
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
-        >
+        <Button variant="quiet" onClick={onEdit}>
           Edit
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-8 hover:text-series-8 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        </Button>
+        <Button variant="quiet" tone="danger" onClick={handleDelete} loading={deleting}>
           {deleting ? 'Deleting…' : 'Delete'}
-        </button>
+        </Button>
       </div>
     </li>
   );
@@ -552,9 +543,9 @@ export function ThresholdPanel({
               />
             </div>
           ) : (
-            <ActionButton className="mt-4" onClick={() => setCreating(true)}>
+            <Button className="mt-4" onClick={() => setCreating(true)}>
               New threshold
-            </ActionButton>
+            </Button>
           )}
         </>
       )}

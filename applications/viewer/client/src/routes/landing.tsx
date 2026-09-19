@@ -1,5 +1,6 @@
 import { Brand } from '../components/brand.tsx';
 import { CopyButton } from '../components/copy-button.tsx';
+import { ScopeIcon, type ScopeIconId } from '../components/icon.tsx';
 
 /**
  * The signed-out root. A quiet, technical product page rather than a
@@ -101,57 +102,8 @@ function SignInButtons() {
   );
 }
 
-/**
- * Three monoline glyphs in the same hand as `StatusIcon`
- * (`components/status-badge.tsx`): 16x16 viewBox, `currentColor`, no fill
- * beyond a stroke - so a new icon vocabulary is not invented for one section.
- */
-function ScopeIcon({ id }: { id: string }) {
-  const common = {
-    viewBox: '0 0 16 16',
-    width: 18,
-    height: 18,
-    'aria-hidden': true as const,
-    className: 'shrink-0 text-ink-dim',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.2,
-  };
-  switch (id) {
-    case 'host':
-      return (
-        <svg {...common}>
-          <rect x="1.5" y="1.5" width="13" height="4.2" rx="0.8" />
-          <rect x="1.5" y="6.9" width="13" height="4.2" rx="0.8" />
-          <rect x="1.5" y="12.3" width="13" height="2.2" rx="0.6" />
-          <circle cx="4" cy="3.6" r="0.5" fill="currentColor" stroke="none" />
-          <circle cx="4" cy="9" r="0.5" fill="currentColor" stroke="none" />
-        </svg>
-      );
-    case 'container':
-      return (
-        <svg {...common}>
-          <path d="M8 1.3 14.5 5v6L8 14.7 1.5 11V5Z" />
-          <path d="M1.5 5 8 8.5l6.5-3.5" />
-          <path d="M8 8.5v6.2" />
-        </svg>
-      );
-    case 'request':
-      return (
-        <svg {...common}>
-          <path d="M2 5.5h10" />
-          <path d="M9 2.8 11.8 5.5 9 8.2" />
-          <path d="M14 10.5H4" />
-          <path d="M7 7.8 4.2 10.5 7 13.2" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
-
 const RESOURCE_KINDS: ReadonlyArray<{
-  readonly id: string;
+  readonly id: ScopeIconId;
   readonly scope: string;
   readonly prefix: string | null;
   readonly metrics: readonly string[];

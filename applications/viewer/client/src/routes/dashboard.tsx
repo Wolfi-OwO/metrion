@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, createProject, type MeResponse } from '../api/client.ts';
 import { AccountBar } from '../components/account-bar.tsx';
+import { Field } from '../components/field.tsx';
 import { ProjectStatusIndicator } from '../components/project-status-indicator.tsx';
-import { ActionButton, Body, ErrorState, Heading, Panel } from '../components/states.tsx';
+import { Body, Button, ErrorState, Heading, Panel } from '../components/states.tsx';
 import { projectNameError } from '../lib/validate.ts';
 import { useProjects } from '../lib/use-projects.ts';
 
@@ -59,29 +60,19 @@ function CreateProjectForm({
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="project-name" className="text-[12px] text-ink-dim">
-          Project name
-        </label>
-        <input
-          id="project-name"
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          onBlur={() => setTouched(true)}
-          aria-invalid={fieldError !== null}
-          aria-describedby={fieldError ? 'project-name-error' : undefined}
-          className="w-64 rounded-sm border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-[13px] text-ink"
-        />
-        {fieldError && (
-          <p id="project-name-error" role="alert" className="text-[12px] text-series-8">
-            {fieldError}
-          </p>
-        )}
-      </div>
-      <ActionButton type="submit" disabled={submitting}>
+      <Field
+        id="project-name"
+        label="Project name"
+        type="text"
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        onBlur={() => setTouched(true)}
+        error={fieldError}
+        inputClassName="w-64"
+      />
+      <Button type="submit" loading={submitting}>
         {submitting ? 'Creating…' : 'Create project'}
-      </ActionButton>
+      </Button>
       <button
         type="button"
         onClick={onCancel}
@@ -136,9 +127,9 @@ export default function DashboardRoute({
             then point a collector at it - the quickstart on the landing page shows the exact
             request.
           </Body>
-          <ActionButton className="mt-4" onClick={() => setShowForm(true)}>
+          <Button className="mt-4" onClick={() => setShowForm(true)}>
             New project
-          </ActionButton>
+          </Button>
         </Panel>
       );
     }
@@ -147,7 +138,7 @@ export default function DashboardRoute({
       <div className="px-5 py-8 sm:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-[15px] font-semibold text-ink">Projects</h1>
-          {!showForm && <ActionButton onClick={() => setShowForm(true)}>New project</ActionButton>}
+          {!showForm && <Button onClick={() => setShowForm(true)}>New project</Button>}
         </div>
 
         {showForm && (

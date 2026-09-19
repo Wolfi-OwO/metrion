@@ -3,7 +3,7 @@ import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { ApiError, createApiKey, fetchApiKeys, revokeApiKey, type Project } from '../api/client.ts';
 import { CopyButton } from '../components/copy-button.tsx';
 import { ProjectShell } from '../components/project-shell.tsx';
-import { ActionButton, Body, Heading } from '../components/states.tsx';
+import { Body, Button, buttonClassName, Heading } from '../components/states.tsx';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useProject } from '../lib/use-projects.ts';
 
@@ -51,9 +51,9 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
       {row.revoked ? (
         <span className="ml-auto text-[12px] text-ink-muted">Revoked</span>
       ) : (
-        <ActionButton className="ml-auto" onClick={handleRevoke} disabled={revoking}>
+        <Button className="ml-auto" onClick={handleRevoke} loading={revoking}>
           {revoking ? 'Revoking…' : 'Revoke'}
-        </ActionButton>
+        </Button>
       )}
       {error && (
         <p role="alert" className="w-full text-[12px] text-series-8">
@@ -87,9 +87,9 @@ function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void
         />
         <CopyButton text={apiKey} />
       </div>
-      <ActionButton className="mt-3" onClick={onDone}>
+      <Button className="mt-3" onClick={onDone}>
         I've saved it
-      </ActionButton>
+      </Button>
     </div>
   );
 }
@@ -190,10 +190,7 @@ export default function ProjectSettingsRoute() {
         <main className="flex-1 px-5 py-8 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-[15px] font-semibold text-ink">API keys</h1>
-            <Link
-              to={`/projects/${project.id}/status`}
-              className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
-            >
+            <Link to={`/projects/${project.id}/status`} className={buttonClassName('quiet')}>
               Status, dependencies and thresholds
             </Link>
           </div>
@@ -209,9 +206,9 @@ export default function ProjectSettingsRoute() {
           )}
 
           {!justCreated && (
-            <ActionButton className="mt-4" onClick={() => handleCreate(project)} disabled={creating}>
+            <Button className="mt-4" onClick={() => handleCreate(project)} loading={creating}>
               {creating ? 'Creating…' : 'Create new key'}
-            </ActionButton>
+            </Button>
           )}
           {createError && (
             <p role="alert" className="mt-2 text-[12px] text-series-8">

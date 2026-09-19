@@ -6,7 +6,7 @@ import { MetricChart } from '../components/metric-chart.tsx';
 import { ProjectHeader, ProjectShell } from '../components/project-shell.tsx';
 import { RangeControl } from '../components/range-control.tsx';
 import { ResourcePicker, type Selection } from '../components/resource-picker.tsx';
-import { EmptyState, ErrorState, LoadingState } from '../components/states.tsx';
+import { Button, buttonClassName, EmptyState, ErrorState, LoadingState } from '../components/states.tsx';
 import { formatAge, formatDuration, timeZoneLabel } from '../lib/format.ts';
 import { groupByUnit } from '../lib/groups.ts';
 import { chooseStepSeconds, RANGE_PRESETS, rangeFor } from '../lib/range.ts';
@@ -168,23 +168,13 @@ function ProjectMetricsPanel({
               </span>
             )}
             <RangeControl value={preset} onChange={setPreset} />
-            <button
-              type="button"
-              onClick={refresh}
-              className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
-            >
+            <Button variant="quiet" onClick={refresh}>
               Refresh
-            </button>
-            <Link
-              to={`/projects/${project.id}/status`}
-              className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
-            >
+            </Button>
+            <Link to={`/projects/${project.id}/status`} className={buttonClassName('quiet')}>
               Status
             </Link>
-            <Link
-              to={`/projects/${project.id}/settings`}
-              className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
-            >
+            <Link to={`/projects/${project.id}/settings`} className={buttonClassName('quiet')}>
               Settings
             </Link>
           </div>

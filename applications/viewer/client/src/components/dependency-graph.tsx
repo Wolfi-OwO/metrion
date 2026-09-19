@@ -8,7 +8,7 @@ import {
 import { cyclePathFromMessage } from '../lib/status.ts';
 import { useLoader } from '../lib/use-loader.ts';
 import { StatusBadge } from './status-badge.tsx';
-import { ActionButton } from './states.tsx';
+import { Button } from './states.tsx';
 
 /**
  * The dependency topology, drawn as an actual graph: no graph-drawing
@@ -138,9 +138,9 @@ function EdgeEditor({
       )}
 
       <div className="mt-3 flex items-center gap-3">
-        <ActionButton onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} loading={saving}>
           {saving ? 'Saving…' : 'Save dependencies'}
-        </ActionButton>
+        </Button>
         <button
           type="button"
           onClick={onCancel}

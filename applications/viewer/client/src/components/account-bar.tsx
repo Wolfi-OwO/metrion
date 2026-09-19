@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../api/client.ts';
 import { Brand } from './brand.tsx';
+import { Button } from './states.tsx';
 
 /**
  * The identity row on every signed-in screen - dashboard, a project's
@@ -39,14 +40,9 @@ export function AccountBar({
       {children}
       <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="font-mono text-[11px] text-ink-muted">{email}</span>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={pending}
-          className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button variant="quiet" onClick={handleSignOut} loading={pending}>
           {pending ? 'Signing out…' : 'Sign out'}
-        </button>
+        </Button>
       </div>
     </div>
   );

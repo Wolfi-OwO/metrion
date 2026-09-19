@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { copyText } from '../lib/clipboard.ts';
+import { Button } from './states.tsx';
 
 /**
  * Used both for the landing page's quickstart snippet and the one-time API
@@ -17,12 +18,8 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
   }, [copied]);
 
   return (
-    <button
-      type="button"
-      onClick={() => void copyText(text).then(setCopied)}
-      className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
-    >
+    <Button variant="quiet" onClick={() => void copyText(text).then(setCopied)}>
       <span aria-live="polite">{copied ? 'Copied' : label}</span>
-    </button>
+    </Button>
   );
 }

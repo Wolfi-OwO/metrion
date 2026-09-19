@@ -8,10 +8,11 @@ import {
   type Project,
 } from '../api/client.ts';
 import { DependencyGraph } from '../components/dependency-graph.tsx';
+import { Field } from '../components/field.tsx';
 import { ProjectShell } from '../components/project-shell.tsx';
 import { StatusBadge } from '../components/status-badge.tsx';
 import { StatusEventsPanel } from '../components/status-events.tsx';
-import { ActionButton, Body, ErrorState, Heading, LoadingState, Panel } from '../components/states.tsx';
+import { Body, Button, ErrorState, Heading, LoadingState, Panel } from '../components/states.tsx';
 import { ThresholdPanel } from '../components/threshold-panel.tsx';
 import { applicationKeyError, applicationNameError } from '../lib/validate.ts';
 import type { AuthState } from '../lib/use-auth.ts';
@@ -67,51 +68,31 @@ function CreateApplicationForm({
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="application-key" className="text-[12px] text-ink-dim">
-          Key
-        </label>
-        <input
-          id="application-key"
-          type="text"
-          value={key}
-          onChange={(event) => setKey(event.target.value)}
-          onBlur={() => setTouched((current) => ({ ...current, key: true }))}
-          aria-invalid={keyError !== null}
-          aria-describedby={keyError ? 'application-key-error' : undefined}
-          placeholder="checkout-api"
-          className="w-48 rounded-sm border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-[13px] text-ink"
-        />
-        {keyError && (
-          <p id="application-key-error" role="alert" className="text-[12px] text-series-8">
-            {keyError}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="application-name" className="text-[12px] text-ink-dim">
-          Display name
-        </label>
-        <input
-          id="application-name"
-          type="text"
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          onBlur={() => setTouched((current) => ({ ...current, displayName: true }))}
-          aria-invalid={nameError !== null}
-          aria-describedby={nameError ? 'application-name-error' : undefined}
-          placeholder="Checkout API"
-          className="w-56 rounded-sm border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-[13px] text-ink"
-        />
-        {nameError && (
-          <p id="application-name-error" role="alert" className="text-[12px] text-series-8">
-            {nameError}
-          </p>
-        )}
-      </div>
-      <ActionButton type="submit" disabled={submitting}>
+      <Field
+        id="application-key"
+        label="Key"
+        type="text"
+        value={key}
+        onChange={(event) => setKey(event.target.value)}
+        onBlur={() => setTouched((current) => ({ ...current, key: true }))}
+        error={keyError}
+        placeholder="checkout-api"
+        inputClassName="w-48"
+      />
+      <Field
+        id="application-name"
+        label="Display name"
+        type="text"
+        value={displayName}
+        onChange={(event) => setDisplayName(event.target.value)}
+        onBlur={() => setTouched((current) => ({ ...current, displayName: true }))}
+        error={nameError}
+        placeholder="Checkout API"
+        inputClassName="w-56"
+      />
+      <Button type="submit" loading={submitting}>
         {submitting ? 'Registering…' : 'Register application'}
-      </ActionButton>
+      </Button>
       {submitError && (
         <p role="alert" className="w-full text-[12px] text-series-8">
           {submitError}
