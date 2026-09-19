@@ -14,7 +14,7 @@
 export function Footer() {
   return (
     <footer className="mt-auto border-t border-line bg-bg-900 px-5 py-3 sm:px-8">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] text-ink-muted">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-meta text-ink-muted">
         <span>© {new Date().getFullYear()} Phillip Kofler</span>
         <span aria-hidden="true" className="text-line-strong">
           ·
@@ -28,20 +28,20 @@ export function Footer() {
           <a
             lang="de"
             href="/impressum"
-            className="text-ink-dim transition-colors duration-150 hover:text-ink"
+            className="text-ink-dim transition-colors duration-fast hover:text-ink"
           >
             Impressum
           </a>
           <span aria-hidden="true" className="text-line-strong">
             ,
           </span>
-          <a href="/privacy" className="text-ink-dim transition-colors duration-150 hover:text-ink">
+          <a href="/privacy" className="text-ink-dim transition-colors duration-fast hover:text-ink">
             Privacy
           </a>
           <span aria-hidden="true" className="text-line-strong">
             ,
           </span>
-          <a href="/terms" className="text-ink-dim transition-colors duration-150 hover:text-ink">
+          <a href="/terms" className="text-ink-dim transition-colors duration-fast hover:text-ink">
             Terms of use
           </a>
         </nav>

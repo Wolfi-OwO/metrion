@@ -1,4 +1,5 @@
 import { useOutletContext } from 'react-router-dom';
+import { Brand } from '../components/brand.tsx';
 import type { AuthState } from '../lib/use-auth.ts';
 import DashboardRoute from './dashboard.tsx';
 import LandingRoute from './landing.tsx';
@@ -13,12 +14,22 @@ export default function RootRoute() {
   const auth = useOutletContext<AuthState>();
 
   if (auth.status === 'loading') {
+    // A header with just the wordmark, not a screen-centred sentence: the
+    // auth check this waits on is a single fast request, and every other
+    // screen this can resolve into (landing, dashboard) opens with the same
+    // header shape, so showing it immediately avoids a layout jump the
+    // instant the check finishes.
     return (
-      <main className="flex flex-1 items-center justify-center px-5 py-14 sm:px-8">
-        <p role="status" aria-live="polite" className="text-[13px] text-ink-dim">
-          Loading…
-        </p>
-      </main>
+      <>
+        <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
+          <Brand />
+        </header>
+        <main className="flex-1 px-gutter py-14 sm:px-gutter-lg">
+          <p role="status" aria-live="polite" className="text-body text-ink-dim">
+            Loading…
+          </p>
+        </main>
+      </>
     );
   }
 

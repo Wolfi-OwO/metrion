@@ -10,6 +10,14 @@ import { Button } from './states.tsx';
  * place rather than three. `children` is the breadcrumb slot: a project name
  * and its own settings link on the two project screens, nothing on the
  * dashboard.
+ *
+ * Below `sm` this used to `flex-wrap` the whole row, which broke the line
+ * wherever the browser happened to run out of width - sometimes splitting
+ * the email from the sign-out button it belongs with. It now stacks into two
+ * deliberate rows instead: identity (brand + breadcrumb) on top, account
+ * controls (email + sign-out) below, each internally consistent rather than
+ * wherever the wrap landed. At `sm` and up both rows rejoin into the single
+ * row this always was.
  */
 export function AccountBar({
   email,
@@ -35,11 +43,13 @@ export function AccountBar({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-2.5 sm:px-8">
-      <Brand />
-      {children}
-      <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-        <span className="font-mono text-[11px] text-ink-muted">{email}</span>
+    <div className="flex flex-col gap-y-2 px-gutter py-2.5 sm:flex-row sm:items-center sm:gap-x-6 sm:gap-y-0 sm:px-gutter-lg">
+      <div className="flex min-w-0 items-center gap-x-4">
+        <Brand />
+        {children}
+      </div>
+      <div className="flex items-center justify-between gap-3 sm:ml-auto sm:justify-end sm:gap-x-4">
+        <span className="min-w-0 truncate font-mono text-meta text-ink-muted">{email}</span>
         <Button variant="quiet" onClick={handleSignOut} loading={pending}>
           {pending ? 'Signing out…' : 'Sign out'}
         </Button>

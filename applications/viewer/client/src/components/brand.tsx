@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
  * at. */
 export function Brand() {
   return (
-    <Link to="/" className="font-mono text-[15px] font-semibold tracking-tight text-ink">
+    <Link to="/" className="font-mono text-heading font-semibold tracking-tight text-ink">
       metrion
     </Link>
   );

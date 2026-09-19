@@ -1,5 +1,8 @@
 import { Component, type ReactNode } from 'react';
-import { Body, Heading, Panel } from './states.tsx';
+import { Link } from 'react-router-dom';
+import { Brand } from './brand.tsx';
+import { StatusIcon } from './icon.tsx';
+import { Body, Button, Heading, buttonClassName } from './states.tsx';
 
 interface Props {
   children: ReactNode;
@@ -29,16 +32,33 @@ export class RouteErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     if (this.state.error) {
       return (
-        <main className="flex-1">
-          <Panel>
-            <div role="alert">
+        <>
+          <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
+            <Brand />
+          </header>
+          <main className="flex-1 px-gutter py-14 sm:px-gutter-lg">
+            <div role="alert" className="flex max-w-prose flex-col gap-3">
+              {/* `critical` reuses the app's own colour-blind-safe status
+                  vocabulary (filled diamond, `components/icon.tsx`) rather
+                  than a fresh glyph - this genuinely is that severity, not a
+                  borrowed one. */}
+              <div className="flex items-center gap-2 font-mono text-meta uppercase tracking-wide text-text-danger">
+                <StatusIcon status="critical" />
+                <span>Error</span>
+              </div>
               <Heading>Something went wrong</Heading>
-              <Body>
-                This screen hit an unexpected error. Reloading the page usually clears it.
-              </Body>
+              <Body>This screen hit an unexpected error. Reloading the page usually clears it.</Body>
+              <div className="mt-1 flex flex-wrap gap-3">
+                <Button variant="primary" onClick={() => window.location.reload()}>
+                  Reload page
+                </Button>
+                <Link to="/" className={buttonClassName('quiet')}>
+                  Go home
+                </Link>
+              </div>
             </div>
-          </Panel>
-        </main>
+          </main>
+        </>
       );
     }
     return this.props.children;
