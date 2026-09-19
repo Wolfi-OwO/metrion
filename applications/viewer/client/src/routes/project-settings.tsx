@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useOutletContext, useParams } from 'react-router-dom';
-import { ApiError, createApiKey, fetchApiKeys, revokeApiKey } from '../api/client.ts';
-import { AccountBar } from '../components/account-bar.tsx';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { ApiError, createApiKey, fetchApiKeys, revokeApiKey, type Project } from '../api/client.ts';
 import { CopyButton } from '../components/copy-button.tsx';
-import {
-  ActionButton,
-  Body,
-  ErrorState,
-  Heading,
-  LoadingState,
-  Panel,
-} from '../components/states.tsx';
+import { ProjectShell } from '../components/project-shell.tsx';
+import { ActionButton, Body, Heading } from '../components/states.tsx';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useProject } from '../lib/use-projects.ts';
 
@@ -113,9 +106,11 @@ export default function ProjectSettingsRoute() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Declared before any early return - `lookup.project` is not yet known on
-  // the first render that reaches this hook, same reason the effect checks
-  // for it itself rather than this component skipping the hook entirely.
+  // Declared unconditionally, before the `<ProjectShell>` return below whose
+  // phase branching this component has no say in - `lookup.project` is not
+  // yet known on the first render that reaches this hook, same reason the
+  // effect checks for it itself rather than this component skipping the
+  // hook entirely.
   const projectIdForKeys = lookup.project?.id;
   useEffect(() => {
     if (!projectIdForKeys) return;
@@ -143,78 +138,7 @@ export default function ProjectSettingsRoute() {
     return () => controller.abort();
   }, [projectIdForKeys]);
 
-  if (auth.status === 'signed-out') return <Navigate to="/" replace />;
-
-  const header = (
-    <header className="border-b border-line bg-bg-900">
-      <AccountBar email={auth.user?.email ?? ''} onSignedOut={auth.refresh}>
-        <nav aria-label="Breadcrumb" className="flex items-center gap-x-2 text-[12px] text-ink-dim">
-          <Link to="/" className="transition-colors duration-150 hover:text-ink">
-            Projects
-          </Link>
-          <span aria-hidden="true">/</span>
-          {lookup.project ? (
-            <Link
-              to={`/projects/${lookup.project.id}`}
-              className="transition-colors duration-150 hover:text-ink"
-            >
-              {lookup.project.name}
-            </Link>
-          ) : (
-            <span>…</span>
-          )}
-          <span aria-hidden="true">/</span>
-          <span className="text-ink">Settings</span>
-        </nav>
-      </AccountBar>
-    </header>
-  );
-
-  if (lookup.phase === 'error' && lookup.error) {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <ErrorState error={lookup.error} onRetry={lookup.reload} />
-        </main>
-      </>
-    );
-  }
-
-  if (lookup.phase === 'loading' || lookup.phase === 'waking') {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <LoadingState waking={lookup.phase === 'waking'} seconds={lookup.elapsedSeconds} />
-        </main>
-      </>
-    );
-  }
-
-  if (!lookup.project) {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <Panel>
-            <Heading>Project not found</Heading>
-            <Body>
-              It may have been removed, or it belongs to a different account.{' '}
-              <Link to="/" className="text-series-1 hover:underline">
-                Back to your projects
-              </Link>
-              .
-            </Body>
-          </Panel>
-        </main>
-      </>
-    );
-  }
-
-  const project = lookup.project;
-
-  const handleCreate = () => {
+  const handleCreate = (project: Project) => {
     setCreating(true);
     setCreateError(null);
     const controller = new AbortController();
@@ -238,69 +162,94 @@ export default function ProjectSettingsRoute() {
   };
 
   return (
-    <>
-      {header}
-      <main className="flex-1 px-5 py-8 sm:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-[15px] font-semibold text-ink">API keys</h1>
-          <Link
-            to={`/projects/${project.id}/status`}
-            className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
-          >
-            Status, dependencies and thresholds
+    <ProjectShell
+      auth={auth}
+      lookup={lookup}
+      breadcrumb={
+        <>
+          <Link to="/" className="transition-colors duration-150 hover:text-ink">
+            Projects
           </Link>
-        </div>
-        <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-ink-dim">
-          A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code> for{' '}
-          <span className="font-mono text-ink">{project.name}</span>. Revoking one takes effect
-          immediately - a collector still presenting it starts getting 401s on its next write.
-        </p>
-
-        {justCreated && (
-          <JustCreatedKey apiKey={justCreated.key} onDone={() => setJustCreated(null)} />
-        )}
-
-        {!justCreated && (
-          <ActionButton className="mt-4" onClick={handleCreate} disabled={creating}>
-            {creating ? 'Creating…' : 'Create new key'}
-          </ActionButton>
-        )}
-        {createError && (
-          <p role="alert" className="mt-2 text-[12px] text-series-8">
-            {createError}
+          <span aria-hidden="true">/</span>
+          {lookup.project ? (
+            <Link
+              to={`/projects/${lookup.project.id}`}
+              className="transition-colors duration-150 hover:text-ink"
+            >
+              {lookup.project.name}
+            </Link>
+          ) : (
+            <span>…</span>
+          )}
+          <span aria-hidden="true">/</span>
+          <span className="text-ink">Settings</span>
+        </>
+      }
+    >
+      {(project) => (
+        <main className="flex-1 px-5 py-8 sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-[15px] font-semibold text-ink">API keys</h1>
+            <Link
+              to={`/projects/${project.id}/status`}
+              className="rounded-sm border border-line-strong px-2.5 py-1 text-[12px] text-ink-dim transition-colors duration-150 hover:border-series-1 hover:text-series-1"
+            >
+              Status, dependencies and thresholds
+            </Link>
+          </div>
+          <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-ink-dim">
+            A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code>{' '}
+            for <span className="font-mono text-ink">{project.name}</span>. Revoking one takes
+            effect immediately - a collector still presenting it starts getting 401s on its next
+            write.
           </p>
-        )}
 
-        <div className="mt-8 border-t border-line pt-4">
-          <h2 className="font-mono text-[12px] text-ink-dim">Existing keys</h2>
-          {keysError && (
-            <p role="alert" className="mt-2 text-[13px] text-series-8">
-              {keysError}
+          {justCreated && (
+            <JustCreatedKey apiKey={justCreated.key} onDone={() => setJustCreated(null)} />
+          )}
+
+          {!justCreated && (
+            <ActionButton className="mt-4" onClick={() => handleCreate(project)} disabled={creating}>
+              {creating ? 'Creating…' : 'Create new key'}
+            </ActionButton>
+          )}
+          {createError && (
+            <p role="alert" className="mt-2 text-[12px] text-series-8">
+              {createError}
             </p>
           )}
-          {!keysError && keysLoading ? (
-            <p className="mt-2 text-[13px] text-ink-dim">Loading…</p>
-          ) : !keysError && keys.length === 0 ? (
-            <p className="mt-2 text-[13px] text-ink-dim">
-              None yet. A key created here shows up in this list right away.
-            </p>
-          ) : !keysError ? (
-            <ul className="mt-2 divide-y divide-line border-y border-line">
-              {keys.map((row) => (
-                <KeyListItem
-                  key={row.id}
-                  row={row}
-                  onRevoked={(id) =>
-                    setKeys((current) =>
-                      current.map((k) => (k.id === id ? { ...k, revoked: true } : k)),
-                    )
-                  }
-                />
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      </main>
-    </>
+
+          <div className="mt-8 border-t border-line pt-4">
+            <h2 className="font-mono text-[12px] text-ink-dim">Existing keys</h2>
+            {keysError && (
+              <p role="alert" className="mt-2 text-[13px] text-series-8">
+                {keysError}
+              </p>
+            )}
+            {!keysError && keysLoading ? (
+              <p className="mt-2 text-[13px] text-ink-dim">Loading…</p>
+            ) : !keysError && keys.length === 0 ? (
+              <p className="mt-2 text-[13px] text-ink-dim">
+                None yet. A key created here shows up in this list right away.
+              </p>
+            ) : !keysError ? (
+              <ul className="mt-2 divide-y divide-line border-y border-line">
+                {keys.map((row) => (
+                  <KeyListItem
+                    key={row.id}
+                    row={row}
+                    onRevoked={(id) =>
+                      setKeys((current) =>
+                        current.map((k) => (k.id === id ? { ...k, revoked: true } : k)),
+                      )
+                    }
+                  />
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </main>
+      )}
+    </ProjectShell>
   );
 }

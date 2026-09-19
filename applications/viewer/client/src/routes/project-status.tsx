@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useOutletContext, useParams } from 'react-router-dom';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
 import {
   ApiError,
   createApplication,
@@ -7,18 +7,11 @@ import {
   type ApplicationStatus,
   type Project,
 } from '../api/client.ts';
-import { AccountBar } from '../components/account-bar.tsx';
 import { DependencyGraph } from '../components/dependency-graph.tsx';
+import { ProjectShell } from '../components/project-shell.tsx';
 import { StatusBadge } from '../components/status-badge.tsx';
 import { StatusEventsPanel } from '../components/status-events.tsx';
-import {
-  ActionButton,
-  Body,
-  ErrorState,
-  Heading,
-  LoadingState,
-  Panel,
-} from '../components/states.tsx';
+import { ActionButton, Body, ErrorState, Heading, LoadingState, Panel } from '../components/states.tsx';
 import { ThresholdPanel } from '../components/threshold-panel.tsx';
 import { applicationKeyError, applicationNameError } from '../lib/validate.ts';
 import type { AuthState } from '../lib/use-auth.ts';
@@ -166,47 +159,13 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
   );
 }
 
-function ProjectStatusPanel({
-  project,
-  email,
-  onSignedOut,
-}: {
-  project: Project;
-  email: string;
-  onSignedOut: () => void;
-}) {
+function ProjectStatusPanel({ project }: { project: Project }) {
   const status = useLoader(`status/${project.id}`, (signal) =>
     fetchProjectStatus(project.id, signal),
   );
   const applications = status.data ?? [];
 
-  return (
-    <>
-      <header className="border-b border-line bg-bg-900">
-        <AccountBar email={email} onSignedOut={onSignedOut}>
-          <nav
-            aria-label="Breadcrumb"
-            className="flex items-center gap-x-2 text-[12px] text-ink-dim"
-          >
-            <Link to="/" className="transition-colors duration-150 hover:text-ink">
-              Projects
-            </Link>
-            <span aria-hidden="true">/</span>
-            <Link
-              to={`/projects/${project.id}`}
-              className="transition-colors duration-150 hover:text-ink"
-            >
-              {project.name}
-            </Link>
-            <span aria-hidden="true">/</span>
-            <span className="text-ink">Status</span>
-          </nav>
-        </AccountBar>
-      </header>
-
-      <main className="flex-1">{renderBody()}</main>
-    </>
-  );
+  return <main className="flex-1">{renderBody()}</main>;
 
   function renderBody() {
     if (status.phase === 'error' && status.error) {
@@ -285,12 +244,12 @@ export default function ProjectStatusRoute() {
   const auth = useOutletContext<AuthState>();
   const lookup = useProject(projectId ?? '', auth.status !== 'loading');
 
-  if (auth.status === 'signed-out') return <Navigate to="/" replace />;
-
-  const header = (
-    <header className="border-b border-line bg-bg-900">
-      <AccountBar email={auth.user?.email ?? ''} onSignedOut={auth.refresh}>
-        <nav aria-label="Breadcrumb" className="flex items-center gap-x-2 text-[12px] text-ink-dim">
+  return (
+    <ProjectShell
+      auth={auth}
+      lookup={lookup}
+      breadcrumb={
+        <>
           <Link to="/" className="transition-colors duration-150 hover:text-ink">
             Projects
           </Link>
@@ -307,58 +266,10 @@ export default function ProjectStatusRoute() {
           )}
           <span aria-hidden="true">/</span>
           <span className="text-ink">Status</span>
-        </nav>
-      </AccountBar>
-    </header>
-  );
-
-  if (lookup.phase === 'error' && lookup.error) {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <ErrorState error={lookup.error} onRetry={lookup.reload} />
-        </main>
-      </>
-    );
-  }
-
-  if (lookup.phase === 'loading' || lookup.phase === 'waking') {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <LoadingState waking={lookup.phase === 'waking'} seconds={lookup.elapsedSeconds} />
-        </main>
-      </>
-    );
-  }
-
-  if (!lookup.project) {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <Panel>
-            <Heading>Project not found</Heading>
-            <Body>
-              It may have been removed, or it belongs to a different account.{' '}
-              <Link to="/" className="text-series-1 hover:underline">
-                Back to your projects
-              </Link>
-              .
-            </Body>
-          </Panel>
-        </main>
-      </>
-    );
-  }
-
-  return (
-    <ProjectStatusPanel
-      project={lookup.project}
-      email={auth.user?.email ?? ''}
-      onSignedOut={auth.refresh}
-    />
+        </>
+      }
+    >
+      {(project) => <ProjectStatusPanel project={project} />}
+    </ProjectShell>
   );
 }

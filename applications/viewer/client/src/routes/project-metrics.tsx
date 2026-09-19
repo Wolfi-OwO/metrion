@@ -1,19 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Link, Navigate, useOutletContext, useParams } from 'react-router-dom';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
 import type { Project } from '../api/client.ts';
 import { fetchResources } from '../api/client.ts';
-import { AccountBar } from '../components/account-bar.tsx';
 import { MetricChart } from '../components/metric-chart.tsx';
+import { ProjectHeader, ProjectShell } from '../components/project-shell.tsx';
 import { RangeControl } from '../components/range-control.tsx';
 import { ResourcePicker, type Selection } from '../components/resource-picker.tsx';
-import {
-  Body,
-  EmptyState,
-  ErrorState,
-  Heading,
-  LoadingState,
-  Panel,
-} from '../components/states.tsx';
+import { EmptyState, ErrorState, LoadingState } from '../components/states.tsx';
 import { formatAge, formatDuration, timeZoneLabel } from '../lib/format.ts';
 import { groupByUnit } from '../lib/groups.ts';
 import { chooseStepSeconds, RANGE_PRESETS, rangeFor } from '../lib/range.ts';
@@ -37,74 +30,24 @@ export default function ProjectMetricsRoute() {
   const auth = useOutletContext<AuthState>();
   const lookup = useProject(projectId ?? '', auth.status !== 'loading');
 
-  // Reachable only from a signed-in screen's own links, but a bookmarked or
-  // hand-typed URL can still land here signed out - back to the root, which
-  // resolves to the landing page for that visitor rather than a 401 behind a
-  // chart nothing will ever load into.
-  if (auth.status === 'signed-out') return <Navigate to="/" replace />;
-
-  const header = (
-    <header className="border-b border-line bg-bg-900">
-      <AccountBar email={auth.user?.email ?? ''} onSignedOut={auth.refresh}>
-        <nav aria-label="Breadcrumb" className="flex items-center gap-x-2 text-[12px] text-ink-dim">
+  return (
+    <ProjectShell
+      auth={auth}
+      lookup={lookup}
+      breadcrumb={
+        <>
           <Link to="/" className="transition-colors duration-150 hover:text-ink">
             Projects
           </Link>
           <span aria-hidden="true">/</span>
           <span className="text-ink">{lookup.project?.name ?? '…'}</span>
-        </nav>
-      </AccountBar>
-    </header>
-  );
-
-  if (lookup.phase === 'error' && lookup.error) {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <ErrorState error={lookup.error} onRetry={lookup.reload} />
-        </main>
-      </>
-    );
-  }
-
-  if (lookup.phase === 'loading' || lookup.phase === 'waking') {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <LoadingState waking={lookup.phase === 'waking'} seconds={lookup.elapsedSeconds} />
-        </main>
-      </>
-    );
-  }
-
-  if (!lookup.project) {
-    return (
-      <>
-        {header}
-        <main className="flex-1">
-          <Panel>
-            <Heading>Project not found</Heading>
-            <Body>
-              It may have been removed, or it belongs to a different account.{' '}
-              <Link to="/" className="text-series-1 hover:underline">
-                Back to your projects
-              </Link>
-              .
-            </Body>
-          </Panel>
-        </main>
-      </>
-    );
-  }
-
-  return (
-    <ProjectMetricsPanel
-      project={lookup.project}
-      email={auth.user?.email ?? ''}
-      onSignedOut={auth.refresh}
-    />
+        </>
+      }
+    >
+      {(project, email, onSignedOut) => (
+        <ProjectMetricsPanel project={project} email={email} onSignedOut={onSignedOut} />
+      )}
+    </ProjectShell>
   );
 }
 
@@ -199,20 +142,20 @@ function ProjectMetricsPanel({
 
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-line bg-bg-900">
-        <AccountBar email={email} onSignedOut={onSignedOut}>
-          <nav
-            aria-label="Breadcrumb"
-            className="flex items-center gap-x-2 text-[12px] text-ink-dim"
-          >
+      <ProjectHeader
+        email={email}
+        onSignedOut={onSignedOut}
+        sticky
+        breadcrumb={
+          <>
             <Link to="/" className="transition-colors duration-150 hover:text-ink">
               Projects
             </Link>
             <span aria-hidden="true">/</span>
             <span className="text-ink">{project.name}</span>
-          </nav>
-        </AccountBar>
-
+          </>
+        }
+      >
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line px-5 py-2.5 sm:px-8">
           {list.length > 0 && active && (
             <ResourcePicker resources={list} value={active} onChange={setSelection} />
@@ -260,7 +203,7 @@ function ProjectMetricsPanel({
             <div className="h-px w-1/3 animate-[loading-sweep_1.4s_ease-in-out_infinite] bg-series-1" />
           </div>
         )}
-      </header>
+      </ProjectHeader>
 
       {/* Called, not rendered as <Body />: a component declared inside another
           component is a new type on every render, so React would unmount and
