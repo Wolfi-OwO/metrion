@@ -51,8 +51,10 @@ const FILL_TONE: Record<ButtonTone, string> = {
 };
 
 const OUTLINE_TONE: Record<ButtonTone, string> = {
-  default: 'hover:border-series-1 hover:text-series-1 active:border-series-1/70 active:text-series-1/70',
-  danger: 'hover:border-series-8 hover:text-series-8 active:border-series-8/70 active:text-series-8/70',
+  default:
+    'hover:border-series-1 hover:text-series-1 active:border-series-1/70 active:text-series-1/70',
+  danger:
+    'hover:border-series-8 hover:text-series-8 active:border-series-8/70 active:text-series-8/70',
 };
 
 const VARIANT_CLASS: Record<ButtonVariant, Record<ButtonTone, string>> = {
@@ -124,7 +126,10 @@ export function Button({
 function AxisGhost({ sweeping }: { sweeping: boolean }) {
   return (
     <div className="relative h-28 w-full overflow-hidden border-y border-line" aria-hidden="true">
-      <div className="absolute inset-x-0 top-0 flex h-full flex-col justify-between">
+      {/* `py-2` mirrors `MetricChart`'s own `margin={{ top: 8, bottom: 8 }}` -
+          without it the top and bottom grid lines sat flush on the border,
+          reading as one thick line instead of four evenly spaced ones. */}
+      <div className="absolute inset-0 flex flex-col justify-between py-2">
         {[0, 1, 2, 3].map((line) => (
           <div key={line} className="h-px w-full bg-bg-800" />
         ))}
@@ -157,7 +162,13 @@ export function LoadingState({ waking, seconds }: { waking: boolean; seconds: nu
             <Heading>Waking the server</Heading>
             <Body>
               It shuts down when nobody is watching, so the first request takes 5 to 15 seconds.
-              Still going after {seconds} {seconds === 1 ? 'second' : 'seconds'}.
+              Still going after{' '}
+              {/* `font-mono`: the counter ticks over from a 1-digit to a
+                  2-digit number partway through nearly every wake, and the
+                  same family every other live number in this app uses keeps
+                  that digit tabular instead of jittering. */}
+              <span className="font-mono text-ink">{seconds}</span>{' '}
+              {seconds === 1 ? 'second' : 'seconds'}.
             </Body>
           </>
         )}
@@ -180,9 +191,22 @@ export function EmptyState({
     <Panel>
       <Heading>No samples in this range</Heading>
       <Body>
-        The collector writes one sample a minute. Nothing arrived for{' '}
-        <span className="font-mono text-ink">{label}</span> between{' '}
-        {formatTimestamp(range.from.getTime())} and {formatTimestamp(range.to.getTime())}.
+        The collector writes one sample a minute, so a gap this size is real and not an artifact of
+        coarse bucketing. Nothing arrived for <span className="font-mono text-ink">{label}</span>{' '}
+        between{' '}
+        {/* `whitespace-nowrap` per timestamp, the same fix the chart legend
+            uses for "4 330 MiB": each "19 Sep, 14:32" is one unit, and a wrap
+            landing between its date and its time would split it in two. The
+            sentence can still wrap around the two timestamps, just not
+            inside either one. */}
+        <span className="whitespace-nowrap font-mono text-ink">
+          {formatTimestamp(range.from.getTime())}
+        </span>{' '}
+        and{' '}
+        <span className="whitespace-nowrap font-mono text-ink">
+          {formatTimestamp(range.to.getTime())}
+        </span>
+        .
       </Body>
       {onWiden && (
         <Button className="mt-4" onClick={onWiden}>
@@ -213,20 +237,36 @@ function errorHeading(error: ApiError): string {
   return `The metrics API returned ${error.status}`;
 }
 
+// `error.message` is server-written prose of unknown shape - some end in a
+// period, an `issues[0]` validation detail usually doesn't. Appending a fixed
+// suggested action straight onto it produced sentences that ran together with
+// no punctuation between them. One period is cheaper than a second sentence
+// this function has to guess the tone of.
+function withAction(message: string, action: string): string {
+  const trimmed = message.trim();
+  const needsStop = trimmed.length > 0 && !/[.!?]$/.test(trimmed);
+  return `${trimmed}${needsStop ? '.' : ''} ${action}`;
+}
+
 function errorBody(error: ApiError): string {
   if (isGatewayFailure(error)) {
     return 'Nothing is listening where the viewer should be. Check that it is running, then try again.';
   }
   if (error.isStorageUnavailable) {
     // The viewer sends its own reason for a 503 and it is the useful one.
-    return error.message.length > 0
-      ? error.message
-      : 'The viewer is up but has no storage account set, so it has nothing to read.';
+    if (error.message.length > 0) return error.message;
+    // Retrying a missing storage account never changes the result, so the
+    // fallback names who can actually fix it instead of offering a button
+    // that will only fail the same way again.
+    return 'The viewer is up but has no storage account set, so it has nothing to read. This is a deployment setting - an operator needs to configure one.';
   }
   if (error.status === 429) {
     return 'The viewer caps how much it will read per minute, and this window asked for more. Wait a minute, or pick a shorter range, then try again.';
   }
-  return error.message;
+  if (error.status === 400) {
+    return withAction(error.message, 'Check the selected range or resource, then try again.');
+  }
+  return withAction(error.message, 'Try again, or check back later if it keeps happening.');
 }
 
 export function ErrorState({ error, onRetry }: { error: ApiError; onRetry: () => void }) {

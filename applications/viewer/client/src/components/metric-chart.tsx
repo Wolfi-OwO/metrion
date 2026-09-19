@@ -33,13 +33,24 @@ import type { GridRow, TimeRange } from '../lib/range.ts';
 
 const STROKE_WIDTH = 1.5;
 
+// 24px wide, not 16: the longest dash pattern in SERIES_DASHES ("9 3 2 3")
+// repeats every 17px, so a 16px swatch cut it mid-cycle and the dash-dot
+// series read as a plain dash - the same mark as a neighbour. 24px clears
+// every pattern's full repeat with room to spare, so the swatch carries the
+// same shape distinction the polyline does.
 function SeriesSwatch({ series }: { series: SeriesView }) {
   return (
-    <svg width="16" height="8" viewBox="0 0 16 8" aria-hidden="true" className="shrink-0">
+    <svg
+      width="24"
+      height="8"
+      viewBox="0 0 24 8"
+      aria-hidden="true"
+      className="shrink-0 self-center"
+    >
       <line
         x1="0"
         y1="4"
-        x2="16"
+        x2="24"
         y2="4"
         stroke={series.color}
         strokeWidth="2"
@@ -54,22 +65,39 @@ function ChartTooltip({
   label,
   payload,
   unit,
-}: TooltipContentProps & { unit: string | null }) {
+  series,
+}: TooltipContentProps & { unit: string | null; series: SeriesView[] }) {
   if (!active || payload.length === 0) return null;
 
   return (
-    <div className="border border-line-strong bg-bg-900 px-2.5 py-2 text-[11px] shadow-none">
-      <div className="mb-1 font-mono text-ink-dim">
+    // This is the one popover-level surface in the chart - floating over a
+    // busy strip of lines, not a card on an empty page - so it is the second
+    // real user of `--shadow-raised`, the app's one elevation step, rather
+    // than a fresh value invented for it.
+    <div className="border border-line-strong bg-bg-900 px-2.5 py-2 text-meta shadow-raised">
+      <div className="mb-1.5 font-mono text-ink-dim">
         {typeof label === 'number' ? formatTimestamp(label) : ''}
       </div>
-      {payload.map((entry) => (
-        <div key={String(entry.name)} className="flex items-baseline gap-2">
-          <span className="font-mono text-ink-dim">{entry.name}</span>
-          <span className="ml-auto font-mono text-ink">
-            {typeof entry.value === 'number' ? formatValue(entry.value, unit) : 'no sample'}
-          </span>
-        </div>
-      ))}
+      {payload.map((entry) => {
+        const match = series.find((candidate) => candidate.name === entry.name);
+        return (
+          <div
+            key={String(entry.name)}
+            className="flex items-baseline gap-2 [&:not(:last-child)]:mb-1"
+          >
+            {match && <SeriesSwatch series={match} />}
+            <span className="font-mono text-ink-dim">{entry.name}</span>
+            {/* Muted and un-bolded rather than the same weight as a real
+                reading - "no sample" naming the gap is only honest if it also
+                looks unlike the number next to it. */}
+            <span
+              className={`ml-auto font-mono ${typeof entry.value === 'number' ? 'text-ink' : 'text-ink-muted italic'}`}
+            >
+              {typeof entry.value === 'number' ? formatValue(entry.value, unit) : 'no sample'}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -108,20 +136,33 @@ export function MetricChart({
   return (
     <section className="border-t border-line pt-3 pb-1 first:border-t-0">
       <header className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-5 sm:px-8">
-        <h2 className="font-mono text-[12px] text-ink-dim">{group.unit ?? 'unitless'}</h2>
+        {/* --text-meta is documented for exactly this: "unit labels". Kept at
+            text-ink-dim rather than the dimmer text-ink-muted the app's other
+            eyebrows use - this one is read on every strip while scanning, not
+            once as a section title, and needs the extra contrast step. */}
+        <h2 className="font-mono text-meta uppercase tracking-[0.14em] text-ink-dim">
+          {group.unit ?? 'unitless'}
+        </h2>
         <ul className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
           {group.series.map((series) => (
             // `whitespace-nowrap`: without it a narrow screen breaks the line
             // between a number and its unit, so "4 330 MiB" reads as two
             // separate figures. The list wraps between items, never inside one.
-            <li key={series.name} className="flex items-center gap-1.5 whitespace-nowrap">
+            //
+            // `items-baseline`, not `items-center`: the name (text-meta) and
+            // the last reading (text-label, one step larger) sit on one text
+            // baseline rather than being vertically centred against each
+            // other, which staggers two different cap-heights by a visible
+            // pixel or two. The swatch has no baseline of its own, so it opts
+            // back out to `self-center` individually.
+            <li key={series.name} className="flex items-baseline gap-1.5 whitespace-nowrap">
               <SeriesSwatch series={series} />
-              <span className="font-mono text-[11px] text-ink-dim">{series.name}</span>
-              <span className="font-mono text-[12px] font-medium text-ink">
+              <span className="font-mono text-meta text-ink-dim">{series.name}</span>
+              <span className="font-mono text-label font-medium text-ink">
                 {series.last === null ? '-' : formatValue(series.last, group.unit)}
               </span>
               {series.min !== null && series.max !== null && series.min !== series.max && (
-                <span className="font-mono text-[11px] text-ink-muted">
+                <span className="font-mono text-meta text-ink-muted">
                   {formatValue(series.min, group.unit)} to {formatValue(series.max, group.unit)}
                 </span>
               )}
@@ -181,7 +222,7 @@ export function MetricChart({
                         value: 'no samples',
                         position: 'insideBottom',
                         fill: 'var(--color-ink-muted)',
-                        fontSize: 11,
+                        fontSize: 'var(--text-meta)',
                         fontFamily: 'var(--font-mono)',
                       }
                     : undefined
@@ -198,12 +239,18 @@ export function MetricChart({
               tickFormatter={(value: number) => formatTick(value, spanMs)}
               tick={{
                 fill: 'var(--color-ink-muted)',
-                fontSize: 11,
+                fontSize: 'var(--text-meta)',
                 fontFamily: 'var(--font-mono)',
               }}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-line)' }}
-              minTickGap={48}
+              // `formatTick`'s middle band (36h < span <= 8d) prints a
+              // weekday, so its longest label is "Wed, 14:32" - 10 mono
+              // characters. JetBrains Mono's advance width is ~0.6em, so at
+              // the 11px --text-meta size that label is ~66px wide. 48 was
+              // narrower than the label it had to space out, so two adjacent
+              // weekday ticks could touch; 72 clears it with room.
+              minTickGap={72}
             />
             <YAxis
               // Fixed, and the same on every strip, so the plot areas line up.
@@ -216,7 +263,7 @@ export function MetricChart({
               tickFormatter={(value: number) => formatAxisValue(value, group.unit)}
               tick={{
                 fill: 'var(--color-ink-muted)',
-                fontSize: 11,
+                fontSize: 'var(--text-meta)',
                 fontFamily: 'var(--font-mono)',
               }}
               tickLine={false}
@@ -225,7 +272,7 @@ export function MetricChart({
             <Tooltip
               cursor={{ stroke: 'var(--color-line-strong)', strokeWidth: 1 }}
               content={(props: TooltipContentProps) => (
-                <ChartTooltip {...props} unit={group.unit} />
+                <ChartTooltip {...props} unit={group.unit} series={group.series} />
               )}
             />
 
