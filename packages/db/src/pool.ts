@@ -15,5 +15,8 @@ const LOCAL_DEV_DATABASE_URL = 'postgres://metrion:metrion@localhost:5432/metrio
 export function createPool(
   connectionString = process.env['DATABASE_URL'] ?? LOCAL_DEV_DATABASE_URL,
 ): Pool {
-  return new Pool({ connectionString });
+  // 10s server-side cap: the unauthenticated public-status reads share this
+  // pool with the ingest write path, and pg has no default timeout, so one
+  // slow aggregate could otherwise pin a connection indefinitely.
+  return new Pool({ connectionString, statement_timeout: 10_000 });
 }

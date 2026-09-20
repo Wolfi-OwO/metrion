@@ -16,6 +16,8 @@ export async function getPublicProjectUptime(req: Request, res: Response): Promi
     throw new NotFoundError('Project not found.');
   }
 
+  // Matches the service's 60s cache; lets the consumer and any CDN reuse it too.
+  res.set('Cache-Control', 'public, max-age=60');
   res.status(200).json({
     projectId,
     generatedAt: new Date().toISOString(),

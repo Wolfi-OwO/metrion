@@ -20,9 +20,28 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 
-// No `cors()` here, unlike the viewer: every sender is a server or a script
-// holding an API key, never a browser acting on a visitor's behalf, so there
-// is no cross-origin case to guard against on this endpoint.
+// Minimal request log (no pino-http dependency): method, path, status, duration.
+app.use((req, res, next) => {
+  const start = process.hrtime.bigint();
+  res.on('finish', () => {
+    logger.info(
+      {
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        durationMs: Number(process.hrtime.bigint() - start) / 1e6,
+      },
+      'request',
+    );
+  });
+  next();
+});
+
+// No `cors()` here, unlike the viewer: no route sends
+// `Access-Control-Allow-Origin`, so browsers keep blocking cross-origin reads.
+// The one keyless route (public uptime) is read server-side by the portfolio,
+// and the ingest route is called by servers/scripts with an API key, so
+// neither needs a browser cross-origin path.
 app.use(routes);
 
 app.use(notFound);

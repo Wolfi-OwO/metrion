@@ -20,6 +20,7 @@ const REAL_DATABASE_URL = 'postgres://metrion:metrion@localhost:5432/metrion';
 process.env['DATABASE_URL'] = 'postgres://bogus:bogus@127.0.0.1:1/bogus';
 
 const { app } = await import('../dist/main.js');
+const { clearPublicUptimeCache } = await import('../dist/services/public-status-service.js');
 const { createPool } = await import('@metrion/db/dist/pool.js');
 
 let server: Server;
@@ -314,6 +315,8 @@ test('GET .../uptime: full shape for a flagged project, after the continuous agg
   // of the fixture rows above (same requirement tests/ingest.test.ts's own
   // wide-range assertions would have).
   await refreshMetricsHourly();
+  // Earlier tests in this file already populated the 60s cache with pre-refresh data.
+  clearPublicUptimeCache();
 
   // Now that metrics_hourly has materialized ml-visualizer's 20-day-old
   // "down" sample, remove it from the raw table - the source-of-truth proof
@@ -415,8 +418,40 @@ test('GET .../uptime: sub_resource never reaches the response, not even as the n
     'container:test-leak-canary-1',
   );
 
+  clearPublicUptimeCache(); // else a cached pre-insert response would make this vacuous
   const response = await getUptime(flaggedProjectId);
   const raw = await response.text();
   assert.equal(raw.includes('test-leak-canary-1'), false);
   assert.equal(raw.includes('container:'), false);
+});
+
+test('GET .../uptime: a second request within 60s is served from cache without touching the DB, and carries Cache-Control', async () => {
+  clearPublicUptimeCache();
+  const first = await getUptime(flaggedProjectId);
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.get('cache-control'), 'public, max-age=60');
+
+  // Flip the flag: a DB read would now 404, so a 200 can only be a cache hit.
+  await fixturePool.query('UPDATE projects SET public_status_enabled = false WHERE id = $1', [
+    flaggedProjectId,
+  ]);
+  try {
+    const second = await getUptime(flaggedProjectId);
+    assert.equal(second.status, 200, 'a DB read would now 404 - a 200 proves a cache hit');
+  } finally {
+    await fixturePool.query('UPDATE projects SET public_status_enabled = true WHERE id = $1', [
+      flaggedProjectId,
+    ]);
+  }
+
+  // Negative results are never cached: unflag, clear, 404, reflag, 200 at once.
+  clearPublicUptimeCache();
+  await fixturePool.query('UPDATE projects SET public_status_enabled = false WHERE id = $1', [
+    flaggedProjectId,
+  ]);
+  assert.equal((await getUptime(flaggedProjectId)).status, 404);
+  await fixturePool.query('UPDATE projects SET public_status_enabled = true WHERE id = $1', [
+    flaggedProjectId,
+  ]);
+  assert.equal((await getUptime(flaggedProjectId)).status, 200);
 });

@@ -11,8 +11,8 @@ import { getPool } from '../lib/db.js';
  * (container names, hostnames - `applications/agent/src/lib/to-metric-
  * envelopes.ts`), so it is never selected here, let alone placed on the
  * response. A flagged project can leak nothing beyond the two metric names
- * and the application `key`s it already registered, no matter what else it
- * has stored.
+ * and the `key`/`display_name` of applications it already registered (both
+ * owner-set text, same trust level), no matter what else it has stored.
  *
  * Ported verbatim from `applications/viewer/src/services/status-service.ts`
  * (lines 235-531 at the time of the port) - this service now owns the public
@@ -29,6 +29,13 @@ const H24_MS = DAY_MS;
 const D7_MS = 7 * DAY_MS;
 const D30_MS = 30 * DAY_MS;
 const HISTORY_DAYS = 90;
+
+/** Matches the 60s the one real consumer (the portfolio) caches for on its own
+ * side, so a hit here costs no query however many requests arrive. Keys are
+ * only ever flagged project ids (see `getPublicUptime`), so the map is bounded
+ * by the number of public projects. */
+const CACHE_TTL_MS = 60_000;
+const cache = new Map<string, { at: number; result: Promise<PublicUptime | null> }>();
 
 /** Same shape zod's `z.uuid()` accepts. Checked before the id ever reaches a
  * query: `projects.id` is a `uuid` column, and a malformed value cast against
@@ -239,6 +246,34 @@ function historyStart(now: Date): number {
 export async function getPublicUptime(projectId: string): Promise<PublicUptime | null> {
   if (!UUID_RE.test(projectId)) return null;
 
+  const cached = cache.get(projectId);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.result;
+
+  // The in-flight promise is cached, not the settled value, so a burst of
+  // requests on a cold entry shares one computation instead of each taking
+  // pool connections. Only a successful flagged result survives: `null`
+  // (unflagged/nonexistent - the flag can be flipped at any time) and
+  // errors are evicted, so 404 behavior and recovery are never delayed.
+  const result = computePublicUptime(projectId);
+  const entry = { at: Date.now(), result };
+  cache.set(projectId, entry);
+  result.then(
+    (value) => {
+      if (value === null && cache.get(projectId) === entry) cache.delete(projectId);
+    },
+    () => {
+      if (cache.get(projectId) === entry) cache.delete(projectId);
+    },
+  );
+  return result;
+}
+
+/** For tests: forget every cached result. */
+export function clearPublicUptimeCache(): void {
+  cache.clear();
+}
+
+async function computePublicUptime(projectId: string): Promise<PublicUptime | null> {
   const pool = getPool();
   const { rows: projectRows } = await pool.query<{ public_status_enabled: boolean }>(
     'SELECT public_status_enabled FROM projects WHERE id = $1',
@@ -267,12 +302,14 @@ export async function getPublicUptime(projectId: string): Promise<PublicUptime |
   const now = new Date();
   const historyStartMs = historyStart(now);
 
-  const [windows, d30, history, latest] = await Promise.all([
-    queryRawWindows(projectId, keys, now),
-    queryHourlyWindow(projectId, keys, new Date(now.getTime() - D30_MS)),
-    queryHistory(projectId, keys, new Date(historyStartMs)),
-    queryLatestSamples(projectId, keys),
-  ]);
+  // Sequential on purpose: this route is unauthenticated and shares the pool
+  // (max 10) with the authenticated ingest write path, so a cache miss must
+  // hold at most one connection at a time, not four. The added latency only
+  // hits one request per project per minute.
+  const windows = await queryRawWindows(projectId, keys, now);
+  const d30 = await queryHourlyWindow(projectId, keys, new Date(now.getTime() - D30_MS));
+  const history = await queryHistory(projectId, keys, new Date(historyStartMs));
+  const latest = await queryLatestSamples(projectId, keys);
 
   const applications = appRows.map((row): PublicUptimeApplication => {
     const window = windows.get(row.key);
