@@ -205,7 +205,7 @@ export function renderDocumentPage(title: string, lang: string, bodyHtml: string
 /* The same tokens as the app (applications/viewer/client/src/styles/index.css):
    dark by default, light for a visitor whose OS asks for it. This page ships no
    script, so it follows the OS preference only - the app's own toggle is not
-   readable here. It also uses the system font stack: the app's Geist files are
+   readable here. It also uses the system font stack: the app's font files are
    emitted with content hashes, so there is no stable URL to point a
    @font-face at from server-rendered HTML. */
 :root {

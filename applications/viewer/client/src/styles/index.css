@@ -2,28 +2,41 @@
    third party on first paint, before any consent (LG Muenchen I, 20.01.2022,
    Az. 3 O 17493/20), and the viewer's Helmet CSP would block it anyway. The
    packages ship one variable file per unicode subset; only latin is declared
-   here, so the build emits two woff2 files (29 kB + 23 kB) instead of the
+   here, so the build emits two woff2 files (30 kB + 22 kB) instead of the
    thirteen the previous Inter + JetBrains Mono pair produced. Characters
    outside latin fall through to the system stack rather than a second
    download.
-   Both families are OFL-1.1. */
+   Both families are OFL-1.1.
+
+   Why this pair, chosen by rendering the dashboard, metrics and status screens
+   with five candidates rather than by name: Instrument Sans is slightly
+   condensed with a distinctive lowercase (the y, g and a), so 12-14px UI text
+   stays dense without turning into the default grotesk every dashboard shares;
+   it has tabular figures (measured: "1111", "0000" and "8888" render the same
+   width with tabular-nums). Red Hat Mono is geometric, 0.6em advance like the
+   others, and the smallest latin file of the mono candidates (22 kB). Martian
+   Mono was rejected because it is so wide the metric legend overflowed at 1440;
+   Hanken Grotesk and Schibsted Grotesk read either softer or heavier than this
+   quiet, precise direction wants. Geist, used for the first pass of this
+   redesign, is what most generated dashboards converge on, which is the
+   opposite of an identity. */
 @font-face {
-  font-family: 'Geist Variable';
+  font-family: 'Instrument Sans Variable';
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url('@fontsource-variable/geist/files/geist-latin-wght-normal.woff2')
+  src: url('@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2')
     format('woff2-variations');
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'Geist Mono Variable';
+  font-family: 'Red Hat Mono Variable';
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url('@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2')
+  src: url('@fontsource-variable/red-hat-mono/files/red-hat-mono-latin-wght-normal.woff2')
     format('woff2-variations');
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
@@ -93,8 +106,8 @@
   --color-text-success: var(--color-status-ok);
   --color-text-caution: var(--color-status-warning);
 
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Red Hat Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
 
   /* One curve, two speeds. Tailwind's own `transition-*` utilities read the
      --default-transition-* pair, so pointing those at these tokens is what
@@ -146,6 +159,9 @@
   --container-page: 1280px;
 
   --tracking-eyebrow: 0.08em;
+  /* Instrument Sans is already tightly set; Tailwind's stock -0.025em made the
+     display headline's letters touch. */
+  --tracking-tight: -0.01em;
 }
 
 /* Light theme. The same properties, re-pointed. Two selectors carry the same
