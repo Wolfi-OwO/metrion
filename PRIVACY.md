@@ -1,8 +1,8 @@
 # Privacy Policy (Datenschutzerklärung)
 
 **metrion — server supervision platform**
-**Effective:** 2026-09-07
-**Last updated:** 2026-09-07
+**Effective:** 2026-09-20
+**Last updated:** 2026-09-20
 
 Controller: Phillip Kofler, Villach, Kärnten, Österreich
 Contact: <koflerphillip@outlook.com>
@@ -28,16 +28,23 @@ browser client.
   collecting the operator's own infrastructure metrics and sending them to
   the ingest service (`applications/agent`; role unchanged by
   `docs/adr/0004-postgres-timescaledb-over-append-blob.md`).
-- **ingest** (`metrion-ingest`) — an Azure Container App exposing the one
+- **ingest** (`metrion-ingest`) — a container on the operator's Contabo VPS
+  (the same host as the database), reachable at
+  `https://metrion-ingest.woofi-developments.at` behind a Caddy reverse proxy
+  that terminates TLS with a Let's Encrypt certificate. It exposes the one
   authenticated write path, `POST /api/v1/ingest`, authenticated per project
   by an API key, never by request content
   (`applications/ingest/src/middlewares/api-key.ts:1-60`;
-  `docs/adr/0005-api-key-determines-tenancy.md`).
-- **viewer** (`metrion-viewer`) — an Azure Container App serving the public
-  read API, the API documentation site at `/docs`, OAuth sign-in and session
-  management (`applications/viewer/src/routes/auth.routes.ts:13-16`), and
-  per-account project/API-key management
-  (`applications/viewer/src/routes/projects.routes.ts:221-248`).
+  `docs/adr/0005-api-key-determines-tenancy.md`), and the opt-in public uptime
+  endpoint described in section 6
+  (`applications/ingest/src/routes/index.ts:57-85`).
+- **viewer** (`metrion-viewer`) — an Azure Container App (West Europe)
+  serving the account-scoped read API, the API documentation site at `/docs`,
+  OAuth sign-in and session management
+  (`applications/viewer/src/routes/auth.routes.ts:13-16`), and per-account
+  project/API-key management
+  (`applications/viewer/src/routes/projects.routes.ts:221-248`). It reaches
+  the database over an SSH tunnel sidecar.
 - **viewer client** — a React charts page that reads the public API and, for
   a signed-in user, the account-scoped project/key endpoints.
 
@@ -88,8 +95,10 @@ without qualification.
 ## 3. What is deliberately never stored
 
 **No client IP addresses. No user agents. No request paths. No query strings.**
-Not in a blob, not in a log line, not in an API response, not in an error body.
-This is enforced in four separate places rather than asserted once:
+The applications never store them: not in the database, not in an application
+log line, not in an API response, not in an error body. The reverse proxy in
+front of ingest has one narrow exception, described under "Reverse-proxy layer"
+below. The application-side guarantee is enforced in four separate places rather than asserted once:
 
 - The Caddy access-log reader types the log line as `status`, `duration` and
   `request.host` only. `request.remote_ip`, `request.headers` and `request.uri`
@@ -102,15 +111,54 @@ This is enforced in four separate places rather than asserted once:
 - The 404 handler does not echo `req.originalUrl`, so an unmatched request's
   path and query string never reach a response body
   (`applications/viewer/src/middlewares/error.ts:71-73`).
-- Neither rate limiter keys on an IP. The global one keys on the constant
-  `'global'` (`applications/viewer/src/main.ts:82`); the ingest one keys on a
-  SHA-256 hash of the bearer token
-  (`applications/viewer/src/routes/ingest.routes.ts:36-39`), so the limiter's
-  store never holds the secret either.
+- The rate limiters do not key on an IP. The ingest write limiter keys on a
+  SHA-256 hash of the API key, so the limiter's store never holds the secret
+  either (`applications/ingest/src/routes/index.ts:29-40`); the public uptime
+  limiter uses one shared bucket, `'public-status'`
+  (`applications/ingest/src/routes/index.ts:57-69`); the viewer's global
+  limiter keys on the constant `'global'`
+  (`applications/viewer/src/main.ts:82`).
 
-`trust proxy` is set to `1` so that `req.protocol` is honest behind the Azure
-ingress; it is not used to read a forwarded client address
-(`applications/viewer/src/main.ts:21-25`).
+`trust proxy` is set to `1` on both services so that `req.protocol` is honest
+behind the reverse proxy (Caddy for ingest, the Azure ingress for the viewer);
+it is not used to read a forwarded client address
+(`applications/ingest/src/main.ts:19`; `applications/viewer/src/main.ts:21-25`).
+
+**Ingest application log.** The ingest service's own request log records
+`method`, `path` (this service's own route, query string not included),
+`status` and `durationMs`, plus pino's `pid` and container `hostname`, and
+nothing else (`applications/ingest/src/main.ts:23-38`). The error handler
+writes no log line and echoes no request data
+(`applications/ingest/src/middlewares/error.ts`). One debug-level line names
+the `resource` label of an application-bound key whose body disagreed
+(`applications/ingest/src/handlers/ingest.handlers.ts:50`); production runs
+at the default `info` level, so it is not emitted. Both were read from the
+code and the live container log was sampled on 2026-09-20 (`method`, `path`,
+`status`, `durationMs` only). The verification run described below was
+performed against the viewer.
+
+**Reverse-proxy layer (Caddy, on the VPS).** Measured on the VPS on
+2026-09-20, not assumed. Caddy writes an access log for the ingest host to its
+standard output, which Docker keeps in a `json-file` log. The logger the
+ingest host uses deletes `remote_ip`, `client_ip`, all request headers
+(including `Authorization`), the request `uri` and all response headers, so a
+line for an HTTPS request records only the time, method, host, TLS parameters,
+the client's source port, byte counts, duration and status. One line kind is
+not covered by that filter: the automatic redirect from plain HTTP (port 80)
+to HTTPS is written by Caddy's default logger and does contain the client IP
+address, the requested URI and the request headers such as the User-Agent (1 of
+602 lines for this host in the sampled log, a `curl` request). It affects
+plain-HTTP requests only, never API calls made over HTTPS. Whether Caddy's
+built-in redaction of credential headers applies to that line was not tested.
+The purpose of the log is operating the service and investigating abuse (Art
+6(1)(f) DSGVO); it is not used for anything else. **Retention** is set by
+Docker only: for the Caddy container and the `metrion-ingest` container alike,
+`json-file` with `max-size` 10 MB and `max-file` 3 (host default in
+`/etc/docker/daemon.json`, confirmed on both containers). That is a size
+limit, not a time limit: when the newest file fills, the oldest is discarded.
+On 2026-09-20 the Caddy log held about 26 MB reaching back to 2026-09-16
+(all sites on that proxy together), so the effective period depends on traffic
+and no fixed number of days is guaranteed. See the open points.
 
 A verification run against the deployed logger sent a request carrying a query
 string, a distinctive User-Agent, an `X-Forwarded-For`, a `Cookie`, a `Referer`
@@ -165,17 +213,17 @@ code ships. Shipping such a feature without that banner first is a direct
 
 ## 5. Storage location and retention
 
-### Compute (Azure) — unchanged processor, changed scope
+### Compute — Azure (viewer) and Contabo (ingest)
 
-Microsoft Azure Container Apps hosts `metrion-ingest` and `metrion-viewer`,
-region West Europe (`organizational/viewer-deployment-runbook.md`).
-Microsoft's Data Protection Addendum is the Art 28 DSGVO processor agreement
-for this compute layer. **Azure is no longer the processor for the account
-or metrics database** — see the next section — only for running the two
-stateless application containers and their SSH-tunnel sidecar to the
-database.
+Microsoft Azure Container Apps hosts `metrion-viewer` only, region West
+Europe (`organizational/viewer-deployment-runbook.md`). Microsoft's Data
+Protection Addendum is the Art 28 DSGVO processor agreement for the viewer.
+Azure no longer runs `metrion-ingest` (moved to the Contabo VPS on
+2026-09-20) and is not the processor for the account or metrics database. The
+ingest container image is pulled from Azure Container Registry; that image
+contains no personal data.
 
-### Database (Contabo) — new since this release
+### Database and ingest (Contabo)
 
 The account and metrics database — Postgres with the TimescaleDB extension —
 is self-hosted in Docker on the operator's own, already-existing Contabo VPS,
@@ -211,6 +259,15 @@ ceiling.
   if the VPS is ever migrated to a non-EEA Contabo location (Contabo also
   sells UK, US, Singapore, Australian and Japanese locations), this
   paragraph must be redone before that migration, not after.
+- **Ingest and reverse proxy.** Since 2026-09-20 `metrion-ingest` also runs
+  on this VPS, behind Caddy, so Contabo processes the ingest traffic
+  (API keys in the `Authorization` header and metric payloads, in transit and
+  in memory) in addition to hosting the database. The same Art 28 open point
+  applies. Let's Encrypt (the certificate authority) receives only the
+  domain name `metrion-ingest.woofi-developments.at` and is not a processor
+  of personal data. No new third-country transfer arises: ingest traffic no
+  longer passes through Azure, and both remaining locations are in the EEA
+  (Azure West Europe: Netherlands/Ireland; Contabo Lauterbourg: France).
 
 ### Backups
 
@@ -248,15 +305,19 @@ stays on-box only, 4-week rotation, unencrypted — it never leaves the host.
 
 ## 6. Processors and recipients
 
-- **Microsoft Azure** — compute only (`metrion-ingest`, `metrion-viewer`
-  Container Apps). Microsoft's Data Protection Addendum is the Art 28 DSGVO
-  processor agreement. Azure no longer processes the account or metrics
-  database (section 5).
-- **Contabo GmbH** — the VPS running the self-hosted database (and, via
-  the nightly backup, the encrypted account-table dump before its offsite
-  copy). Named as a new Art 28 DSGVO processor as of this release; its own
-  DPA/AVV reference is not yet confirmed and recorded — see section 5's open
-  point.
+- **Microsoft Azure** — compute for `metrion-viewer` only (Container App and
+  its SSH-tunnel sidecar), plus the container registry holding the ingest
+  image (no personal data). Microsoft's Data Protection Addendum is the
+  Art 28 DSGVO processor agreement. Azure does not process the account or
+  metrics database and no longer runs ingest (section 5).
+- **Contabo GmbH** — the VPS running the self-hosted database and
+  `metrion-ingest` with its Caddy reverse proxy, therefore processing all
+  ingest traffic and the public uptime endpoint, and (via the nightly backup)
+  the encrypted account-table dump before its offsite copy. Named as an
+  Art 28 DSGVO processor; its own DPA/AVV reference is not yet confirmed and
+  recorded — see section 5's open point.
+- **Let's Encrypt (ISRG)** — certificate authority for the ingest hostname;
+  receives the domain name only, no personal data, not a processor.
 - **Identity providers — Google, Microsoft and GitHub — are separate
   controllers, not Art 28 processors.** Signing in redirects to each
   provider's own OAuth flow (`applications/viewer/src/auth/providers.ts`);
@@ -302,25 +363,28 @@ routes serve a project owner's own ingested data, scoped by session, the
 same Art 6(1)(b) basis as the rest of the account's project data — not a
 public inventory of anything.
 
-**The one genuinely public surface is `GET /api/v1/public/projects/:id/uptime`**
-(`applications/viewer/src/routes/public-status.routes.ts:19-21`;
-`applications/viewer/src/handlers/public-status.handlers.ts:15-27`). It has
-no session middleware at all because it has no caller identity to scope by;
-visibility is instead the project's own opt-in,
-`projects.public_status_enabled`, a column added with a default of
-`false` — opt-in, not opt-out, the inverse of `alerts_enabled`'s default,
-because this flag exposes a project's data to callers with no account at
-all (`packages/db/migrations/0011_project_public_status.sql:1-8`). For an
-opted-in project it returns only up/down status and latency aggregates for
-that project's applications — never the general resource/metric inventory
-`/api/v1/metrics` and `/api/v1/resources` serve — and for every other
-project it returns the same 404 an unknown id would
-(`applications/viewer/src/services/status-service.ts:467-475`). This
-endpoint is consumed server-to-server, by the portfolio status page, as its
-second, labelled uptime source
-(`applications/viewer/src/routes/public-status.routes.ts:6-8`;
-`organizational/uptime-sources.md`) — so a status-page visitor's own IP
-address reaches the portfolio host only, never this application.
+**The one genuinely public surface is `GET /api/v1/public/projects/:id/uptime`**,
+served by the ingest service on the Contabo VPS at
+`https://metrion-ingest.woofi-developments.at`
+(`applications/ingest/src/routes/index.ts:57-85`;
+`applications/ingest/src/handlers/public-status.handlers.ts`). It has no
+session or API-key middleware because it has no caller identity to scope by;
+it is rate limited with one shared bucket. Visibility is the project's own
+opt-in, `projects.public_status_enabled`, default `false` — opt-in, not
+opt-out, because this flag exposes a project's data to callers with no
+account at all (`packages/db/migrations/0011_project_public_status.sql:1-8`).
+For an opted-in project it returns, per application that has ever written an
+`uptime.ok` sample: the application key and display name, uptime percentages
+(24 hours, 7 days, 30 days), the latest latency, the time of the last sample
+and a 30-day daily uptime history
+(`applications/ingest/src/services/public-status-service.ts`). It never
+returns the resource/metric inventory (no CPU, memory or container/host
+names); for every other project it returns the same 404 an unknown id would.
+It is consumed server-to-server by the portfolio status page
+(`organizational/uptime-sources.md`), so a status-page visitor's own IP
+address reaches the portfolio host only, never this application; the caller
+seen by ingest is the portfolio's server. The viewer no longer serves this
+route.
 
 ## 7. Is personal data processed at all?
 
@@ -412,10 +476,10 @@ Right to complain (Art 77 DSGVO):
 
 ## 9. Security
 
-The measures relevant to this policy are documented in `SECURITY.md`: TLS at
-the Azure ingress, a container-scoped add-and-create-only SAS on the VPS, a
-managed identity holding no storage secret in the viewer, one bearer token on
-the write path compared in constant time, and rate limits on every route.
+The measures relevant to this policy are documented in `SECURITY.md`: TLS
+terminated by Caddy on the VPS for ingest and by the Azure ingress for the
+viewer, one bearer token per project on the write path compared in constant
+time, and rate limits on every route.
 
 ## 10. Changes
 
@@ -436,10 +500,18 @@ that falsifies one of them is a change to this document too.
 - No self-service account/project-deletion API endpoint exists; DSAR
   erasure is currently a manual, operator-run process (section 7).
 - Whether Azure Container Apps ingress/diagnostic logging is enabled for
-  `metrion-viewer`/`metrion-ingest`, and whether it records client IP
-  addresses, is not determinable from this repository.
+  `metrion-viewer`, and whether it records client IP addresses, is not
+  determinable from this repository.
+- Caddy's plain-HTTP redirect log on the VPS records client IPs, URIs and
+  request headers for the ingest host and is not filtered like the HTTPS
+  access log (section 3). Docker keeps it for at most three 10 MB files with
+  no time limit, so no retention period in days can be stated. Decision
+  pending: filter or disable that line, or set a time-based retention.
+- The Azure `metrion-ingest` container is scheduled for deletion after the
+  24-hour verification window; this policy is written for the post-deletion
+  state.
 - The threshold-alerting feature's email provider (Brevo, tentatively) is
   not yet chosen; section 6's Chapter V position for it is provisional until
   it is.
 
-Effective: 2026-09-07
+Effective: 2026-09-20
