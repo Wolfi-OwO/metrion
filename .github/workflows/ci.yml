@@ -51,6 +51,16 @@ jobs:
 
       - run: npm ci
 
+      # --no-git scans the checked-out tree; plain `detect` reads committed
+      # history only and passes a file that was never committed. No
+      # .gitleaks.toml and no allowlist on purpose: this tree scans clean, and
+      # the only local findings are real secrets in the gitignored
+      # applications/viewer/.env, which must stay flagged. Do not "fix" a red
+      # run with an allowlist - remove or rotate the secret. Tag pinned, never
+      # `latest`.
+      - name: Scan the working tree for secrets
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 detect --no-git --source=/repo --redact
+
       # The same root scripts a developer runs locally, in the same order, so
       # a green CI run and a green working copy mean the same thing. CI does
       # not get its own parallel set of commands to drift from.
