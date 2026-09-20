@@ -93,6 +93,14 @@ services:
       - edge-net
 
 networks:
+  # Pinned so the DOCKER-USER ACCEPT in organizational/metrion-db-firewall/
+  # apply-fw.sh (METRION_DB_BRIDGE_SUBNET in /opt/metrion/fw.env) has a stable
+  # subnet; auto-assigned from a crowded pool (28 br-* bridges here) it could
+  # drift. Keep both values identical.
+  default:
+    ipam:
+      config:
+        - subnet: 172.23.0.0/16
   # Created once on the host (`docker network create edge-net`), shared with
   # the portfolio Caddy - see /opt/portfolio/docker-compose.prod.yaml.
   edge-net:
