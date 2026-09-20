@@ -34,7 +34,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
       return (
         <>
           <PublicHeader />
-          <main className="enter page flex-1 py-16">
+          <main className="enter page flex-1 py-12">
             <div role="alert" className="max-w-prose">
               {/* `critical` reuses the app's own colour-blind-safe status
                   vocabulary (filled diamond) rather than a fresh glyph. */}

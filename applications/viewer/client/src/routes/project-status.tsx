@@ -231,7 +231,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
 
     if (applications.length === 0) {
       return (
-        <div className="page py-8 md:py-12">
+        <div className="page py-8">
           <h1 className="text-page font-semibold tracking-tight text-ink">Status</h1>
           <section className="mt-8 rounded-surface border border-dashed border-line-strong px-6 py-8 md:px-8">
             <h2 className="text-heading font-semibold tracking-tight text-ink">
@@ -254,7 +254,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
     // The page opens with the verdict, in a sentence, and the three counts as
     // the numbers behind it. Everything below is the evidence.
     return (
-      <div className="page py-8 md:py-12">
+      <div className="page py-8">
         <h1 className="text-page font-semibold tracking-tight text-ink">Status</h1>
         <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-body text-ink-2">
           <StatusBadge status={summary.worst} />

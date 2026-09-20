@@ -22,7 +22,7 @@ export function Panel({
   nested?: boolean;
 }) {
   return (
-    <div className={nested ? 'enter py-8' : 'enter page py-12 md:py-16'}>
+    <div className={nested ? 'enter py-8' : 'enter page py-8'}>
       <div className="max-w-prose">{children}</div>
     </div>
   );

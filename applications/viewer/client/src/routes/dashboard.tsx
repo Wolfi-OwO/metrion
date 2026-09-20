@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiError, createProject, type MeResponse } from '../api/client.ts';
+import {
+  ApiError,
+  createProject,
+  type ApplicationStatus,
+  type MeResponse,
+  type Project,
+} from '../api/client.ts';
 import { AccountBar } from '../components/account-bar.tsx';
 import { Field } from '../components/field.tsx';
 import { ChevronIcon } from '../components/icon.tsx';
-import { ProjectHealth } from '../components/project-health.tsx';
+import { ApplicationsCell, HealthCell, useProjectStatus } from '../components/project-health.tsx';
 import { Button, ErrorState } from '../components/states.tsx';
 import { projectNameError } from '../lib/validate.ts';
 import { useProjects } from '../lib/use-projects.ts';
@@ -129,6 +135,16 @@ export default function DashboardRoute({
 }) {
   const projects = useProjects();
   const [showForm, setShowForm] = useState(false);
+  // What each row has learned about its own applications, kept here so the
+  // summary strip can add them up without asking the API a second time.
+  const [statuses, setStatuses] = useState<ReadonlyMap<string, readonly ApplicationStatus[]>>(
+    new Map(),
+  );
+  const onStatus = useCallback((id: string, applications: readonly ApplicationStatus[]) => {
+    setStatuses((current) =>
+      current.get(id) === applications ? current : new Map(current).set(id, applications),
+    );
+  }, []);
 
   return (
     <>
@@ -146,7 +162,7 @@ export default function DashboardRoute({
     const isEmpty = !isLoading && !isError && list.length === 0;
 
     return (
-      <div className="enter page py-8 md:py-12">
+      <div className="enter page py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-page font-semibold tracking-tight text-ink">Projects</h1>
@@ -181,54 +197,18 @@ export default function DashboardRoute({
 
         {isLoading && <ProjectsLoadingRows />}
 
+        {!isLoading && list.length > 0 && <SummaryStrip projects={list} statuses={statuses} />}
+
         {!isLoading && list.length > 0 && (
           // A list, not a card grid: what distinguishes one project from the
-          // next is a name and a health line, and those read best as rows
-          // that line up. The whole row is the link (the name link stretches
-          // over it); Status and Settings are secondary shortcuts that only
-          // appear from md up, because the project's own tabs cover them on a
-          // phone and a row of four 44px targets would not fit.
+          // next is a name, a health line and a count, and those read best as
+          // rows that line up. The whole row is the link (the name link
+          // stretches over it); Status and Settings are secondary shortcuts
+          // that only appear from md up, because the project's own tabs cover
+          // them on a phone and four 44px targets would not fit a row.
           <ul className={LIST}>
             {list.map((project) => (
-              <li
-                key={project.id}
-                className="group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-raised md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_auto_auto] md:gap-x-6"
-              >
-                <div className="min-w-0">
-                  <Link
-                    to={`/projects/${project.id}`}
-                    className="block py-1 after:absolute after:inset-0"
-                  >
-                    <span className="block truncate text-body font-medium text-ink">
-                      {project.name}
-                    </span>
-                    <span className="block truncate font-mono text-meta text-ink-3">
-                      {project.slug}
-                    </span>
-                  </Link>
-                </div>
-
-                <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
-                  <ProjectHealth projectId={project.id} />
-                </div>
-
-                <div className="hidden items-center gap-1 md:flex">
-                  <Link
-                    to={`/projects/${project.id}/status`}
-                    className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
-                  >
-                    Status
-                  </Link>
-                  <Link
-                    to={`/projects/${project.id}/settings`}
-                    className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
-                  >
-                    Settings
-                  </Link>
-                </div>
-
-                <ChevronIcon className="col-start-2 row-start-1 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink md:col-start-auto md:row-start-auto" />
-              </li>
+              <ProjectRow key={project.id} project={project} onStatus={onStatus} />
             ))}
           </ul>
         )}
@@ -274,5 +254,125 @@ function FirstRun({ onCreate }: { onCreate: () => void }) {
         Create your first project
       </Button>
     </section>
+  );
+}
+
+const STRIP_STAT = 'flex min-w-24 flex-col gap-1';
+
+/**
+ * The verdict for the whole account in five numbers, added up from the rows
+ * below it. It only counts projects whose status has arrived, and says so
+ * when that is not all of them - a total that quietly omits projects is worse
+ * than no total.
+ */
+function SummaryStrip({
+  projects,
+  statuses,
+}: {
+  projects: readonly Project[];
+  statuses: ReadonlyMap<string, readonly ApplicationStatus[]>;
+}) {
+  const counts = { ok: 0, warning: 0, critical: 0 };
+  let applications = 0;
+  let reporting = 0;
+  for (const project of projects) {
+    const list = statuses.get(project.id);
+    if (!list) continue;
+    reporting += 1;
+    for (const app of list) {
+      applications += 1;
+      counts[app.effectiveStatus] += 1;
+    }
+  }
+  const stats: { label: string; value: number; tone: string; hideOnPhone?: boolean }[] = [
+    { label: 'Projects', value: projects.length, tone: 'text-ink', hideOnPhone: true },
+    { label: 'Applications', value: applications, tone: 'text-ink' },
+    { label: 'Healthy', value: counts.ok, tone: counts.ok > 0 ? 'text-status-ok' : 'text-ink-3' },
+    {
+      label: 'Warning',
+      value: counts.warning,
+      tone: counts.warning > 0 ? 'text-status-warning' : 'text-ink-3',
+    },
+    {
+      label: 'Critical',
+      value: counts.critical,
+      tone: counts.critical > 0 ? 'text-status-critical' : 'text-ink-3',
+    },
+  ];
+  return (
+    <section aria-label="Summary" className="mt-6">
+      <dl className="grid grid-cols-2 gap-x-12 gap-y-4 sm:flex sm:flex-wrap">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className={`${STRIP_STAT}${stat.hideOnPhone ? ' max-sm:hidden' : ''}`}
+          >
+            <dt className="text-label text-ink-3">{stat.label}</dt>
+            <dd className={`text-page font-semibold tabular-nums ${stat.tone}`}>{stat.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {reporting < projects.length && (
+        <p className="mt-2 text-label text-ink-3">
+          Counting {reporting} of {projects.length} projects so far.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ProjectRow({
+  project,
+  onStatus,
+}: {
+  project: Project;
+  onStatus: (id: string, applications: readonly ApplicationStatus[]) => void;
+}) {
+  const { ref, result } = useProjectStatus<HTMLLIElement>(project.id, onStatus);
+  const created = new Date(project.createdAt).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  return (
+    <li
+      ref={ref}
+      className="group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-4 py-3 transition-colors hover:bg-raised md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_8rem_auto_1rem]"
+    >
+      <div className="min-w-0">
+        <Link to={`/projects/${project.id}`} className="block py-1 after:absolute after:inset-0">
+          <span className="block truncate text-body font-medium text-ink">{project.name}</span>
+          <span className="block truncate font-mono text-meta text-ink-3">{project.slug}</span>
+        </Link>
+      </div>
+
+      <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
+        <HealthCell result={result} />
+      </div>
+
+      <div className="col-span-2 row-start-3 flex min-w-0 items-center justify-between gap-4 md:col-span-1 md:row-start-auto md:block">
+        <ApplicationsCell result={result} />
+        <span className="text-label whitespace-nowrap text-ink-3 md:hidden">{created}</span>
+      </div>
+
+      <span className="hidden text-label whitespace-nowrap text-ink-3 md:block">{created}</span>
+
+      <div className="hidden items-center gap-1 md:flex">
+        <Link
+          to={`/projects/${project.id}/status`}
+          className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
+        >
+          Status
+        </Link>
+        <Link
+          to={`/projects/${project.id}/settings`}
+          className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
+        >
+          Settings
+        </Link>
+      </div>
+
+      <ChevronIcon className="col-start-2 row-start-1 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink md:col-start-auto md:row-start-auto" />
+    </li>
   );
 }

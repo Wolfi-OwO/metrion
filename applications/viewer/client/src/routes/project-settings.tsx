@@ -232,7 +232,7 @@ export default function ProjectSettingsRoute() {
   return (
     <ProjectShell auth={auth} lookup={lookup} projectId={projectId ?? ''}>
       {(project) => (
-        <main className="enter page flex-1 py-8 md:py-12">
+        <main className="enter page flex-1 py-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="text-page font-semibold tracking-tight text-ink">API keys</h1>

@@ -13,7 +13,7 @@ export default function NotFoundRoute() {
   return (
     <>
       <PublicHeader />
-      <main className="enter page flex-1 py-16">
+      <main className="enter page flex-1 py-12">
         <p className="text-display font-semibold tracking-tight text-line-strong">404</p>
         <div className="mt-4 max-w-prose">
           <Heading level="h1">There is nothing at this address</Heading>

@@ -136,9 +136,9 @@
   --text-body: 14px;
   --text-body--line-height: 22px;
   --text-label: 12px;
-  --text-label--line-height: 16px;
+  --text-label--line-height: 20px;
   --text-meta: 12px;
-  --text-meta--line-height: 16px;
+  --text-meta--line-height: 20px;
 
   /* Two radii and a pill. Controls are what a cursor lands on; surfaces are
      what holds them. */
@@ -152,11 +152,15 @@
   --shadow-raised: 0 1px 0 0 rgb(0 0 0 / 0.25);
   --shadow-popover: 0 8px 24px -6px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.04);
 
-  /* Page gutters and the reading measure. 4px base; the only steps in use are
-     4, 8, 12, 16, 24, 32, 48, 64. */
-  --spacing-gutter: 24px;
-  --spacing-gutter-lg: 40px;
-  --container-page: 1280px;
+  /* Page gutter and container. 4px base; the only steps in use are 4, 8, 12,
+     16, 24, 32, 48, 64. */
+  /* Fluid, and deliberately small: 16px on a phone growing to 32px by 1280px.
+     The first pass used a fixed 24/40px gutter inside a 1280px container,
+     which left 120px of dead canvas on each side of a 1440px window and 360px
+     at 1920 - measured, not felt. The container now only stops growing at
+     1920px, so up to that width the margin IS the gutter. */
+  --spacing-gutter: clamp(16px, 2.5vw, 32px);
+  --container-page: 1920px;
 
   --tracking-eyebrow: 0.08em;
   /* Instrument Sans is already tightly set; Tailwind's stock -0.025em made the
@@ -237,9 +241,6 @@
   width: 100%;
   max-width: var(--container-page);
   padding-inline: var(--spacing-gutter);
-  @media (min-width: 40rem) {
-    padding-inline: var(--spacing-gutter-lg);
-  }
 }
 
 html {
