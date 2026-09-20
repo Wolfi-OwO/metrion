@@ -1,6 +1,6 @@
-import { Brand } from '../components/brand.tsx';
 import { CopyButton } from '../components/copy-button.tsx';
 import { ScopeIcon, type ScopeIconId } from '../components/icon.tsx';
+import { PublicHeader } from '../components/public-header.tsx';
 
 /**
  * The signed-out root. A quiet, technical product page rather than a
@@ -12,9 +12,9 @@ import { ScopeIcon, type ScopeIconId } from '../components/icon.tsx';
  */
 
 const PROVIDERS: ReadonlyArray<{ readonly id: string; readonly label: string }> = [
-  { id: 'google', label: 'Continue with Google' },
-  { id: 'microsoft', label: 'Continue with Microsoft' },
-  { id: 'github', label: 'Continue with GitHub' },
+  { id: 'google', label: 'Google' },
+  { id: 'microsoft', label: 'Microsoft' },
+  { id: 'github', label: 'GitHub' },
 ];
 
 /** Official mark colours, unaltered, per each provider's own brand
@@ -80,24 +80,28 @@ function ProviderIcon({ id }: { id: string }) {
 
 /** Real navigations to `GET /auth/:provider` (`routes/auth.routes.ts`), not
  * fetches - the server answers with a redirect to the provider, so a plain
- * anchor is correct and a click handler would only get in the way. Stacked
- * full-width rows, not squeezed side-by-side pills: a sign-in control is
- * read top to bottom, one decision at a time. */
+ * anchor is correct and a click handler would only get in the way. The three
+ * providers are equals, so they sit in one row under one sentence instead of
+ * three stacked slabs: the decision is "which account", not "which of three
+ * big things". */
 function SignInButtons() {
   return (
-    <div className="flex flex-col gap-2.5" aria-label="Sign in">
-      {PROVIDERS.map((provider) => (
-        <a
-          key={provider.id}
-          href={`/auth/${provider.id}`}
-          className="group flex items-center gap-3 rounded-surface border border-line-strong bg-raised px-4 py-3 text-body font-medium text-ink transition-colors duration-(--duration-fast) hover:border-accent hover:bg-surface"
-        >
-          <ProviderIcon id={provider.id} />
-          <span className="transition-colors duration-(--duration-fast) group-hover:text-accent">
+    <div>
+      <p className="text-label font-medium text-ink-2" id="sign-in-label">
+        Continue with
+      </p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-3" role="group" aria-labelledby="sign-in-label">
+        {PROVIDERS.map((provider) => (
+          <a
+            key={provider.id}
+            href={`/auth/${provider.id}`}
+            className="flex min-h-11 items-center justify-center gap-3 rounded-control border border-line-strong bg-raised px-4 text-body font-medium text-ink transition-colors hover:border-control md:min-h-10"
+          >
+            <ProviderIcon id={provider.id} />
             {provider.label}
-          </span>
-        </a>
-      ))}
+          </a>
+        ))}
+      </div>
     </div>
   );
 }
@@ -128,84 +132,100 @@ const RESOURCE_KINDS: ReadonlyArray<{
   },
 ];
 
+/** A small deterministic wave: `spike` is where the shared event lands, so
+ * the three strips below can all show it at the same x - the whole pitch. */
+function wave(seed: number, amplitude: number, spikeHeight: number, width: number, height: number) {
+  const points: string[] = [];
+  const count = 48;
+  for (let i = 0; i <= count; i += 1) {
+    const x = (i / count) * width;
+    const t = i / count;
+    const base = 0.35 + 0.12 * Math.sin(t * 9 + seed) + 0.06 * Math.sin(t * 23 + seed * 2);
+    const spike = Math.exp(-(((t - 0.7) / 0.035) ** 2)) * spikeHeight;
+    const y = height - (base * amplitude + spike) * height;
+    points.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`);
+  }
+  return points.join(' ');
+}
+
+const PREVIEW_STRIPS = [
+  {
+    name: 'cpu.usage',
+    value: '83%',
+    color: 'var(--color-series-1)',
+    dash: undefined,
+    seed: 1,
+    spike: 0.5,
+  },
+  {
+    name: 'memory.used',
+    value: '6.4 GiB',
+    color: 'var(--color-series-2)',
+    dash: '5 3',
+    seed: 4,
+    spike: 0.22,
+  },
+  {
+    name: 'net.rx',
+    value: '24 MiB/s',
+    color: 'var(--color-series-3)',
+    dash: '2 3',
+    seed: 7,
+    spike: 0.55,
+  },
+] as const;
+
 /**
- * The hero's right half: a real rendering of the pitch in the headline
- * above it, not decoration standing in for one - three series sharing one
- * time axis, with a "now" marker where a live feed would still be writing.
- * Static SVG, not `recharts`: nothing here is interactive or bound to real
- * data, so the chart library the dashboard uses for actual metrics would be
- * pure weight on the one screen a signed-out visitor has not earned a
- * dashboard's payload for yet.
+ * The hero's right half: three strips on one clock with a crosshair through
+ * the same instant, drawn the way the product draws them. A CPU spike, a
+ * memory step and a network burst line up because they share an axis - the
+ * pitch of the headline, shown rather than described. Static SVG, not
+ * recharts: nothing here is interactive, and the chart library is payload a
+ * signed-out visitor has not earned yet.
  */
 function TimeAxisPreview() {
+  const width = 440;
+  const height = 64;
+  const crosshair = 0.7 * width;
   return (
-    <div className="relative overflow-hidden rounded-surface border border-line bg-surface p-5 shadow-raised sm:p-6">
-      <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">One shared axis</p>
-      <svg
-        viewBox="0 0 400 190"
-        className="mt-4 w-full"
-        role="img"
-        aria-label="Three metrics - CPU usage, memory used and request latency - plotted against the same shared time axis, with a marker for the current instant"
-      >
-        {[38, 76, 114, 152].map((y) => (
-          <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="var(--color-line)" strokeWidth="1" />
+    <figure
+      className="relative rounded-surface border border-line bg-surface p-4 shadow-raised md:p-6"
+      aria-label="Three metrics - CPU usage, memory used and network receive rate - plotted on one shared time axis with a crosshair through a single instant"
+    >
+      <div className="space-y-4" aria-hidden="true">
+        {PREVIEW_STRIPS.map((strip) => (
+          <div key={strip.name}>
+            <div className="flex items-baseline justify-between font-mono text-label">
+              <span className="text-ink-2">{strip.name}</span>
+              <span className="font-medium text-ink">{strip.value}</span>
+            </div>
+            <svg viewBox={`0 0 ${width} ${height}`} className="mt-1 w-full">
+              {[16, 32, 48].map((y) => (
+                <line key={y} x1="0" y1={y} x2={width} y2={y} stroke="var(--color-line)" />
+              ))}
+              <path
+                d={wave(strip.seed, 0.8, strip.spike, width, height)}
+                fill="none"
+                stroke={strip.color}
+                strokeWidth="1.5"
+                strokeDasharray={strip.dash}
+              />
+              <line
+                x1={crosshair}
+                y1="0"
+                x2={crosshair}
+                y2={height}
+                stroke="var(--color-control)"
+              />
+            </svg>
+          </div>
         ))}
-
-        <path
-          d="M0 130 Q30 120 50 100 T110 90 T170 60 T230 75 T290 40 T350 55 T400 35"
-          fill="none"
-          stroke="var(--color-series-1)"
-          strokeWidth="2"
-        />
-        <path
-          d="M0 160 Q40 155 70 150 T140 145 T210 140 T280 132 T340 128 T400 120"
-          fill="none"
-          stroke="var(--color-series-4)"
-          strokeWidth="2"
-        />
-        <path
-          d="M0 95 Q25 105 60 118 T130 108 T190 128 T250 100 T320 115 T400 90"
-          fill="none"
-          stroke="var(--color-series-6)"
-          strokeWidth="2"
-          strokeDasharray="1 5"
-          strokeLinecap="round"
-        />
-
-        <line
-          x1="358"
-          y1="10"
-          x2="358"
-          y2="180"
-          stroke="var(--color-series-2)"
-          strokeWidth="1"
-          strokeDasharray="3 3"
-        />
-        <text
-          x="362"
-          y="20"
-          fill="var(--color-series-2)"
-          fontSize="10"
-          fontFamily="var(--font-mono)"
-        >
-          now
-        </text>
-      </svg>
-      <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-meta text-ink-2">
-        <li className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-          cpu.usage
-        </li>
-        <li className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-series-4" aria-hidden="true" />
-          memory.used
-        </li>
-        <li className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-series-6" aria-hidden="true" />
-          requests:web-01 latency
-        </li>
-      </ul>
-    </div>
+      </div>
+      <figcaption className="mt-4 flex items-center justify-between font-mono text-label text-ink-3">
+        <span>one clock, three metrics</span>
+        <span>14:32</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -227,33 +247,27 @@ const QUICKSTART = `curl https://ingest.metrion.example.at/api/v1/ingest \\
 export default function LandingRoute() {
   return (
     <>
-      <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
-        <div className="flex items-center justify-between">
-          <Brand />
-          <span className="font-mono text-meta text-ink-3">v{__APP_VERSION__}</span>
-        </div>
-      </header>
+      <PublicHeader>
+        <span className="font-mono text-meta text-ink-3">v{__APP_VERSION__}</span>
+      </PublicHeader>
 
-      <main className="flex-1">
-        <section className="border-b border-line px-gutter py-16 sm:px-gutter-lg sm:py-24">
-          <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
-            <div className="max-w-xl">
-              <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
-                Metrics platform
-              </p>
-              <h1 className="mt-3 text-display font-semibold text-ink sm:text-display">
+      <main className="enter flex-1">
+        <section className="border-b border-line">
+          <div className="page grid gap-12 py-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-16">
+            <div>
+              <h1 className="max-w-[20ch] text-display font-semibold tracking-tight text-balance text-ink">
                 One shared time axis for every server you run.
               </h1>
-              <p className="mt-5 max-w-prose text-heading leading-relaxed text-ink-2">
+              <p className="mt-6 max-w-prose text-heading text-ink-2">
                 metrion collects CPU, memory, disk, network and per-container metrics once a minute
                 and lines every reading up against the same clock, so a CPU spike and a network
                 spike read as one instant, not two dashboards you have to cross-reference by hand.
               </p>
-              <div className="mt-9">
-                <p className="mb-3 text-label text-ink-3">
-                  Sign in to create a project and mint an API key.
-                </p>
+              <div className="mt-8 max-w-lg">
                 <SignInButtons />
+                <p className="mt-4 text-label text-ink-3">
+                  Signing in creates your account. Then: a project, an API key, one curl.
+                </p>
               </div>
             </div>
 
@@ -261,51 +275,52 @@ export default function LandingRoute() {
           </div>
         </section>
 
-        <section className="border-b border-line px-gutter py-14 sm:px-gutter-lg">
-          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
-            What it tracks
-          </p>
-          <div className="mt-5 grid gap-4 sm:grid-cols-3">
-            {RESOURCE_KINDS.map((kind) => (
-              <div key={kind.id} className="rounded-surface border border-line bg-surface p-5">
-                <ScopeIcon id={kind.id} />
-                {/* h2, not h3: the page's only other heading is the hero's
-                    h1 above, and the eyebrow labels ("What it tracks") are
-                    deliberately plain text, not headings, so a screen
-                    reader's heading list stays short - which makes this the
-                    first heading past the h1, not a third level down. */}
-                <h2 className="mt-3 text-body font-semibold text-ink">{kind.scope}</h2>
-                {kind.prefix && (
-                  <p className="mt-1 font-mono text-meta text-ink-3">{kind.prefix}</p>
-                )}
-                <ul className="mt-3 flex flex-wrap gap-1.5">
-                  {kind.metrics.map((metric) => (
-                    <li
-                      key={metric}
-                      className="rounded-control border border-line px-1.5 py-0.5 font-mono text-meta text-ink-2"
-                    >
-                      {metric}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+        <section className="border-b border-line">
+          <div className="page py-12">
+            <h2 className="text-heading font-semibold tracking-tight text-ink">What it tracks</h2>
+            {/* A definition list, not three cards: the three kinds are rows of
+                one table (what, how it is addressed, which metrics), and read
+                best as a table. */}
+            <dl className="mt-6 divide-y divide-line border-y border-line">
+              {RESOURCE_KINDS.map((kind) => (
+                <div
+                  key={kind.id}
+                  className="grid gap-x-8 gap-y-2 py-4 md:grid-cols-[12rem_14rem_minmax(0,1fr)]"
+                >
+                  <dt className="flex items-center gap-3 text-body font-medium text-ink">
+                    <ScopeIcon id={kind.id} />
+                    {kind.scope}
+                  </dt>
+                  <dd className="font-mono text-label text-ink-3">
+                    {kind.prefix ?? 'the machine itself'}
+                  </dd>
+                  <dd className="font-mono text-label text-ink-2">{kind.metrics.join('  ·  ')}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </section>
 
-        <section className="px-gutter py-14 sm:px-gutter-lg">
-          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
-            Already have a key? Send your first metric.
-          </p>
-          <div className="mt-5 max-w-2xl rounded-surface border border-line bg-surface p-5">
-            <pre className="overflow-x-auto rounded-control border border-line bg-bg p-4 font-mono text-label leading-relaxed text-ink">
-              <code>{QUICKSTART}</code>
-            </pre>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-label text-ink-3">
-                No key yet? Sign in above, create a project, then mint one from its settings page.
+        <section>
+          <div className="page grid gap-8 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:gap-16">
+            <div>
+              <h2 className="text-heading font-semibold tracking-tight text-ink">
+                Send your first metric
+              </h2>
+              <p className="mt-2 max-w-prose text-body text-ink-2">
+                One authenticated POST per minute per host. No agent lock-in: anything that can run
+                curl can report. Sign in, create a project, then mint a key from its Settings tab -
+                it is shown once.
               </p>
-              <CopyButton text={QUICKSTART} label="Copy snippet" />
+            </div>
+            <div className="min-w-0 overflow-hidden rounded-surface border border-line bg-surface">
+              <div className="flex items-center justify-between border-b border-line py-1 pr-1 pl-4">
+                <span className="font-mono text-label text-ink-3">curl</span>
+                <CopyButton text={QUICKSTART} label="Copy snippet" />
+              </div>
+              <pre className="overflow-x-auto p-4 font-mono text-label leading-5 text-ink">
+                <code>{QUICKSTART}</code>
+              </pre>
             </div>
           </div>
         </section>

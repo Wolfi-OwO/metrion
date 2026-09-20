@@ -1,30 +1,27 @@
 import { Link } from 'react-router-dom';
-import { Brand } from '../components/brand.tsx';
-import { Body, Heading, buttonClassName } from '../components/states.tsx';
+import { PublicHeader } from '../components/public-header.tsx';
+import { Body, buttonClassName, Heading } from '../components/states.tsx';
 
 /**
  * The catch-all route. `App.tsx`'s footer still renders around this, so the
  * legal links stay reachable from a mistyped URL exactly as they do from
- * every other screen. Its own header repeats just the wordmark - not the
- * full signed-in chrome, since a 404 has no account or breadcrumb to show -
- * so there is still a way back to `/` above the fold instead of one link
- * buried in a paragraph.
+ * every other screen. The header repeats the wordmark only - a 404 has no
+ * account or breadcrumb to show - so there is a way back above the fold
+ * instead of one link buried in a paragraph.
  */
 export default function NotFoundRoute() {
   return (
     <>
-      <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
-        <Brand />
-      </header>
-      <main className="flex-1 px-gutter py-14 sm:px-gutter-lg">
-        <div className="flex max-w-prose flex-col gap-3">
-          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">404</p>
-          <Heading level="h1">Page not found</Heading>
+      <PublicHeader />
+      <main className="enter page flex-1 py-16">
+        <p className="font-mono text-display font-semibold tracking-tight text-line-strong">404</p>
+        <div className="mt-4 max-w-prose">
+          <Heading level="h1">There is nothing at this address</Heading>
           <Body>
-            There is nothing at this address. It may have moved, or the link was mistyped.
+            It may have moved, or the link was mistyped. Your projects are one click away.
           </Body>
-          <Link to="/" className={buttonClassName('primary', 'default', 'mt-1 self-start')}>
-            Go back home
+          <Link to="/" className={buttonClassName('primary', 'default', 'mt-6')}>
+            Back to your projects
           </Link>
         </div>
       </main>

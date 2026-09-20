@@ -53,7 +53,7 @@ export function Footer() {
 
         <nav
           aria-label="Legal and contact"
-          className="order-2 flex flex-wrap items-center justify-center gap-x-2 md:order-none md:justify-self-end md:gap-x-4"
+          className="order-2 grid w-full grid-cols-3 justify-items-center md:order-none md:flex md:w-auto md:items-center md:justify-self-end md:gap-x-4"
         >
           <a
             href="https://status.woofi-developments.at"

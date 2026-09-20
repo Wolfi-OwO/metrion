@@ -164,7 +164,7 @@ export default function DashboardRoute({
         </div>
 
         {isError && (
-          <ErrorState error={projects.error!} onRetry={projects.reload} what="projects" />
+          <ErrorState error={projects.error!} onRetry={projects.reload} what="projects" nested />
         )}
 
         {(showForm || (isEmpty && showForm)) && (

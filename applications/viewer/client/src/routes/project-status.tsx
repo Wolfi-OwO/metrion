@@ -219,7 +219,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
   const [registering, setRegistering] = useState(false);
   const applications = status.data ?? [];
 
-  return <main className="enter page flex-1 py-8 md:py-12">{renderBody()}</main>;
+  return <main className="enter flex-1">{renderBody()}</main>;
 
   function renderBody() {
     if (status.phase === 'error' && status.error) {
@@ -231,7 +231,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
 
     if (applications.length === 0) {
       return (
-        <>
+        <div className="page py-8 md:py-12">
           <h1 className="text-page font-semibold tracking-tight text-ink">Status</h1>
           <section className="mt-8 rounded-surface border border-dashed border-line-strong px-6 py-8 md:px-8">
             <h2 className="text-heading font-semibold tracking-tight text-ink">
@@ -244,7 +244,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
             </p>
             <CreateApplicationForm projectId={project.id} onCreated={status.reload} />
           </section>
-        </>
+        </div>
       );
     }
 
@@ -254,7 +254,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
     // The page opens with the verdict, in a sentence, and the three counts as
     // the numbers behind it. Everything below is the evidence.
     return (
-      <>
+      <div className="page py-8 md:py-12">
         <h1 className="text-page font-semibold tracking-tight text-ink">Status</h1>
         <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-body text-ink-2">
           <StatusBadge status={summary.worst} />
@@ -335,7 +335,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         <Disclosure title="Recent transitions">
           <StatusEventsPanel projectId={project.id} applications={applications} />
         </Disclosure>
-      </>
+      </div>
     );
   }
 }

@@ -1,5 +1,6 @@
 import type { ApiError } from '../api/client.ts';
 import { formatTimestamp } from '../lib/format.ts';
+import { StatusIcon } from './icon.tsx';
 import type { TimeRange } from '../lib/range.ts';
 
 /**
@@ -11,9 +12,17 @@ import type { TimeRange } from '../lib/range.ts';
 // Exported: the dashboard and project-settings screens (`routes/`) reuse
 // this trio for their own empty and error panels rather than each growing a
 // slightly different one.
-export function Panel({ children }: { children: React.ReactNode }) {
+export function Panel({
+  children,
+  nested = false,
+}: {
+  children: React.ReactNode;
+  /** True when the caller already sits inside a `page` container, so this
+   * must not add a second set of gutters. */
+  nested?: boolean;
+}) {
   return (
-    <div className="flex min-h-64 flex-col items-start justify-center gap-3 px-gutter py-14 sm:px-gutter-lg">
+    <div className={nested ? 'enter py-8' : 'enter page py-12 md:py-16'}>
       <div className="max-w-prose">{children}</div>
     </div>
   );
@@ -32,7 +41,10 @@ export function Heading({
   children: React.ReactNode;
   level?: 'h1' | 'h2';
 }) {
-  const className = 'text-heading font-semibold tracking-tight text-ink';
+  const className =
+    level === 'h1'
+      ? 'text-page font-semibold tracking-tight text-ink'
+      : 'text-heading font-semibold tracking-tight text-ink';
   return level === 'h1' ? (
     <h1 className={className}>{children}</h1>
   ) : (
@@ -127,13 +139,16 @@ export function Button({
  */
 function AxisGhost({ sweeping }: { sweeping: boolean }) {
   return (
-    <div className="relative h-28 w-full overflow-hidden border-y border-line" aria-hidden="true">
+    <div
+      className="relative h-32 w-full overflow-hidden rounded-surface border border-line bg-surface"
+      aria-hidden="true"
+    >
       {/* `py-2` mirrors `MetricChart`'s own `margin={{ top: 8, bottom: 8 }}` -
           without it the top and bottom grid lines sat flush on the border,
           reading as one thick line instead of four evenly spaced ones. */}
-      <div className="absolute inset-0 flex flex-col justify-between py-2">
+      <div className="absolute inset-0 flex flex-col justify-between py-4">
         {[0, 1, 2, 3].map((line) => (
-          <div key={line} className="h-px w-full bg-raised" />
+          <div key={line} className="h-px w-full bg-line" />
         ))}
       </div>
       {sweeping && (
@@ -151,7 +166,7 @@ function AxisGhost({ sweeping }: { sweeping: boolean }) {
  */
 export function LoadingState({ waking, seconds }: { waking: boolean; seconds: number }) {
   return (
-    <div className="px-gutter py-8 sm:px-gutter-lg">
+    <div className="page py-8">
       <div
         role="status"
         aria-live="polite"
@@ -211,7 +226,7 @@ export function EmptyState({
         .
       </Body>
       {onWiden && (
-        <Button className="mt-4" onClick={onWiden}>
+        <Button className="mt-6" onClick={onWiden}>
           Look further back
         </Button>
       )}
@@ -275,19 +290,25 @@ export function ErrorState({
   error,
   onRetry,
   what = 'metrics',
+  nested = false,
 }: {
+  nested?: boolean;
   error: ApiError;
   onRetry: () => void;
   /** Which API failed, in a word, so the heading names the right one. */
   what?: string;
 }) {
   return (
-    <Panel>
+    <Panel nested={nested}>
       <div role="alert">
+        <p className="mb-2 flex items-center gap-2 text-label font-medium text-text-danger">
+          <StatusIcon status="critical" />
+          Request failed
+        </p>
         <Heading>{errorHeading(error, what)}</Heading>
         <Body>{errorBody(error)}</Body>
       </div>
-      <Button className="mt-4" onClick={onRetry}>
+      <Button className="mt-6" variant="primary" onClick={onRetry}>
         Try again
       </Button>
     </Panel>

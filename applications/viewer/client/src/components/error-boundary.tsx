@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Brand } from './brand.tsx';
+import { PublicHeader } from './public-header.tsx';
 import { StatusIcon } from './icon.tsx';
 import { Body, Button, Heading, buttonClassName } from './states.tsx';
 
@@ -33,24 +33,22 @@ export class RouteErrorBoundary extends Component<Props, State> {
     if (this.state.error) {
       return (
         <>
-          <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
-            <Brand />
-          </header>
-          <main className="flex-1 px-gutter py-14 sm:px-gutter-lg">
-            <div role="alert" className="flex max-w-prose flex-col gap-3">
+          <PublicHeader />
+          <main className="enter page flex-1 py-16">
+            <div role="alert" className="max-w-prose">
               {/* `critical` reuses the app's own colour-blind-safe status
-                  vocabulary (filled diamond, `components/icon.tsx`) rather
-                  than a fresh glyph - this genuinely is that severity, not a
-                  borrowed one. */}
-              <div className="flex items-center gap-2 font-mono text-meta uppercase tracking-eyebrow text-text-danger">
+                  vocabulary (filled diamond) rather than a fresh glyph. */}
+              <div className="flex items-center gap-2 text-label font-medium text-text-danger">
                 <StatusIcon status="critical" />
                 <span>Error</span>
               </div>
-              <Heading level="h1">Something went wrong</Heading>
-              <Body>
-                This screen hit an unexpected error. Reloading the page usually clears it.
-              </Body>
-              <div className="mt-1 flex flex-wrap gap-3">
+              <div className="mt-2">
+                <Heading level="h1">Something went wrong</Heading>
+                <Body>
+                  This screen hit an unexpected error. Reloading the page usually clears it.
+                </Body>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2">
                 <Button variant="primary" onClick={() => window.location.reload()}>
                   Reload page
                 </Button>

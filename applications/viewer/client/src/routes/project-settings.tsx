@@ -5,6 +5,7 @@ import { CopyButton } from '../components/copy-button.tsx';
 import { StatusIcon } from '../components/icon.tsx';
 import { ProjectShell } from '../components/project-shell.tsx';
 import { Body, Button, Heading } from '../components/states.tsx';
+import { formatAge } from '../lib/format.ts';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useProject } from '../lib/use-projects.ts';
 
@@ -20,6 +21,8 @@ interface KeyRow {
   readonly id: string;
   readonly keyPrefix: string;
   readonly createdAt: string;
+  readonly lastUsedAt: string | null;
+  readonly revokedAt: string | null;
   revoked: boolean;
 }
 
@@ -56,37 +59,54 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
       .finally(() => setRevoking(false));
   };
 
+  const date = (value: string) =>
+    new Date(value).toLocaleDateString(undefined, { dateStyle: 'medium' });
+
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-3">
-      <span className="font-mono text-body text-ink">mtr_{row.keyPrefix}_••••••••</span>
-      <span className="font-mono text-meta text-ink-3">
-        created{' '}
-        {new Date(row.createdAt).toLocaleString(undefined, {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        })}
+    <li
+      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_6rem] ${
+        row.revoked ? 'text-ink-3' : ''
+      }`}
+    >
+      <span
+        className={`truncate font-mono text-label ${row.revoked ? 'text-ink-3 line-through' : 'text-ink'}`}
+      >
+        mtr_{row.keyPrefix}_••••••••
       </span>
-      {row.revoked ? (
-        <span className="ml-auto text-label text-ink-3">Revoked</span>
-      ) : (
-        // Solid fill, not the outlined default every other action on this page
-        // uses - the one place in the app a destructive action is irreversible
-        // with no undo, so it reads that way at rest, not only on hover.
-        // First click only arms it (relabels to a confirmation); the second,
-        // real click has to land on the same button within REVOKE_ARM_MS.
-        <Button
-          className="ml-auto"
-          variant="primary"
-          tone="danger"
-          onClick={handleRevoke}
-          onBlur={() => setArmed(false)}
-          loading={revoking}
-        >
-          {revoking ? 'Revoking…' : armed ? 'Confirm revoke' : 'Revoke'}
-        </Button>
-      )}
+      <span className="col-span-2 text-label text-ink-3 md:col-span-1 md:col-start-2 md:row-start-1">
+        Created {date(row.createdAt)}
+      </span>
+      <span className="col-span-2 text-label text-ink-3 md:col-span-1 md:col-start-3 md:row-start-1">
+        {row.revoked && row.revokedAt
+          ? `Revoked ${date(row.revokedAt)}`
+          : row.lastUsedAt
+            ? `Last used ${formatAge(Date.now() - Date.parse(row.lastUsedAt))}`
+            : 'Never used'}
+      </span>
+      <div className="col-start-2 row-start-1 md:col-start-4">
+        {row.revoked ? (
+          <span className="inline-flex items-center rounded-pill bg-raised px-2 py-px text-label font-medium text-ink-3">
+            Revoked
+          </span>
+        ) : (
+          // Outlined at rest, filled only once armed: the one irreversible
+          // action in the app should not shout from every row, but the
+          // confirming click must look different from the first. The first
+          // click only arms it; the second has to land on the same button
+          // within REVOKE_ARM_MS.
+          <Button
+            variant={armed ? 'primary' : 'secondary'}
+            tone="danger"
+            onClick={handleRevoke}
+            onBlur={() => setArmed(false)}
+            loading={revoking}
+          >
+            {revoking ? 'Revoking…' : armed ? 'Confirm revoke' : 'Revoke'}
+          </Button>
+        )}
+      </div>
       {error && (
-        <p role="alert" className="w-full text-label text-text-danger">
+        <p role="alert" className="col-span-2 text-label text-text-danger md:col-span-4">
           {error}
         </p>
       )}
@@ -94,33 +114,29 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
   );
 }
 
-/** Shown once, right after creation, then discarded from state entirely -
- * not merely hidden - when the caller confirms they copied it. From that
- * point on nothing in this page can put the secret back on screen, because
- * nothing in this page still holds it. Styled as the highest-stakes moment
- * in the product: an elevated, caution-bordered panel rather than a plain
- * bordered div, so it reads as a one-time, unrepeatable action rather than
- * an ordinary status message. */
 function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void }) {
   return (
-    <div className="mt-4 overflow-hidden rounded-surface border border-text-caution/50 bg-surface shadow-raised">
-      <div className="flex items-start gap-3 border-b border-text-caution/30 bg-text-caution/10 px-gutter py-4">
-        <span className="mt-0.5 shrink-0 text-text-caution">
+    // The one popover-level surface on this screen: it holds a secret that will
+    // never be shown again, so it is lifted off the page and framed in the
+    // caution colour instead of sitting in the list like a row.
+    <div className="enter mt-6 overflow-hidden rounded-surface border border-text-caution/50 bg-surface shadow-popover">
+      <div className="flex items-start gap-3 border-b border-text-caution/30 bg-text-caution/10 p-4 md:px-6">
+        <span className="mt-1 shrink-0 text-text-caution">
           <StatusIcon status="warning" />
         </span>
         <div>
-          <Heading>Your new key</Heading>
+          <Heading>Copy your new key now</Heading>
           <Body>
-            This is the only time the full key is shown. Copy it now and store it wherever your
-            collector reads its credentials from - it cannot be recovered once you leave this page.
+            This is the only time the full key is shown. Store it wherever your collector reads its
+            credentials from - it cannot be recovered once you leave this page.
           </Body>
         </div>
       </div>
-      <div className="px-gutter py-4">
-        <label htmlFor="just-created-key" className="text-label text-ink-2">
+      <div className="p-4 md:px-6 md:py-6">
+        <label htmlFor="just-created-key" className="text-label font-medium text-ink-2">
           Full key
         </label>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <input
             id="just-created-key"
             type="text"
@@ -129,12 +145,12 @@ function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void
             autoComplete="off"
             value={apiKey}
             onFocus={(event) => event.currentTarget.select()}
-            className="w-full min-w-0 flex-1 rounded-control border border-line-strong bg-bg px-2.5 py-1.5 font-mono text-label text-ink sm:w-auto"
+            className="min-h-11 w-full min-w-0 flex-1 rounded-control border border-control bg-bg px-3 font-mono text-label text-ink sm:w-auto md:min-h-9"
           />
           <CopyButton text={apiKey} />
         </div>
-        <Button className="mt-3" variant="primary" onClick={onDone}>
-          I've saved it
+        <Button className="mt-4" variant="primary" onClick={onDone}>
+          I&apos;ve saved it
         </Button>
       </div>
     </div>
@@ -172,6 +188,8 @@ export default function ProjectSettingsRoute() {
             id: summary.id,
             keyPrefix: summary.keyPrefix,
             createdAt: summary.createdAt,
+            lastUsedAt: summary.lastUsedAt,
+            revokedAt: summary.revokedAt,
             revoked: summary.revokedAt !== null,
           })),
         );
@@ -198,6 +216,8 @@ export default function ProjectSettingsRoute() {
             id: created.id,
             keyPrefix: created.keyPrefix,
             createdAt: created.createdAt,
+            lastUsedAt: null,
+            revokedAt: null,
             revoked: false,
           },
           ...current,
@@ -212,39 +232,57 @@ export default function ProjectSettingsRoute() {
   return (
     <ProjectShell auth={auth} lookup={lookup} projectId={projectId ?? ''}>
       {(project) => (
-        <main className="flex-1 px-gutter py-8 sm:px-gutter-lg">
-          <h1 className="text-heading font-semibold text-ink">API keys</h1>
-          <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-2">
-            A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code> for{' '}
-            <span className="font-mono text-ink">{project.name}</span>. Revoking one takes effect
-            immediately - a collector still presenting it starts getting 401s on its next write.
-          </p>
+        <main className="enter page flex-1 py-8 md:py-12">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-page font-semibold tracking-tight text-ink">API keys</h1>
+              <p className="mt-1 max-w-prose text-body text-ink-2">
+                A key authenticates{' '}
+                <code className="font-mono text-label text-ink">POST /api/v1/ingest</code> for{' '}
+                <span className="font-medium text-ink">{project.name}</span>. Revoking one takes
+                effect immediately - a collector still presenting it starts getting 401s on its next
+                write.
+              </p>
+            </div>
+            {!justCreated && (keysLoading || keys.length > 0) && (
+              <Button
+                variant="primary"
+                onClick={() => handleCreate(project)}
+                loading={creating}
+                disabled={keysLoading || keysError !== null}
+              >
+                {creating ? 'Creating…' : 'Create key'}
+              </Button>
+            )}
+          </div>
+          {createError && (
+            <p role="alert" className="mt-3 text-label text-text-danger">
+              {createError}
+            </p>
+          )}
 
           {justCreated && (
             <JustCreatedKey apiKey={justCreated.key} onDone={() => setJustCreated(null)} />
           )}
 
-          {!justCreated && (
-            <Button className="mt-4" onClick={() => handleCreate(project)} loading={creating}>
-              {creating ? 'Creating…' : 'Create new key'}
-            </Button>
-          )}
-          {createError && (
-            <p role="alert" className="mt-2 text-label text-text-danger">
-              {createError}
-            </p>
-          )}
-
-          <div className="mt-8 border-t border-line pt-4">
-            <h2 className="font-mono text-label text-ink-2">Existing keys</h2>
+          <section className="mt-8" aria-labelledby="keys-heading">
+            <h2 id="keys-heading" className="sr-only">
+              Existing keys
+            </h2>
 
             {keysError && (
-              <div className="mt-3 rounded-surface border border-line px-4 py-3.5" role="alert">
-                <p className="font-medium text-label text-text-danger">Could not load API keys</p>
-                <p className="mt-1 text-label text-ink-2">{keysError}</p>
+              <div
+                className="rounded-surface border border-status-critical/40 p-4 md:p-6"
+                role="alert"
+              >
+                <p className="flex items-center gap-2 text-label font-medium text-text-danger">
+                  <StatusIcon status="critical" />
+                  Could not load API keys
+                </p>
+                <p className="mt-2 text-body text-ink-2">{keysError}</p>
                 <Button
-                  className="mt-3"
-                  variant="secondary"
+                  className="mt-4"
+                  variant="primary"
                   onClick={() => setKeysReloadToken((token) => token + 1)}
                 >
                   Try again
@@ -253,39 +291,68 @@ export default function ProjectSettingsRoute() {
             )}
 
             {!keysError && keysLoading && (
-              <div className="mt-3 space-y-2" role="status" aria-live="polite">
+              <div
+                className="divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface"
+                role="status"
+                aria-live="polite"
+              >
                 <span className="sr-only">Loading API keys…</span>
-                <div className="h-11 animate-pulse rounded-control bg-raised" aria-hidden="true" />
-                <div className="h-11 animate-pulse rounded-control bg-raised" aria-hidden="true" />
+                {[0, 1].map((row) => (
+                  <div key={row} className="flex items-center gap-6 px-4 py-4" aria-hidden="true">
+                    <div className="h-4 w-48 rounded-control bg-raised" />
+                    <div className="h-4 w-28 rounded-control bg-raised" />
+                  </div>
+                ))}
               </div>
             )}
 
-            {!keysError && !keysLoading && keys.length === 0 && (
-              <div className="mt-3 rounded-surface border border-dashed border-line px-4 py-4">
-                <p className="text-body text-ink-2">No keys yet</p>
-                <p className="mt-1 text-label text-ink-3">
-                  Create one above - it appears here immediately, and that moment is the only chance
-                  to copy its full value.
+            {!keysError && !keysLoading && keys.length === 0 && !justCreated && (
+              <div className="rounded-surface border border-dashed border-line-strong px-6 py-8">
+                <h3 className="text-heading font-semibold tracking-tight text-ink">
+                  No keys for this project yet
+                </h3>
+                <p className="mt-2 max-w-prose text-body text-ink-2">
+                  A collector needs one to send metrics here. The key is shown once, right after you
+                  create it - copy it before you leave the page.
                 </p>
+                <Button
+                  className="mt-6"
+                  variant="primary"
+                  onClick={() => handleCreate(project)}
+                  loading={creating}
+                >
+                  {creating ? 'Creating…' : 'Create your first key'}
+                </Button>
               </div>
             )}
 
             {!keysError && !keysLoading && keys.length > 0 && (
-              <ul className="mt-3 divide-y divide-line border-y border-line">
-                {keys.map((row) => (
-                  <KeyListItem
-                    key={row.id}
-                    row={row}
-                    onRevoked={(id) =>
-                      setKeys((current) =>
-                        current.map((k) => (k.id === id ? { ...k, revoked: true } : k)),
-                      )
-                    }
-                  />
-                ))}
-              </ul>
+              <>
+                <div
+                  aria-hidden="true"
+                  className="hidden px-4 pb-2 text-label font-medium text-ink-3 md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_6rem] md:gap-x-6"
+                >
+                  <span>Key</span>
+                  <span>Created</span>
+                  <span>Activity</span>
+                  <span />
+                </div>
+                <ul className="divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface">
+                  {keys.map((row) => (
+                    <KeyListItem
+                      key={row.id}
+                      row={row}
+                      onRevoked={(id) =>
+                        setKeys((current) =>
+                          current.map((k) => (k.id === id ? { ...k, revoked: true } : k)),
+                        )
+                      }
+                    />
+                  ))}
+                </ul>
+              </>
             )}
-          </div>
+          </section>
         </main>
       )}
     </ProjectShell>

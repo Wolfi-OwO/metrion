@@ -1,5 +1,5 @@
 import { useOutletContext } from 'react-router-dom';
-import { Brand } from '../components/brand.tsx';
+import { PublicHeader } from '../components/public-header.tsx';
 import type { AuthState } from '../lib/use-auth.ts';
 import DashboardRoute from './dashboard.tsx';
 import LandingRoute from './landing.tsx';
@@ -21,12 +21,10 @@ export default function RootRoute() {
     // instant the check finishes.
     return (
       <>
-        <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
-          <Brand />
-        </header>
-        <main className="flex-1 px-gutter py-14 sm:px-gutter-lg">
+        <PublicHeader />
+        <main className="page flex-1 py-16">
           <p role="status" aria-live="polite" className="text-body text-ink-2">
-            Loading…
+            Checking your session…
           </p>
         </main>
       </>
