@@ -197,7 +197,7 @@ function TimeAxisPreview() {
           <div key={strip.name}>
             <div className="flex items-baseline justify-between font-mono text-label">
               <span className="text-ink-2">{strip.name}</span>
-              <span className="font-medium text-ink">{strip.value}</span>
+              <span className="text-ink">{strip.value}</span>
             </div>
             <svg viewBox={`0 0 ${width} ${height}`} className="mt-1 w-full">
               {[16, 32, 48].map((y) => (
@@ -258,7 +258,7 @@ export default function LandingRoute() {
               <h1 className="max-w-[20ch] text-display font-semibold tracking-tight text-balance text-ink">
                 One shared time axis for every server you run.
               </h1>
-              <p className="mt-6 max-w-prose text-heading text-ink-2">
+              <p className="mt-6 max-w-prose text-body text-ink-2">
                 metrion collects CPU, memory, disk, network and per-container metrics once a minute
                 and lines every reading up against the same clock, so a CPU spike and a network
                 spike read as one instant, not two dashboards you have to cross-reference by hand.
@@ -318,7 +318,7 @@ export default function LandingRoute() {
                 <span className="font-mono text-label text-ink-3">curl</span>
                 <CopyButton text={QUICKSTART} label="Copy snippet" />
               </div>
-              <pre className="overflow-x-auto p-4 font-mono text-label leading-5 text-ink">
+              <pre className="overflow-x-auto p-4 font-mono text-label text-ink">
                 <code>{QUICKSTART}</code>
               </pre>
             </div>

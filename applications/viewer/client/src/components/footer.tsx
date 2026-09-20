@@ -43,7 +43,7 @@ export function Footer() {
           <span className="text-ink" aria-hidden="true">
             Wolfi-OwO/metrion
           </span>
-          <span aria-hidden="true" className="text-line-strong">
+          <span aria-hidden="true" className="text-ink-3">
             ·
           </span>
           <span className="text-ink-3" aria-hidden="true">

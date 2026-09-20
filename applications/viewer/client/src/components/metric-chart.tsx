@@ -195,7 +195,7 @@ export function MetricChart({
   return (
     <section className="border-t border-line py-4 first:border-t-0">
       <header className="page flex flex-wrap items-baseline gap-x-6 gap-y-2">
-        <h2 className="font-mono text-label font-medium tracking-eyebrow text-ink-2 uppercase">
+        <h2 className="font-mono text-label tracking-eyebrow text-ink-2 uppercase">
           {group.unit ?? 'unitless'}
         </h2>
         <ul className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
@@ -217,7 +217,7 @@ export function MetricChart({
                 >
                   <SeriesSwatch series={series} />
                   <span className="font-mono text-label text-ink-2">{series.name}</span>
-                  <span className="font-mono text-label font-medium text-ink">
+                  <span className="font-mono text-label text-ink">
                     {series.last === null ? '-' : formatValue(series.last, group.unit)}
                   </span>
                   {series.min !== null && series.max !== null && series.min !== series.max && (

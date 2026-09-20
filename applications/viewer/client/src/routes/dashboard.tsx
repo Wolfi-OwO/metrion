@@ -197,11 +197,15 @@ export default function DashboardRoute({
                 <div className="min-w-0">
                   <Link
                     to={`/projects/${project.id}`}
-                    className="block truncate text-body font-medium text-ink after:absolute after:inset-0"
+                    className="block py-1 after:absolute after:inset-0"
                   >
-                    {project.name}
+                    <span className="block truncate text-body font-medium text-ink">
+                      {project.name}
+                    </span>
+                    <span className="block truncate font-mono text-meta text-ink-3">
+                      {project.slug}
+                    </span>
                   </Link>
-                  <p className="truncate font-mono text-meta text-ink-3">{project.slug}</p>
                 </div>
 
                 <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">

@@ -132,7 +132,7 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
             Caused by{' '}
             <a
               href={`#app-${app.causedBy.id}`}
-              className="font-mono font-medium text-accent underline decoration-line-strong underline-offset-2 transition-colors hover:text-accent-strong hover:decoration-accent"
+              className="font-mono text-label text-accent underline decoration-line-strong underline-offset-2 transition-colors hover:text-accent-strong hover:decoration-accent"
             >
               {app.causedBy.key}
             </a>
@@ -182,7 +182,7 @@ function Disclosure({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group mt-10 border-t border-line pt-2">
+    <details className="group mt-12 border-t border-line pt-2">
       <summary className="flex min-h-11 list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
         <ChevronIcon className="shrink-0 text-ink-3 transition-transform group-open:rotate-90" />
         <h2 className="text-heading font-semibold tracking-tight text-ink">{title}</h2>
@@ -199,7 +199,7 @@ function Count({ status, value }: { status: Status; value: number }) {
       className={`inline-flex items-center gap-2 ${value === 0 ? 'text-ink-3' : STATUS_TEXT[status]}`}
     >
       <StatusIcon status={status} />
-      <span className="font-mono text-heading font-semibold">{value}</span>
+      <span className="text-heading font-semibold tabular-nums">{value}</span>
       <span className="text-label">{STATUS_WORD[status]}</span>
     </span>
   );
@@ -275,7 +275,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
           <Count status="ok" value={summary.counts.ok} />
         </div>
 
-        <section className="mt-10" aria-labelledby="dependencies-heading">
+        <section className="mt-12" aria-labelledby="dependencies-heading">
           <h2
             id="dependencies-heading"
             className="text-heading font-semibold tracking-tight text-ink"
@@ -289,7 +289,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
           <DependencyGraph applications={applications} onChanged={status.reload} />
         </section>
 
-        <section className="mt-10" aria-labelledby="applications-heading">
+        <section className="mt-12" aria-labelledby="applications-heading">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2
               id="applications-heading"

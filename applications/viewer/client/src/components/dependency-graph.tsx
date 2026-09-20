@@ -205,7 +205,7 @@ function GraphNode({
         dependsOn.length > 0 ? `Depends on ${dependsOn.join(', ')}.` : 'Depends on nothing.'
       }`}
       style={style}
-      className={`group relative flex min-h-11 flex-col justify-center overflow-hidden rounded-control border bg-surface py-1.5 pr-3 pl-4 text-left transition-colors md:min-h-0 ${
+      className={`group relative flex min-h-11 flex-col justify-center overflow-hidden rounded-control border bg-surface py-2 pr-3 pl-4 text-left transition-colors md:min-h-0 ${
         selected
           ? 'border-accent'
           : isRoot

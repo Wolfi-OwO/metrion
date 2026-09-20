@@ -409,7 +409,7 @@ function ThresholdRow({
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
       <div className="min-w-0 flex-1">
         <p className="text-body text-ink">
-          <span className="font-mono text-label font-medium">{threshold.metricName}</span>{' '}
+          <span className="font-mono text-label">{threshold.metricName}</span>{' '}
           <span className="text-ink-2">
             goes {threshold.direction}{' '}
             <span className="text-status-warning">{bound(threshold.warningValue)}</span> warning,{' '}

@@ -14,7 +14,7 @@ const STATUS_CLASS: Record<Status, string> = {
 export function StatusBadge({ status, className = '' }: { status: Status; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-pill py-px pr-2 pl-1.5 text-label font-medium ${STATUS_CLASS[status]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-pill py-px pr-2 pl-2 text-label font-medium ${STATUS_CLASS[status]} ${className}`}
     >
       <StatusIcon status={status} />
       {STATUS_LABEL[status]}

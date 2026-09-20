@@ -170,7 +170,7 @@ export function LoadingState({ waking, seconds }: { waking: boolean; seconds: nu
       <div
         role="status"
         aria-live="polite"
-        className="mb-5 min-h-12 max-w-prose"
+        className="mb-6 min-h-12 max-w-prose"
         // The whole block is replaced when it changes, so a screen reader is
         // told once that the server is waking rather than once per second.
       >

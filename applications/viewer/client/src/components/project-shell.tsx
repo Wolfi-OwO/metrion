@@ -48,7 +48,10 @@ export function ProjectHeader({
           aria-label="Breadcrumb"
           className="flex min-w-0 items-center gap-x-2 text-label text-ink-2"
         >
-          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
+          <Link
+            to="/"
+            className="inline-flex min-h-11 items-center transition-colors duration-(--duration-fast) hover:text-ink md:min-h-0"
+          >
             Projects
           </Link>
           <span aria-hidden="true">/</span>
@@ -62,7 +65,7 @@ export function ProjectHeader({
             to={`/projects/${encodeURIComponent(projectId)}${tab.to}`}
             end={tab.end}
             className={({ isActive }) =>
-              `-mb-px border-b-2 py-2.5 text-label font-medium transition-colors duration-(--duration-fast) ${
+              `-mb-px flex min-h-11 min-w-11 items-center justify-center border-b-2 text-label font-medium transition-colors duration-(--duration-fast) ${
                 isActive ? 'border-accent text-ink' : 'border-transparent text-ink-2 hover:text-ink'
               }`
             }

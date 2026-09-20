@@ -39,7 +39,7 @@ export function RangeControl({
             />
             <span
               className={`flex min-h-9 min-w-11 cursor-pointer items-center justify-center rounded-control px-3 font-mono text-label transition-colors md:min-h-7 md:min-w-0 ${
-                selected ? 'bg-surface font-medium text-ink' : 'text-ink-2 hover:text-ink'
+                selected ? 'bg-surface text-ink' : 'text-ink-2 hover:text-ink'
               }`}
             >
               {preset.label}
