@@ -202,33 +202,70 @@ export function renderDocumentPage(title: string, lang: string, bodyHtml: string
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${escapeHtml(title)}</title>
 <style>
-:root { color-scheme: dark; }
+/* The same tokens as the app (applications/viewer/client/src/styles/index.css):
+   dark by default, light for a visitor whose OS asks for it. This page ships no
+   script, so it follows the OS preference only - the app's own toggle is not
+   readable here. It also uses the system font stack: the app's Geist files are
+   emitted with content hashes, so there is no stable URL to point a
+   @font-face at from server-rendered HTML. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0d10; --surface: #12151a; --raised: #1a1e25;
+  --line: #262b33; --line-strong: #363d48;
+  --ink: #e8ebef; --ink-2: #9ba4af; --accent: #7c98ff;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f6f6f4; --surface: #ffffff; --raised: #eef0f2;
+    --line: #dfe2e6; --line-strong: #c3c9d0;
+    --ink: #12161b; --ink-2: #465059; --accent: #3450d6;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0 auto; padding: 3rem 1.5rem 6rem; max-width: 46rem;
-  background: #0b0d10; color: #d7dce3;
+  margin: 0; background: var(--bg); color: var(--ink);
   font: 16px/1.7 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased; overflow-wrap: break-word;
 }
-h1, h2, h3, h4 { line-height: 1.25; margin: 2.5rem 0 0.75rem; color: #f2f5f9; }
-h1 { margin-top: 0; font-size: 1.9rem; }
-h2 { font-size: 1.35rem; }
-h3 { font-size: 1.1rem; }
-a { color: #7cc4ff; }
+header.site { background: var(--surface); border-bottom: 1px solid var(--line); }
+header.site nav {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0 1.5rem;
+  max-width: 46rem; margin: 0 auto; padding: 0.5rem 1.5rem; font-size: 0.875rem;
+}
+header.site a { color: var(--ink-2); text-decoration: none; padding: 0.625rem 0; }
+header.site a:hover { color: var(--ink); }
+header.site a.brand {
+  display: inline-flex; align-items: center; gap: 0.5rem; margin-right: auto;
+  color: var(--ink); font-size: 1rem; font-weight: 600; letter-spacing: -0.01em;
+}
+main { max-width: 46rem; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+h1, h2, h3, h4 { line-height: 1.25; margin: 2.5rem 0 0.75rem; color: var(--ink); letter-spacing: -0.01em; }
+h1 { margin-top: 0; font-size: 1.75rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.0625rem; }
+a { color: var(--accent); text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 code {
-  font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 0.9em;
-  background: #161a20; padding: 0.1em 0.35em; border-radius: 3px;
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", monospace; font-size: 0.875em;
+  background: var(--raised); padding: 0.1em 0.35em; border-radius: 6px; overflow-wrap: anywhere;
 }
-table { border-collapse: collapse; width: 100%; margin: 1.25rem 0; }
-th, td { border: 1px solid #2a3039; padding: 0.5rem 0.65rem; text-align: left; vertical-align: top; }
-th { background: #161a20; }
-hr { border: 0; border-top: 1px solid #2a3039; margin: 2.5rem 0; }
+/* A wide table scrolls inside itself instead of widening the page: this was
+   the 989px-wide document on a 390px phone. */
+table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 1.25rem 0; }
+th, td { border: 1px solid var(--line); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+th { background: var(--surface); }
+hr { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
 li { margin: 0.35rem 0; }
-nav { margin-bottom: 2.5rem; font-size: 0.9rem; }
-nav a { margin-right: 1rem; }
+@media (prefers-reduced-motion: no-preference) { a { transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1); } }
 </style>
 </head>
 <body>
-<nav><a href="/">metrion</a><a href="/impressum">Impressum</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+<header class="site"><nav aria-label="Site"><a class="brand" href="/"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 10.5h4l2.5-6.5 4 12 2.5-5.5h4"/></svg>metrion</a><a href="/impressum">Impressum</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav></header>
+<main>
 ${bodyHtml}
+</main>
 </body>
 </html>
 `;

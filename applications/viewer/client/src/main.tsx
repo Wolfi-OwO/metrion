@@ -7,7 +7,11 @@ import ProjectMetricsRoute from './routes/project-metrics.tsx';
 import ProjectSettingsRoute from './routes/project-settings.tsx';
 import ProjectStatusRoute from './routes/project-status.tsx';
 import RootRoute from './routes/root.tsx';
+import { initTheme } from './lib/theme.ts';
 import './styles/index.css';
+
+// Before the first render, so a saved choice is applied before anything paints.
+initTheme();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('index.html is missing #root.');

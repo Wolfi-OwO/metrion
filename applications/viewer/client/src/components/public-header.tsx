@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Brand } from './brand.tsx';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
  * The header for screens with no signed-in account to show: landing, 404, the
@@ -12,7 +13,10 @@ export function PublicHeader({ children }: { children?: ReactNode }) {
     <header className="border-b border-line bg-surface">
       <div className="page flex items-center gap-x-4 py-1">
         <Brand />
-        <div className="ml-auto flex items-center gap-x-4">{children}</div>
+        <div className="ml-auto flex items-center gap-x-2">
+          {children}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

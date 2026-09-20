@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { logout } from '../api/client.ts';
 import { Brand } from './brand.tsx';
 import { Button } from './states.tsx';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
  * The identity row on every signed-in screen - dashboard, a project's
@@ -65,6 +66,7 @@ export function AccountBar({
             Could not sign out. Try again.
           </p>
         )}
+        <ThemeToggle />
         <Button variant="quiet" onClick={handleSignOut} loading={pending}>
           {pending ? 'Signing out…' : 'Sign out'}
         </Button>
