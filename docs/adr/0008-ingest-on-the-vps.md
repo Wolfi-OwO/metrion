@@ -2,12 +2,15 @@
 
 ## Status
 
-Accepted, 2026-09-20. Azure ingest deletion pending, TODO(2026-09-21): after
-the 24 h clean window (earliest 2026-09-21 ~13:20 CEST) delete the Azure
-`metrion-ingest` container app, then change this status to "Accepted,
-2026-09-20; Azure ingest deleted 2026-09-21" and fill the cost figure below.
-Until then the Azure app still exists and keeps running its old revision;
-nothing sends it traffic since the cutover. Partly supersedes ADR 0006 (the
+Accepted, 2026-09-20; Azure ingest deleted 2026-09-20 (15:39 UTC). The
+planned 24 h clean window was shortened at the owner's explicit request,
+after about 4 h of clean data: the Azure Requests metric shows the last
+request at 11:23 UTC and zero in every minute since, and the largest sample
+gap since the 11:20 UTC cutover was 2:00 for `container.*` and 5:02 for
+`uptime.*` (cadences 60 s and 5 min). All data was always in the one VPS
+database (the Azure ingest reached it through its own tunnel sidecar), so
+nothing needed transferring. Rollback notes:
+`organizational/azure-ingest-removal-2026-09-20.md`. Partly supersedes ADR 0006 (the
 public status endpoint moved from the viewer to ingest).
 
 ## Context
@@ -74,11 +77,14 @@ materialise, and every cold start would drop or delay a 60 s sample.
 - Ingest health is only meaningful with the deploy gate: its liveness
   endpoint touches no database, so a broken DB path would otherwise stay
   green.
-- Cost after deletion: TODO(2026-09-21) fill from Azure Cost Management, not
-  from an estimate. Run `az consumption usage list --start-date 2026-09-21
---end-date 2026-09-22` or open cost analysis for resource group `metrion-rg`
-  and record the daily total next to the EUR 0.4451/day baseline above.
-- After the deletion window the previous Azure-hosted ingest path is gone;
+- Cost after deletion: measured before deletion (cost planner figures above):
+  about EUR 1.596 month-to-date for the Azure ingest against about EUR 0.037
+  for the viewer. Azure cost data lags by a day or more, so the
+  post-deletion steady-state daily figure is not measured yet; it is expected
+  near the viewer-only figure. TODO(2026-09-23): read the daily total for
+  `metrion-rg` from cost analysis and record it here next to the EUR
+  0.4451/day baseline.
+- Now that the Azure ingest is deleted the previous Azure-hosted ingest path is gone;
   rollback then means redeploying an earlier immutable tag on the VPS, not
   switching a hostname back. Runbook: `organizational/agent-deployment-runbook.md`
   ("Metrion ingest on the VPS").

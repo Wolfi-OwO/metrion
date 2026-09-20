@@ -521,9 +521,8 @@ that falsifies one of them is a change to this document too.
   period in days can be stated, and lines written before the filter may still
   hold client IPs until they rotate out. Decision pending: a time-based
   retention.
-- The Azure `metrion-ingest` container is scheduled for deletion after the
-  24-hour verification window; this policy is written for the post-deletion
-  state.
+- The Azure `metrion-ingest` container was deleted on 2026-09-20; this
+  policy describes the post-deletion state.
 - The threshold-alerting feature's email provider (Brevo, tentatively) is
   not yet chosen; section 6's Chapter V position for it is provisional until
   it is.

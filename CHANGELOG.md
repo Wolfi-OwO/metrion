@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-20 - Azure ingest deleted
+
+- Deleted the Azure `metrion-ingest` Container App and its role assignments
+  (the app's own AcrPull on the registry and the two Contributor grants scoped
+  to it). The 24 h wait was shortened at the owner's request after about 4 h
+  with no request reaching Azure (last one 11:23 UTC) and no sample gap beyond
+  the collector cadence. The database was always the single VPS one, so no data
+  moved. Rollback notes: `organizational/azure-ingest-removal-2026-09-20.md`.
+- A stale, disabled collector env file on the VPS still named the Azure URL and
+  was repointed at the VPS host.
+
 ## 2026-09-20 - Ingest moved from Azure Container Apps to the VPS
 
 - `metrion-ingest` now runs on the Contabo VPS behind Caddy at
@@ -12,8 +23,8 @@
 - Ingest connects as the least-privilege role `metrion_ingest` (migrations
   0012, 0013); the database firewall gained a subnet-scoped ACCEPT for
   `metrion_default`.
-- The Azure `metrion-ingest` app still exists and receives no traffic; its
-  deletion is scheduled after a 24 h clean window (ADR 0008).
+- The Azure `metrion-ingest` app received no traffic after the cutover and was
+  deleted the same day (entry above).
 
 ## 2026-09-13 — Legal documents: accounts, self-hosted database, alerting (forward-looking)
 

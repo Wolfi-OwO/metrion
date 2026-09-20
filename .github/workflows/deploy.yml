@@ -40,8 +40,8 @@ env:
 
 jobs:
   # One explicit step, before either service's new revision goes out -
-  # never from application startup. metrion-ingest can run more than one
-  # replica; two processes migrating the same database at once is a bug
+  # never from application startup. Ingest can be restarted while another
+  # process is starting; two processes migrating the same database at once is a bug
   # class this project has hit before. Runs over SSH, not a direct Postgres
   # connection: GitHub-hosted runners have no stable egress IP, so
   # allowlisting them on the VPS firewall isn't workable (see the runbook's
@@ -193,8 +193,8 @@ jobs:
       # migrate job, but asking for `ingest <tag>` makes /opt/metrion/deploy.sh
       # pull the image, restart only the ingest container, prove a DB round
       # trip and roll back on failure - a non-zero exit here means it did.
-      # The Azure metrion-ingest app is no longer updated (it is retired
-      # separately) and keeps running whatever revision it had.
+      # The Azure metrion-ingest app no longer exists (deleted 2026-09-20,
+      # ADR 0008); only the viewer is deployed to Azure.
       - name: Deploy to the VPS
         if: matrix.target == 'vps'
         run: |

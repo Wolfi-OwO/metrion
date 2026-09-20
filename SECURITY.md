@@ -279,8 +279,8 @@ OPTIONS`) only serves the public reads and does not widen the guard.
   plaintext environment values. The app's Azure system-assigned identity is used
   only to pull images from the container registry; it is not used for the
   database connection.
-- The old Azure ingest app is retired separately and is no longer updated by
-  the deploy workflow; its decommissioning is not covered here.
+- The Azure ingest app was deleted on 2026-09-20 (ADR 0008); only the viewer
+  still runs on Azure.
 
 ## CI/CD
 
@@ -353,8 +353,6 @@ OPTIONS`) only serves the public reads and does not widen the guard.
 - Backups have no offsite copy yet.
 - No CSRF token; the protection is the same-origin guard above (see the CSRF
   bullet for why `SameSite=Lax` alone is not enough on Azure Container Apps).
-- The `metrion-ingest` `db-tunnel` sidecar still runs image `0.1.1`, which binds
-  `0.0.0.0`; the viewer's sidecar was moved to the loopback-binding `0.1.2`.
 - The public-status rate limit is one shared bucket.
 - Secret scanning runs in CI (`gitleaks --no-git` over the working tree) but not as a pre-commit hook.
 - Session-row purging and current OAuth client registration state were not
