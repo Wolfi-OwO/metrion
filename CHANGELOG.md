@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-20 - Ingest moved from Azure Container Apps to the VPS
+
+- `metrion-ingest` now runs on the Contabo VPS behind Caddy at
+  `https://metrion-ingest.woofi-developments.at`, deployed by CI over an SSH
+  forced command with a database round-trip gate and automatic rollback; see
+  `docs/adr/0008-ingest-on-the-vps.md` for the measurements and trade-offs.
+- Collectors (`uptime.env`, `routing.env`) and the portfolio's
+  `METRION_STATUS_URL` point at the VPS host. The public uptime endpoint moved
+  from the viewer to ingest.
+- Ingest connects as the least-privilege role `metrion_ingest` (migrations
+  0012, 0013); the database firewall gained a subnet-scoped ACCEPT for
+  `metrion_default`.
+- The Azure `metrion-ingest` app still exists and receives no traffic; its
+  deletion is scheduled after a 24 h clean window (ADR 0008).
+
 ## 2026-09-13 — Legal documents: accounts, self-hosted database, alerting (forward-looking)
 
 - Rewrote `PRIVACY.md` sections 1, 2, 4, 5, 6, 7 and 8: retired the

@@ -8,6 +8,10 @@ Accepted, 2026-09-14. Retrospective - the feature it describes (GitHub issues
 `applications/evaluator`. Builds on ADR 0003 (the metric envelope, unchanged
 by this feature) and ADR 0005 (the tenancy boundary, also unchanged).
 
+Superseded in part by ADR 0008 (2026-09-20): the public status endpoint moved
+from the viewer to ingest (commit cfe37c3), and ingest now runs on the VPS.
+Everything else here stands.
+
 ## Context
 
 Four features shipped together - an applications registry, a dependency
