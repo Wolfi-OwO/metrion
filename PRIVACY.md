@@ -188,11 +188,15 @@ is covered on its own terms there.
 
 ## 4. Cookies, tracking and third-party requests
 
-- **One cookie, strictly necessary.** `mtr_session` — an opaque, HMAC-signed
-  session id, `HttpOnly`, `Secure`, `SameSite=Lax`, 30-day expiry
-  (`applications/viewer/src/auth/session.ts:14`, `:69-77`). It exists solely
-  to keep a signed-in user signed in between requests to `GET /api/v1/me`
-  and the project/key endpoints; nothing else reads or writes it.
+- **Two cookies, both strictly necessary.** `__Host-mtr_session` — an opaque,
+  HMAC-signed session id, `HttpOnly`, `Secure`, `SameSite=Lax`, 30-day expiry
+  (`applications/viewer/src/auth/session.ts`). It exists solely to keep a
+  signed-in user signed in between requests to `GET /api/v1/me` and the
+  project/key endpoints; nothing else reads or writes it. `__Host-mtr_oauth` —
+  the random one-time OAuth `state` value, `HttpOnly`, `Secure`,
+  `SameSite=Lax`, deleted when the sign-in completes and otherwise expiring
+  after 10 minutes; it exists only to tie a sign-in to the browser that
+  started it.
 - **No other device storage.** Nothing in the agent, ingest, viewer or client
   writes to `localStorage`, `sessionStorage` or any other device storage.
 - **No analytics, telemetry, tag manager, error-tracking SDK or advertising
@@ -204,8 +208,8 @@ is covered on its own terms there.
 **Why no consent banner.** § 165 Abs 3 TKG 2021 exempts storage on a user's
 device from the prior-consent requirement where it is technically necessary
 to provide a service the user explicitly requested — here, staying signed in
-after choosing to sign in. `mtr_session` fits that exemption on its face: it
-carries no tracking identifier usable across sessions or sites, is not read
+after choosing to sign in. Both cookies fit that exemption on its face: they
+carry no tracking identifier usable across sessions or sites, is not read
 by any third party, and does nothing if the user never signs in. On that
 basis no consent is sought and no banner is shown for this cookie. This is a
 narrower, reasoned claim than the file's previous "nothing is stored, so
@@ -510,11 +514,13 @@ that falsifies one of them is a change to this document too.
 - Whether Azure Container Apps ingress/diagnostic logging is enabled for
   `metrion-viewer`, and whether it records client IP addresses, is not
   determinable from this repository.
-- Caddy's plain-HTTP redirect log on the VPS records client IPs, URIs and
-  request headers for the ingest host and is not filtered like the HTTPS
-  access log (section 3). Docker keeps it for at most three 10 MB files with
-  no time limit, so no retention period in days can be stated. Decision
-  pending: filter or disable that line, or set a time-based retention.
+- Caddy's request logs on the VPS are filtered (no client IP, URI or headers,
+  section 3), including the global catch-all logger since 2026-09-20, and plain
+  HTTP to the ingest host now gets a `400` instead of a redirect. Docker keeps
+  those logs for at most three 10 MB files with no time limit, so no retention
+  period in days can be stated, and lines written before the filter may still
+  hold client IPs until they rotate out. Decision pending: a time-based
+  retention.
 - The Azure `metrion-ingest` container is scheduled for deletion after the
   24-hour verification window; this policy is written for the post-deletion
   state.

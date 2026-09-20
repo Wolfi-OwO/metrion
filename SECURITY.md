@@ -207,12 +207,19 @@ OPTIONS`) only serves the public reads and does not widen the guard.
   `metrion_app` (migration `0005` onward) is the least-privilege role: no
   password in the migration (set out of band), `SELECT`/`INSERT` on `metrics`
   (no `UPDATE`/`DELETE`), no `DELETE` on `api_keys` or `projects`, and table
-  grants added per table in later migrations. **The viewer's database URL uses
-  `metrion_app` per the runbook. The ingest container on the VPS still connects
-  as the `metrion` superuser** (`docker-compose.prod.yml`, confirmed in the
-  running container's environment on 2026-09-20), so a flaw in ingest has the
-  blast radius of a database administrator. This is a known gap; the fix is
-  switching ingest's `DATABASE_URL` to `metrion_app`.
+  grants added per table in later migrations. `metrion_app` is the **viewer's**
+  role (it can read and write `users`, `identities` and `sessions`, so ingest
+  must never use it). `metrion_ingest` (migration `0012`) is **ingest's** role
+  and holds exactly: `SELECT, INSERT` on `metrics` and `applications`;
+  `SELECT` on `projects`, `metrics_hourly` and `api_keys`; and `UPDATE` on
+  `api_keys` limited to the `last_used_at` column (so a compromised ingest
+  cannot un-revoke a key or re-point it at another project). It has no grant on
+  `users`, `identities`, `sessions`, `schema_migrations`, `thresholds`,
+  `threshold_status`, `status_events` or `application_dependencies`, and is not
+  a superuser and holds no `CREATEROLE`, `CREATEDB`, `REPLICATION` or
+  `BYPASSRLS`, and no group membership. Verified live 2026-09-20; `metrion_app`'s
+  grants are unchanged. The ingest container has connected as `metrion_ingest`
+  since 2026-09-20.
 - **Statement timeout** of 10 seconds on ingest's pool
   (`applications/ingest/src/lib/db.ts`), because unauthenticated public reads
   share it with the write path. Not set for the viewer or the migration runner.
@@ -299,10 +306,10 @@ OPTIONS`) only serves the public reads and does not widen the guard.
   healthy, run a real database round trip with the container's own
   `DATABASE_URL`, and **roll back to the previous tag** if that fails. The
   workflow then checks the public endpoint through Caddy.
-- **Secret scanning**: `gitleaks detect --no-git` over the working tree is run
-  by hand before anything is pushed to a public remote. There is no gitleaks
-  step in CI or a repository hook (none found), so this is a practice, not an
-  enforced control.
+- **Secret scanning**: CI runs `gitleaks detect --no-git` over the checked-out
+  working tree on every push (pinned image, no allowlist), and it is also run by
+  hand before anything is pushed to a public remote. There is no repository
+  pre-commit hook.
 
 ## Backups
 
@@ -326,7 +333,15 @@ OPTIONS`) only serves the public reads and does not widen the guard.
 
 ## Known gaps
 
-- Ingest connects to Postgres as the `metrion` superuser (see Database).
+- No connection audit trail beyond `log_connections`/`log_disconnections`
+  (turned on 2026-09-20); there are no per-query logs.
+- A compromised ingest can read `api_keys` hashes and `projects.owner_user_id`,
+  but no personal data (`users`, `identities` and `sessions` are not granted).
+- There is no row-level security, by design: tenancy is enforced in application
+  code and by composite foreign keys.
+- Privileges of compressed chunks are unverified until the first chunk
+  compression (about 2026-09-24, 7-day policy); the deploy gate asserts the
+  per-chunk grants from then on.
 - Postgres TLS uses the image's self-signed snakeoil certificate with
   `sslmode=require`: encryption without server authentication. Accepted
   deliberately - the certificate's private key ships inside the public
@@ -341,6 +356,7 @@ OPTIONS`) only serves the public reads and does not widen the guard.
 - The `db-tunnel` sidecar image published as `0.1.0` still binds `0.0.0.0`; the
   repo file binds loopback and takes effect at the next manual sidecar build.
 - The public-status rate limit is one shared bucket.
-- Secret scanning is manual.
-- Session-row purging, live `pg_hba.conf` and current OAuth client registration
-  state were not verified while writing this.
+- Secret scanning runs in CI (`gitleaks --no-git` over the working tree) but not as a pre-commit hook.
+- Session-row purging and current OAuth client registration state were not
+  verified while writing this. The live `pg_hba.conf` was corrected and
+  verified on 2026-09-20.
