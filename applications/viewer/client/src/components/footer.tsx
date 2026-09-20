@@ -1,54 +1,83 @@
+import { CodeIcon } from './icon.tsx';
+
 /**
  * The one piece of chrome every screen shares, including error and not-found
  * states - `App.tsx` renders it as a sibling of the routed content, outside
  * any branch that could replace the page. § 5 ECG wants the Impressum
  * "leicht und unmittelbar zugaenglich", which it would not be if reaching it
- * depended on a route's own data loading successfully. Plain anchors, not
- * router links: these are three server-rendered documents, not screens of
- * this app, so a full page load is correct.
+ * depended on a route's own data loading successfully. Legal links are plain
+ * anchors, not router links: they are server-rendered documents, not screens
+ * of this app, so a full page load is correct.
+ *
+ * Three columns as `1fr auto 1fr`, not flex `space-between`: with unequal
+ * left and right zones space-between centres the gap, not the pill. Equal
+ * flexible outer tracks are what put the pill on the viewport's midline
+ * whatever the zones' widths. Below `md` the tracks collapse to one column
+ * and everything centres, pill first.
  *
  * `mt-auto` inside the flex column in `App.tsx` pins it to the bottom of the
- * viewport when a page is short, instead of leaving it floating under a
- * single short panel.
+ * viewport when a page is short.
  */
+const LINK =
+  'rounded-control text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink';
+
 export function Footer() {
   return (
-    <footer className="mt-auto border-t border-line bg-bg-900 px-gutter py-3 sm:px-gutter-lg">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-meta text-ink-muted">
-        <span>© {new Date().getFullYear()} Phillip Kofler</span>
-        <span aria-hidden="true" className="text-line-strong">
-          ·
-        </span>
-        <span>v{__APP_VERSION__}</span>
+    <footer
+      aria-label="Site"
+      className="mt-auto border-t border-line bg-bg-900 px-gutter py-4 sm:px-gutter-lg"
+    >
+      <div className="grid grid-cols-1 items-center justify-items-center gap-y-3 text-meta md:grid-cols-[1fr_auto_1fr] md:gap-x-6">
+        <p className="order-3 text-center text-ink-muted md:order-none md:justify-self-start md:text-left">
+          © {new Date().getFullYear()} Phillip Kofler
+          <br />
+          All rights reserved.
+        </p>
 
-        <nav aria-label="Legal" className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
-          {/* The Impressum keeps its German name: it is the word an Austrian
-              reader looks for, and translating it would hide it. `lang` so a
-              screen reader does not read it with an English voice. */}
+        {/* The repo is private, so this is text, not a link that would 404
+            for everyone else. */}
+        <p
+          aria-label={`Metrion version ${__APP_VERSION__}`}
+          className="order-1 inline-flex items-center gap-2 rounded-surface border border-line bg-bg-950 px-3.5 py-2 font-mono md:order-none"
+        >
+          <CodeIcon />
+          <span className="text-ink" aria-hidden="true">
+            Wolfi-OwO/metrion
+          </span>
+          <span aria-hidden="true" className="text-line-strong">
+            ·
+          </span>
+          <span className="text-ink-muted" aria-hidden="true">
+            v{__APP_VERSION__}
+          </span>
+        </p>
+
+        <nav
+          aria-label="Legal and contact"
+          className="order-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-label md:order-none md:justify-self-end"
+        >
           <a
-            lang="de"
-            href="/impressum"
-            className="text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink"
+            href="https://status.woofi-developments.at"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={LINK}
           >
+            Status
+          </a>
+          <a href="/privacy" className={LINK}>
+            Privacy Policy
+          </a>
+          {/* The Impressum keeps its German name: it is the word an Austrian
+              reader looks for. `lang` so a screen reader does not read it
+              with an English voice. */}
+          <a lang="de" href="/impressum" className={LINK}>
             Impressum
           </a>
-          <span aria-hidden="true" className="text-line-strong">
-            ,
-          </span>
-          <a
-            href="/privacy"
-            className="text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink"
-          >
-            Privacy
-          </a>
-          <span aria-hidden="true" className="text-line-strong">
-            ,
-          </span>
-          <a
-            href="/terms"
-            className="text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink"
-          >
+          <a href="/terms" className={LINK}>
             Terms of use
+          </a>
+          <a href="mailto:koflerphillip@outlook.com" className={LINK}>
+            Contact
           </a>
         </nav>
       </div>
