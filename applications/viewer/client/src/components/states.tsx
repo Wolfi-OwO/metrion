@@ -32,7 +32,7 @@ export function Heading({
   children: React.ReactNode;
   level?: 'h1' | 'h2';
 }) {
-  const className = 'text-heading font-semibold text-ink';
+  const className = 'text-heading font-semibold tracking-tight text-ink';
   return level === 'h1' ? (
     <h1 className={className}>{children}</h1>
   ) : (
@@ -41,50 +41,33 @@ export function Heading({
 }
 
 export function Body({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1.5 text-body leading-relaxed text-ink-2">{children}</p>;
+  return <p className="mt-2 max-w-prose text-body text-ink-2">{children}</p>;
 }
 
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet';
 export type ButtonTone = 'default' | 'danger';
 
+// 44px tall on a phone (a finger), 36px from md up (a cursor). One height
+// rule for every button, so no control in the app is under the touch minimum.
 const BUTTON_BASE =
-  'inline-flex items-center justify-center gap-1.5 rounded-control text-label font-medium transition-colors duration-(--duration-fast) disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-70';
+  'inline-flex min-h-11 select-none items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-label font-medium transition-colors md:min-h-9 md:px-3 disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-70';
 
-// Every fragment below is a real, static Tailwind class string (never built
-// from a template literal) so the v4 build's source scan can see it - a
-// `hover:border-series-${n}` built at runtime would compile to nothing.
-// Structure (border/padding/fill/text colour) and tone (which accent hover
-// and active reach for) vary independently, so each is named once and
-// combined per cell rather than retyped six times.
-const VARIANT_STRUCTURE: Record<ButtonVariant, string> = {
-  primary: 'border border-transparent px-3 py-1.5 text-accent-ink',
-  secondary: 'border border-line-strong bg-raised px-3 py-1.5 text-ink',
-  quiet: 'border border-line-strong px-2.5 py-1 text-ink-2',
-};
-
-const FILL_TONE: Record<ButtonTone, string> = {
-  default: 'bg-accent hover:bg-accent/85 active:bg-accent/80',
-  danger: 'bg-series-8 hover:bg-series-8/85 active:bg-series-8/70',
-};
-
-const OUTLINE_TONE: Record<ButtonTone, string> = {
-  default: 'hover:border-accent hover:text-accent active:border-accent/70 active:text-accent/70',
-  danger:
-    'hover:border-series-8 hover:text-series-8 active:border-series-8/70 active:text-series-8/70',
-};
-
+// Primary is the one filled brand-colour button on a screen. Secondary is a
+// raised chip. Quiet has no chrome at all until hovered - most buttons in a
+// dense tool should be quiet, so the one primary action stays findable.
 const VARIANT_CLASS: Record<ButtonVariant, Record<ButtonTone, string>> = {
   primary: {
-    default: `${VARIANT_STRUCTURE.primary} ${FILL_TONE.default}`,
-    danger: `${VARIANT_STRUCTURE.primary} ${FILL_TONE.danger}`,
+    default: 'bg-accent text-accent-ink hover:bg-accent-strong',
+    danger: 'bg-status-critical text-accent-ink hover:brightness-110',
   },
   secondary: {
-    default: `${VARIANT_STRUCTURE.secondary} ${OUTLINE_TONE.default}`,
-    danger: `${VARIANT_STRUCTURE.secondary} ${OUTLINE_TONE.danger}`,
+    default: 'border border-line-strong bg-raised text-ink hover:border-control',
+    danger:
+      'border border-status-critical/40 text-status-critical hover:border-status-critical hover:bg-status-critical/10',
   },
   quiet: {
-    default: `${VARIANT_STRUCTURE.quiet} ${OUTLINE_TONE.default}`,
-    danger: `${VARIANT_STRUCTURE.quiet} ${OUTLINE_TONE.danger}`,
+    default: 'text-ink-2 hover:bg-raised hover:text-ink',
+    danger: 'text-status-critical hover:bg-status-critical/10',
   },
 };
 

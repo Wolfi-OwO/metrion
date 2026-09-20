@@ -51,13 +51,15 @@ export function AccountBar({
   };
 
   return (
-    <div className="flex flex-col gap-y-2 px-gutter py-2.5 sm:flex-row sm:items-center sm:gap-x-6 sm:gap-y-0 sm:px-gutter-lg">
+    <div className="flex items-center gap-x-4 px-gutter py-1 sm:gap-x-6 sm:px-gutter-lg">
       <div className="flex min-w-0 items-center gap-x-4">
         <Brand />
         {children}
       </div>
-      <div className="flex items-center justify-between gap-3 sm:ml-auto sm:justify-end sm:gap-x-4">
-        <span className="min-w-0 truncate font-mono text-meta text-ink-3">{email}</span>
+      <div className="ml-auto flex shrink-0 items-center gap-x-2 sm:gap-x-4">
+        <span className="min-w-0 truncate font-mono text-meta text-ink-3 max-sm:sr-only">
+          {email}
+        </span>
         {failed && (
           <p role="alert" className="text-label text-text-danger">
             Could not sign out. Try again.

@@ -18,16 +18,18 @@ import { CodeIcon } from './icon.tsx';
  * `mt-auto` inside the flex column in `App.tsx` pins it to the bottom of the
  * viewport when a page is short.
  */
+// min-h-11 on a phone: the links wrap in rows there and used to measure 18px
+// tall. From md up they sit on one line and take their natural height.
 const LINK =
-  'rounded-control text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink';
+  'inline-flex min-h-11 items-center rounded-control px-2 text-ink-2 transition-colors hover:text-ink md:min-h-0 md:px-0';
 
 export function Footer() {
   return (
     <footer
       aria-label="Site"
-      className="mt-auto border-t border-line bg-surface px-gutter py-4 sm:px-gutter-lg"
+      className="mt-auto border-t border-line bg-surface px-gutter py-6 sm:px-gutter-lg"
     >
-      <div className="grid grid-cols-1 items-center justify-items-center gap-y-3 text-meta md:grid-cols-[1fr_auto_1fr] md:gap-x-6">
+      <div className="grid grid-cols-1 items-center justify-items-center gap-y-4 text-meta md:grid-cols-[1fr_auto_1fr] md:gap-x-6">
         <p className="order-3 text-center text-ink-3 md:order-none md:justify-self-start md:text-left">
           © {new Date().getFullYear()} Phillip Kofler
           <br />
@@ -38,7 +40,7 @@ export function Footer() {
             for everyone else. */}
         <p
           aria-label={`Metrion version ${__APP_VERSION__}`}
-          className="order-1 inline-flex items-center gap-2 rounded-surface border border-line bg-bg px-3.5 py-2 font-mono md:order-none"
+          className="order-1 inline-flex items-center gap-2 rounded-pill border border-line bg-bg px-4 py-2 font-mono md:order-none"
         >
           <CodeIcon />
           <span className="text-ink" aria-hidden="true">
@@ -54,7 +56,7 @@ export function Footer() {
 
         <nav
           aria-label="Legal and contact"
-          className="order-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-label md:order-none md:justify-self-end"
+          className="order-2 flex flex-wrap items-center justify-center gap-x-2 md:order-none md:justify-self-end md:gap-x-4"
         >
           <a
             href="https://status.woofi-developments.at"
