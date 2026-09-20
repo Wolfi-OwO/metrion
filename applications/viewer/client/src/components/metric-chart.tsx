@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ReferenceArea,
   ResponsiveContainer,
   Tooltip,
@@ -11,12 +13,11 @@ import {
 } from 'recharts';
 import type { ChartGroup, SeriesView } from '../lib/groups.ts';
 import {
-  axisDomain,
-  axisTicks,
   formatAxisValue,
   formatTick,
   formatTimestamp,
   formatValue,
+  niceAxis,
 } from '../lib/format.ts';
 import type { GridRow, TimeRange } from '../lib/range.ts';
 
@@ -74,8 +75,8 @@ function ChartTooltip({
     // busy strip of lines, not a card on an empty page - so it is the second
     // real user of `--shadow-raised`, the app's one elevation step, rather
     // than a fresh value invented for it.
-    <div className="border border-line-strong bg-surface px-2.5 py-2 text-meta shadow-raised">
-      <div className="mb-1.5 font-mono text-ink-2">
+    <div className="rounded-control border border-line-strong bg-surface px-3 py-2 text-meta shadow-popover">
+      <div className="mb-2 font-mono text-ink-2">
         {typeof label === 'number' ? formatTimestamp(label) : ''}
       </div>
       {payload.map((entry) => {
@@ -121,6 +122,43 @@ function describe(group: ChartGroup): string {
   return `${unit}. ${parts.join('. ')}.`;
 }
 
+/**
+ * An x-axis label that cannot poke out of the plot: the first is left-aligned
+ * to its tick, the last right-aligned, the rest centred. The default centred
+ * label on the final tick ran 20px past the right edge of every strip.
+ */
+function TimeTick({
+  x,
+  y,
+  payload,
+  index,
+  visibleTicksCount,
+  tickFormatter,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value: number };
+  index?: number;
+  visibleTicksCount?: number;
+  tickFormatter?: (value: number) => string;
+}) {
+  if (payload === undefined || x === undefined || y === undefined) return null;
+  const last = (visibleTicksCount ?? 0) - 1;
+  const anchor = index === 0 ? 'start' : index === last ? 'end' : 'middle';
+  return (
+    <text
+      x={x}
+      y={y + 14}
+      textAnchor={anchor}
+      fill="var(--color-ink-3)"
+      fontSize="var(--text-meta)"
+      fontFamily="var(--font-mono)"
+    >
+      {tickFormatter ? tickFormatter(payload.value) : payload.value}
+    </text>
+  );
+}
+
 export function MetricChart({
   group,
   range,
@@ -131,43 +169,66 @@ export function MetricChart({
   showAxis: boolean;
 }) {
   const spanMs = range.to.getTime() - range.from.getTime();
-  const [domainMin, domainMax] = axisDomain(group.unit, group.max);
+  // Hiding a series is a reading aid (a noisy neighbour drowns a quiet line),
+  // not a filter: the numbers, the axis and the screen-reader text keep
+  // covering every series, and the choice is per strip and not remembered.
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const visibleMax = Math.max(
+    0,
+    ...group.rows.flatMap((row) =>
+      group.series
+        .filter((series) => !hidden.has(series.name))
+        .map((series) => row.values[series.name] ?? 0),
+    ),
+  );
+  const axis = niceAxis(group.unit, hidden.size === 0 ? group.max : visibleMax);
+  const single = group.series.length === 1 ? group.series[0] : undefined;
+
+  const toggle = (name: string) =>
+    setHidden((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else if (next.size < group.series.length - 1) next.add(name);
+      return next;
+    });
 
   return (
-    <section className="border-t border-line pt-3 pb-1 first:border-t-0">
-      <header className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-gutter sm:px-gutter-lg">
-        {/* --text-meta is documented for exactly this: "unit labels". Kept at
-            text-ink-2 rather than the dimmer text-ink-3 the app's other
-            eyebrows use - this one is read on every strip while scanning, not
-            once as a section title, and needs the extra contrast step. */}
-        <h2 className="font-mono text-meta uppercase tracking-eyebrow text-ink-2">
+    <section className="border-t border-line py-4 first:border-t-0">
+      <header className="page flex flex-wrap items-baseline gap-x-6 gap-y-2">
+        <h2 className="font-mono text-label font-medium tracking-eyebrow text-ink-2 uppercase">
           {group.unit ?? 'unitless'}
         </h2>
-        <ul className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          {group.series.map((series) => (
-            // `whitespace-nowrap`: without it a narrow screen breaks the line
-            // between a number and its unit, so "4 330 MiB" reads as two
-            // separate figures. The list wraps between items, never inside one.
-            //
-            // `items-baseline`, not `items-center`: the name (text-meta) and
-            // the last reading (text-label, one step larger) sit on one text
-            // baseline rather than being vertically centred against each
-            // other, which staggers two different cap-heights by a visible
-            // pixel or two. The swatch has no baseline of its own, so it opts
-            // back out to `self-center` individually.
-            <li key={series.name} className="flex items-baseline gap-1.5 whitespace-nowrap">
-              <SeriesSwatch series={series} />
-              <span className="font-mono text-meta text-ink-2">{series.name}</span>
-              <span className="font-mono text-label font-medium text-ink">
-                {series.last === null ? '-' : formatValue(series.last, group.unit)}
-              </span>
-              {series.min !== null && series.max !== null && series.min !== series.max && (
-                <span className="font-mono text-meta text-ink-3">
-                  {formatValue(series.min, group.unit)} to {formatValue(series.max, group.unit)}
-                </span>
-              )}
-            </li>
-          ))}
+        <ul className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+          {group.series.map((series) => {
+            const off = hidden.has(series.name);
+            return (
+              <li key={series.name}>
+                {/* A button, so the legend is also the control: a chip that
+                    names the series, shows its last reading and its range, and
+                    hides its line on click. `whitespace-nowrap` keeps "4 330
+                    MiB" from breaking between the number and its unit. */}
+                <button
+                  type="button"
+                  onClick={() => toggle(series.name)}
+                  aria-pressed={!off}
+                  className={`flex min-h-11 items-center gap-2 rounded-control px-2 whitespace-nowrap transition-colors hover:bg-raised md:min-h-7 ${
+                    off ? 'opacity-45' : ''
+                  }`}
+                >
+                  <SeriesSwatch series={series} />
+                  <span className="font-mono text-label text-ink-2">{series.name}</span>
+                  <span className="font-mono text-label font-medium text-ink">
+                    {series.last === null ? '-' : formatValue(series.last, group.unit)}
+                  </span>
+                  {series.min !== null && series.max !== null && series.min !== series.max && (
+                    <span className="hidden font-mono text-label text-ink-3 sm:inline">
+                      {formatValue(series.min, group.unit)} to {formatValue(series.max, group.unit)}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </header>
 
@@ -175,26 +236,24 @@ export function MetricChart({
           The svg <title> above names the chart; this carries the readings. */}
       <p className="sr-only">{describe(group)}</p>
 
-      <div className={showAxis ? 'h-40 pr-2 sm:pr-5' : 'h-32 pr-2 sm:pr-5'}>
+      <div className={`page ${showAxis ? 'h-44' : 'h-36'}`}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
+          <ComposedChart
             data={group.rows}
             syncId="metrion-timeline"
             // `accessibilityLayer` makes the chart a focusable
             // role="application" the arrow keys walk through - and, on its
-            // own, an unnamed one: four tab stops that announce "application"
-            // and nothing else. `title` renders the <title> inside the svg,
-            // which is what gives that stop its accessible name, and it names
-            // the series rather than leaving them identified by colour.
+            // own, an unnamed one. `title` renders the <title> inside the svg,
+            // which gives that stop its accessible name and names the series
+            // rather than leaving them identified by colour.
             accessibilityLayer
             title={`${group.unit ?? 'unitless'} over time: ${group.series
               .map((series) => series.name)
               .join(', ')}`}
-            // The right margin is identical on every strip, including the ones
+            // The margins are identical on every strip, including the ones
             // with a hidden axis: the plot areas have to start and end at the
-            // same x or reading a spike down the stack stops working. 28 is
-            // what the last time tick needs, which was clipped at 4.
-            margin={{ top: 8, right: 28, bottom: 8, left: 4 }}
+            // same x or reading a spike down the stack stops working.
+            margin={{ top: 8, right: 4, bottom: 8, left: 0 }}
           >
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="0" vertical={false} />
 
@@ -237,29 +296,20 @@ export function MetricChart({
               domain={[range.from.getTime(), range.to.getTime()]}
               hide={!showAxis}
               tickFormatter={(value: number) => formatTick(value, spanMs)}
-              tick={{
-                fill: 'var(--color-ink-3)',
-                fontSize: 'var(--text-meta)',
-                fontFamily: 'var(--font-mono)',
-              }}
+              tick={<TimeTick />}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-line)' }}
-              // `formatTick`'s middle band (36h < span <= 8d) prints a
-              // weekday, so its longest label is "Wed, 14:32" - 10 mono
-              // characters. JetBrains Mono's advance width is ~0.6em, so at
-              // the 11px --text-meta size that label is ~66px wide. 48 was
-              // narrower than the label it had to space out, so two adjacent
-              // weekday ticks could touch; 72 clears it with room.
+              // `formatTick`'s longest label is "Wed 14:32" - 9 mono characters,
+              // about 65px at 12px. 72 keeps two adjacent weekday ticks apart.
               minTickGap={72}
             />
             <YAxis
               // Fixed, and the same on every strip, so the plot areas line up.
-              // 56 fits the widest tick this formatter produces ("439,5K" at
-              // 11px mono) and gives a 390px phone back the 12px that 68 cost.
-              width={56}
-              domain={[domainMin, domainMax]}
-              ticks={axisTicks(group.unit)}
-              tickCount={4}
+              // 64 fits the widest label this formatter produces ("512 MiB").
+              width={64}
+              interval={0}
+              domain={[0, axis.max]}
+              ticks={axis.ticks}
               tickFormatter={(value: number) => formatAxisValue(value, group.unit)}
               tick={{
                 fill: 'var(--color-ink-3)',
@@ -270,35 +320,56 @@ export function MetricChart({
               axisLine={false}
             />
             <Tooltip
-              cursor={{ stroke: 'var(--color-line-strong)', strokeWidth: 1 }}
+              cursor={{ stroke: 'var(--color-control)', strokeWidth: 1 }}
+              // 24px off the cursor, so the box sits beside the reading it
+              // describes instead of over the next few samples of the line.
+              offset={24}
+              wrapperStyle={{ zIndex: 20, pointerEvents: 'none' }}
               content={(props: TooltipContentProps) => (
                 <ChartTooltip {...props} unit={group.unit} series={group.series} />
               )}
             />
 
-            {group.series.map((series) => (
-              <Line
-                key={series.name}
+            {/* One series gets a faint fill under it: with nothing to compare
+                against, the area is what makes a lone line read as a level. */}
+            {single && !hidden.has(single.name) && (
+              <Area
                 type="linear"
-                name={series.name}
-                dataKey={(row: GridRow) => row.values[series.name]}
-                stroke={series.color}
-                strokeWidth={STROKE_WIDTH}
-                strokeDasharray={series.dash}
-                dot={false}
-                activeDot={{ r: 2.5, strokeWidth: 0 }}
-                // Off deliberately. A line that draws itself on every
-                // progressive arrival is motion that tells the reader nothing
-                // about what changed, and there are up to eight of them.
+                name={single.name}
+                dataKey={(row: GridRow) => row.values[single.name]}
+                stroke="none"
+                fill={single.color}
+                fillOpacity={0.08}
                 isAnimationActive={false}
-                // The default. Spelled out because it is the single behaviour
-                // this whole file exists to get right: a bucket with no sample
-                // is a hole in the line, never a zero and never a straight
-                // segment drawn across it.
                 connectNulls={false}
+                activeDot={false}
+                legendType="none"
+                tooltipType="none"
               />
-            ))}
-          </LineChart>
+            )}
+            {group.series.map((series) =>
+              hidden.has(series.name) ? null : (
+                <Line
+                  key={series.name}
+                  type="linear"
+                  name={series.name}
+                  dataKey={(row: GridRow) => row.values[series.name]}
+                  stroke={series.color}
+                  strokeWidth={STROKE_WIDTH}
+                  strokeDasharray={series.dash}
+                  dot={false}
+                  activeDot={{ r: 3, strokeWidth: 0 }}
+                  // Off deliberately: a line that draws itself on every
+                  // progressive arrival is motion that says nothing about what
+                  // changed, and there are up to eight of them.
+                  isAnimationActive={false}
+                  // A bucket with no sample is a hole in the line, never a
+                  // zero and never a straight segment drawn across it.
+                  connectNulls={false}
+                />
+              ),
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </section>

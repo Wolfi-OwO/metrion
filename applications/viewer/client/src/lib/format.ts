@@ -57,39 +57,62 @@ export function formatValue(value: number, unit: string | null): string {
   }
 }
 
-/** The same number without its unit - the axis says the unit once, at the top. */
+/**
+ * An axis label. Bytes carry their binary suffix ("8 MiB") because the same
+ * digits mean different things at KiB and GiB scale and a bare "8M" reads as
+ * SI; the strip's own eyebrow says "bytes/s", so the "/s" is not repeated on
+ * every tick.
+ */
 export function formatAxisValue(value: number, unit: string | null): string {
   if (!Number.isFinite(value)) return '';
 
   if (unit === 'bytes' || unit === 'bytes/s') {
     const scaled = binary(value);
-    return `${trim(scaled.value, scaled.suffix === 'B' ? 0 : 1)}${scaled.suffix === 'B' ? '' : scaled.suffix[0]}`;
+    return scaled.suffix === 'B'
+      ? trim(scaled.value, 0)
+      : `${trim(scaled.value, 1)} ${scaled.suffix}`;
   }
   if (unit === 'bool') return value >= 0.5 ? 'yes' : 'no';
   if (Math.abs(value) >= 10_000) return `${trim(value / 1000, 0)}k`;
   return trim(value, Math.abs(value) >= 10 ? 0 : 2);
 }
 
-/**
- * A percent axis is pinned to 0-100 so a flat idle CPU reads as flat and idle
- * instead of being auto-scaled into dramatic noise between 0.2 and 0.4. The
- * upper bound still follows the data if something genuinely exceeds 100.
- */
-export function axisDomain(unit: string | null, dataMax: number): [number, number | 'auto'] {
-  if (unit === 'percent') return [0, Math.max(100, Math.ceil(dataMax))];
-  if (unit === 'bool') return [0, 1];
-  return [0, 'auto'];
+const NICE_STEPS = [1, 2, 2.5, 5, 10];
+
+function niceStep(raw: number): number {
+  const exponent = Math.floor(Math.log10(raw));
+  const fraction = raw / 10 ** exponent;
+  return (NICE_STEPS.find((step) => fraction <= step) ?? 10) * 10 ** exponent;
 }
 
 /**
- * Explicit ticks where the unit has meaningful landmarks. Left to recharts, a
- * 0-100 axis divided into four came out as 0, 35, 70, 100 - arithmetically
- * even, and nothing a person reads a percentage against.
+ * The y-axis for one strip: a maximum and the ticks that sit on it, chosen so
+ * every label is a number a person would say. Left to recharts the bytes strip
+ * came out as 8.1M / 16.2M / 24.3M - three equal divisions of an arbitrary
+ * maximum - and nothing reads a rate against that.
+ *
+ * A percent axis is pinned to 0-100 so a flat idle CPU reads as flat and idle
+ * instead of being auto-scaled into dramatic noise; its ceiling still follows
+ * the data if something genuinely exceeds 100. Bytes are stepped in their own
+ * binary unit (multiples of 5 MiB, not of 5 000 000 bytes).
  */
-export function axisTicks(unit: string | null): number[] | undefined {
-  if (unit === 'percent') return [0, 50, 100];
-  if (unit === 'bool') return [0, 1];
-  return undefined;
+export function niceAxis(unit: string | null, dataMax: number): { max: number; ticks: number[] } {
+  if (unit === 'percent') {
+    const max = Math.max(100, Math.ceil(dataMax));
+    return { max, ticks: max === 100 ? [0, 25, 50, 75, 100] : [0, max / 2, max] };
+  }
+  if (unit === 'bool') return { max: 1, ticks: [0, 1] };
+  if (!Number.isFinite(dataMax) || dataMax <= 0) return { max: 1, ticks: [0, 1] };
+
+  const scale =
+    unit === 'bytes' || unit === 'bytes/s'
+      ? 1024 ** Math.max(0, Math.floor(Math.log2(dataMax) / 10))
+      : 1;
+  const scaledMax = dataMax / scale;
+  const step = niceStep(scaledMax / 3);
+  const count = Math.ceil(scaledMax / step - 1e-9);
+  const ticks = Array.from({ length: count + 1 }, (_, index) => index * step * scale);
+  return { max: count * step * scale, ticks };
 }
 
 /**
@@ -109,10 +132,19 @@ export function timeZoneLabel(): string {
 export function formatTick(at: number, spanMs: number): string {
   const date = new Date(at);
   if (spanMs <= 36 * 60 * 60 * 1000) {
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
   }
   if (spanMs <= 8 * 24 * 60 * 60 * 1000) {
-    return date.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleString(undefined, {
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
   }
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
@@ -123,6 +155,7 @@ export function formatTimestamp(at: number): string {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    hourCycle: 'h23',
   });
 }
 

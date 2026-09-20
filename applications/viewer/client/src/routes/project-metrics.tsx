@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import type { Project } from '../api/client.ts';
 import { fetchResources } from '../api/client.ts';
+import { ChevronIcon } from '../components/icon.tsx';
 import { MetricChart } from '../components/metric-chart.tsx';
 import { ProjectHeader, ProjectShell } from '../components/project-shell.tsx';
 import { RangeControl } from '../components/range-control.tsx';
@@ -145,23 +146,27 @@ function ProjectMetricsPanel({
             supporting last-sample readout, demoted to the row's trailing
             corner as the one secondary action here. */}
         <div className="border-t border-line">
-          <div className="page flex flex-col gap-y-3 py-3">
+          <div className="page flex flex-wrap items-end gap-x-6 gap-y-3 py-3">
             {list.length > 0 && active && (
               <ResourcePicker resources={list} value={active} onChange={setSelection} />
             )}
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <RangeControl value={preset} onChange={setPreset} />
-              <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-                {newestSample > 0 && (
-                  <span className="font-mono text-meta text-ink-3">
-                    last sample {formatAge(now.getTime() - newestSample)}
-                  </span>
-                )}
-                <Button variant="quiet" onClick={refresh}>
-                  Refresh
-                </Button>
-              </div>
+            <RangeControl value={preset} onChange={setPreset} />
+            <div className="ml-auto flex items-center gap-3">
+              {newestSample > 0 && (
+                <span className="flex items-center gap-2 font-mono text-label text-ink-3">
+                  {/* A slow ring around the dot while the newest sample is under
+                      two minutes old: the collector writes one a minute, so
+                      this is what "still arriving" looks like. It stops
+                      the moment data goes stale, and under reduced motion. */}
+                  {now.getTime() - newestSample < 120_000 && (
+                    <span aria-hidden="true" className="live-dot" />
+                  )}
+                  last sample {formatAge(now.getTime() - newestSample)}
+                </span>
+              )}
+              <Button variant="quiet" onClick={refresh}>
+                Refresh
+              </Button>
             </div>
           </div>
         </div>
@@ -251,26 +256,30 @@ function ProjectMetricsPanel({
             in the app. Loading/skipped-lines notices below it are the
             opposite - they change with this fetch - so they stay always
             visible rather than hidden behind a click. */}
-        <div className="page border-t border-line py-4 text-meta text-ink-3">
-          <details>
-            <summary className="cursor-pointer text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink">
-              How to read this data
-            </summary>
-            <p className="mt-2 max-w-prose leading-relaxed">
-              Times in {timeZoneLabel()}; the collector records in UTC. Each point is a{' '}
-              {formatDuration(stepSeconds)} average, and a gap in a line is a bucket that held no
-              sample - never a zero. Shaded columns are stretches where nothing at all was recorded.
-            </p>
-          </details>
-          {(series.phase === 'loading' || series.phase === 'waking') && (
-            <p className="mt-2 text-ink-2">Reading the day-blobs for this window.</p>
-          )}
-          {skippedLines > 0 && (
-            <p className="mt-2 text-text-caution">
-              {skippedLines} unreadable {skippedLines === 1 ? 'line was' : 'lines were'} skipped in
-              storage, so this window may be missing points.
-            </p>
-          )}
+        <div className="border-t border-line py-4">
+          <div className="page text-meta text-ink-3">
+            <details className="group">
+              <summary className="flex min-h-11 list-none items-center gap-2 text-label text-ink-2 transition-colors hover:text-ink md:min-h-8 [&::-webkit-details-marker]:hidden">
+                <ChevronIcon className="shrink-0 text-ink-3 transition-transform group-open:rotate-90" />
+                How to read this data
+              </summary>
+              <p className="mt-2 max-w-prose text-body text-ink-2">
+                Times in {timeZoneLabel()}; the collector records in UTC. Each point is a{' '}
+                {formatDuration(stepSeconds)} average, and a gap in a line is a bucket that held no
+                sample - never a zero. Shaded columns are stretches where nothing at all was
+                recorded.
+              </p>
+            </details>
+            {(series.phase === 'loading' || series.phase === 'waking') && (
+              <p className="mt-2 text-ink-2">Reading the day-blobs for this window.</p>
+            )}
+            {skippedLines > 0 && (
+              <p className="mt-2 text-text-caution">
+                {skippedLines} unreadable {skippedLines === 1 ? 'line was' : 'lines were'} skipped
+                in storage, so this window may be missing points.
+              </p>
+            )}
+          </div>
         </div>
       </>
     );

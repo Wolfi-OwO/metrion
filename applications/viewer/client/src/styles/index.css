@@ -330,6 +330,34 @@ input:focus-visible + span {
   animation: flash-row 1400ms var(--ease-instrument) both;
 }
 
+/* The freshness dot beside "last sample": solid, with a ring that grows and
+   fades every 2.4s. */
+.live-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-status-ok);
+}
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-status-ok);
+  animation: live-ring 2.4s var(--ease-instrument) infinite;
+}
+@keyframes live-ring {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
 /* The one piece of non-user-triggered motion: a slow sweep across the
    placeholder axis while an Azure Container Apps replica cold-starts. It says
    "still alive", which a static skeleton cannot. Under reduced motion the rule
