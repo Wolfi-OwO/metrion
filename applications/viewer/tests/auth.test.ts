@@ -3,6 +3,7 @@ import test, { after, before } from 'node:test';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type { Pool } from 'pg';
+import './with-origin.ts';
 
 /**
  * Matches `docker-compose.dev.yml` / `@metrion/db`'s own local-dev default.

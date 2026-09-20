@@ -7,6 +7,7 @@ import { pino } from 'pino';
 import { pinoHttp } from 'pino-http';
 import { config } from './config/index.js';
 import { errorHandler, notFound } from './middlewares/error.js';
+import { sameOrigin } from './middlewares/same-origin.js';
 import {
   resolveProjectIdsFromSession,
   setProjectIdsResolver,
@@ -132,6 +133,10 @@ app.use(
     },
   }),
 );
+
+// One guard for every state-changing request, mounted before any router so a
+// route added later is covered without opting in.
+app.use(sameOrigin);
 
 app.use(routes);
 
