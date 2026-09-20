@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import { ApiError, createApiKey, fetchApiKeys, revokeApiKey, type Project } from '../api/client.ts';
 import { CopyButton } from '../components/copy-button.tsx';
 import { StatusIcon } from '../components/icon.tsx';
 import { ProjectShell } from '../components/project-shell.tsx';
-import { Body, Button, buttonClassName, Heading } from '../components/states.tsx';
+import { Body, Button, Heading } from '../components/states.tsx';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useProject } from '../lib/use-projects.ts';
 
@@ -210,38 +210,10 @@ export default function ProjectSettingsRoute() {
   };
 
   return (
-    <ProjectShell
-      auth={auth}
-      lookup={lookup}
-      breadcrumb={
-        <>
-          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
-            Projects
-          </Link>
-          <span aria-hidden="true">/</span>
-          {lookup.project ? (
-            <Link
-              to={`/projects/${lookup.project.id}`}
-              className="transition-colors duration-(--duration-fast) hover:text-ink"
-            >
-              {lookup.project.name}
-            </Link>
-          ) : (
-            <span>…</span>
-          )}
-          <span aria-hidden="true">/</span>
-          <span className="text-ink">Settings</span>
-        </>
-      }
-    >
+    <ProjectShell auth={auth} lookup={lookup} projectId={projectId ?? ''}>
       {(project) => (
         <main className="flex-1 px-gutter py-8 sm:px-gutter-lg">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-heading font-semibold text-ink">API keys</h1>
-            <Link to={`/projects/${project.id}/status`} className={buttonClassName('quiet')}>
-              Status, dependencies and thresholds
-            </Link>
-          </div>
+          <h1 className="text-heading font-semibold text-ink">API keys</h1>
           <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-dim">
             A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code> for{' '}
             <span className="font-mono text-ink">{project.name}</span>. Revoking one takes effect

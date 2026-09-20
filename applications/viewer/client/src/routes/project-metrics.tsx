@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import type { Project } from '../api/client.ts';
 import { fetchResources } from '../api/client.ts';
 import { MetricChart } from '../components/metric-chart.tsx';
@@ -31,19 +31,7 @@ export default function ProjectMetricsRoute() {
   const lookup = useProject(projectId ?? '', auth.status !== 'loading');
 
   return (
-    <ProjectShell
-      auth={auth}
-      lookup={lookup}
-      breadcrumb={
-        <>
-          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
-            Projects
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span className="text-ink">{lookup.project?.name ?? '…'}</span>
-        </>
-      }
-    >
+    <ProjectShell auth={auth} lookup={lookup} projectId={projectId ?? ''} ownsHeader>
       {(project, email, onSignedOut) => (
         <ProjectMetricsPanel project={project} email={email} onSignedOut={onSignedOut} />
       )}
@@ -145,35 +133,9 @@ function ProjectMetricsPanel({
       <ProjectHeader
         email={email}
         onSignedOut={onSignedOut}
+        projectId={project.id}
+        projectName={project.name}
         sticky
-        breadcrumb={
-          <>
-            <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
-              Projects
-            </Link>
-            <span aria-hidden="true">/</span>
-            <span className="text-ink">{project.name}</span>
-            {/* Navigation, not path - Status and Settings live beside the
-                breadcrumb rather than in the data toolbar below, which is for
-                controls that change what the charts show. A border separates
-                the two groups so the divide reads visually, not just by
-                gap. */}
-            <span className="ml-2 flex items-center gap-x-4 border-l border-line pl-4">
-              <Link
-                to={`/projects/${project.id}/status`}
-                className="transition-colors duration-(--duration-fast) hover:text-ink"
-              >
-                Status
-              </Link>
-              <Link
-                to={`/projects/${project.id}/settings`}
-                className="transition-colors duration-(--duration-fast) hover:text-ink"
-              >
-                Settings
-              </Link>
-            </span>
-          </>
-        }
       >
         {/* Two explicit rows, not one that wraps wherever it runs out of
             space: resource selection (which server, which part of it) is the

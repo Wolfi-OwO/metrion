@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { useOutletContext, useParams } from 'react-router-dom';
 import {
   ApiError,
   createApplication,
@@ -294,30 +294,7 @@ export default function ProjectStatusRoute() {
   const lookup = useProject(projectId ?? '', auth.status !== 'loading');
 
   return (
-    <ProjectShell
-      auth={auth}
-      lookup={lookup}
-      breadcrumb={
-        <>
-          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
-            Projects
-          </Link>
-          <span aria-hidden="true">/</span>
-          {lookup.project ? (
-            <Link
-              to={`/projects/${lookup.project.id}`}
-              className="transition-colors duration-(--duration-fast) hover:text-ink"
-            >
-              {lookup.project.name}
-            </Link>
-          ) : (
-            <span>…</span>
-          )}
-          <span aria-hidden="true">/</span>
-          <span className="text-ink">Status</span>
-        </>
-      }
-    >
+    <ProjectShell auth={auth} lookup={lookup} projectId={projectId ?? ''}>
       {(project) => <ProjectStatusPanel project={project} />}
     </ProjectShell>
   );

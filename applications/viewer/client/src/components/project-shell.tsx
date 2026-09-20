@@ -1,38 +1,78 @@
 import type { ReactNode } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, NavLink } from 'react-router-dom';
 import type { Project } from '../api/client.ts';
 import type { AuthState } from '../lib/use-auth.ts';
 import type { ProjectLookup } from '../lib/use-projects.ts';
 import { AccountBar } from './account-bar.tsx';
 import { Body, ErrorState, Heading, LoadingState, Panel } from './states.tsx';
 
+const TABS = [
+  { label: 'Overview', to: '', end: true },
+  { label: 'Status', to: '/status', end: false },
+  { label: 'Settings', to: '/settings', end: false },
+] as const;
+
 /**
- * The AccountBar + breadcrumb row every project screen wraps its content in.
- * `ProjectShell` below renders one for its own (non-ready) phases; the ready
- * state of `project-metrics.tsx` renders its own second instance with
- * `sticky` and an extra row (resource picker, loading bar) passed as
- * `children`, rather than duplicating the AccountBar/nav markup again.
+ * The AccountBar, breadcrumb and section tabs every project screen wraps its
+ * content in. The Status and Settings screens used to render without any of
+ * it once their data had loaded - `ProjectShell` drew the header only for its
+ * own loading/error/not-found branches - which left a signed-in visitor on
+ * those two screens with no logo, no way back and no sign-out. The header now
+ * lives here, keyed on the URL's project id, so it is identical in every
+ * phase and never flickers between them.
+ *
+ * `children` is the metrics screen's data toolbar; it sits inside the same
+ * sticky block so the tabs and the controls scroll away together.
  */
 export function ProjectHeader({
   email,
   onSignedOut,
-  breadcrumb,
+  projectId,
+  projectName,
   sticky = false,
   children,
 }: {
   email: string;
   onSignedOut: () => void;
-  breadcrumb: ReactNode;
+  projectId: string;
+  projectName: string | null;
   sticky?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <header className={`border-b border-line bg-bg-900${sticky ? ' sticky top-0 z-10' : ''}`}>
+    <header
+      className={`border-b border-line bg-bg-900${sticky ? ' md:sticky md:top-0 md:z-10' : ''}`}
+    >
       <AccountBar email={email} onSignedOut={onSignedOut}>
-        <nav aria-label="Breadcrumb" className="flex items-center gap-x-2 text-label text-ink-dim">
-          {breadcrumb}
+        <nav
+          aria-label="Breadcrumb"
+          className="flex min-w-0 items-center gap-x-2 text-label text-ink-dim"
+        >
+          <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
+            Projects
+          </Link>
+          <span aria-hidden="true">/</span>
+          <span className="truncate text-ink">{projectName ?? '…'}</span>
         </nav>
       </AccountBar>
+      <nav aria-label="Project sections" className="flex gap-x-6 px-gutter sm:px-gutter-lg">
+        {TABS.map((tab) => (
+          <NavLink
+            key={tab.label}
+            to={`/projects/${encodeURIComponent(projectId)}${tab.to}`}
+            end={tab.end}
+            className={({ isActive }) =>
+              `-mb-px border-b-2 py-2.5 text-label font-medium transition-colors duration-(--duration-fast) ${
+                isActive
+                  ? 'border-series-1 text-ink'
+                  : 'border-transparent text-ink-dim hover:text-ink'
+              }`
+            }
+          >
+            {tab.label}
+          </NavLink>
+        ))}
+      </nav>
       {children}
     </header>
   );
@@ -48,12 +88,16 @@ export function ProjectHeader({
 export function ProjectShell({
   auth,
   lookup,
-  breadcrumb,
+  projectId,
+  ownsHeader = false,
   children,
 }: {
   auth: AuthState;
   lookup: ProjectLookup;
-  breadcrumb: ReactNode;
+  projectId: string;
+  /** The metrics screen renders its own header because its data toolbar
+   * lives inside it; every other screen gets the plain one from here. */
+  ownsHeader?: boolean;
   children: (project: Project, email: string, onSignedOut: () => void) => ReactNode;
 }) {
   // Reachable only from a signed-in screen's own links, but a bookmarked or
@@ -63,7 +107,14 @@ export function ProjectShell({
   if (auth.status === 'signed-out') return <Navigate to="/" replace />;
 
   const email = auth.user?.email ?? '';
-  const header = <ProjectHeader email={email} onSignedOut={auth.refresh} breadcrumb={breadcrumb} />;
+  const header = (
+    <ProjectHeader
+      email={email}
+      onSignedOut={auth.refresh}
+      projectId={projectId}
+      projectName={lookup.project?.name ?? null}
+    />
+  );
 
   if (lookup.phase === 'error' && lookup.error) {
     return (
@@ -107,5 +158,11 @@ export function ProjectShell({
     );
   }
 
-  return <>{children(lookup.project, email, auth.refresh)}</>;
+  if (ownsHeader) return <>{children(lookup.project, email, auth.refresh)}</>;
+  return (
+    <>
+      {header}
+      {children(lookup.project, email, auth.refresh)}
+    </>
+  );
 }
