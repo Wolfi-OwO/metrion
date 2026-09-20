@@ -144,11 +144,10 @@ before(async () => {
 
   // Continuous aggregates refresh on a schedule/policy, not on INSERT - the
   // wide-range test needs this to actually see the rows just written.
-  // Retried on 55P03 ("concurrent refresh"): `node --test` runs this file
-  // alongside `tests/public-status.test.ts`, which refreshes the same
-  // `metrics_hourly` aggregate in its own `before()`/test body - TimescaleDB
-  // allows only one in-flight refresh per aggregate, not per window, so the
-  // two can collide with no data-correctness issue, just a race to retry.
+  // Retried on 55P03 ("concurrent refresh"): TimescaleDB allows only one
+  // in-flight refresh per aggregate, and `node --test` runs test files in
+  // parallel, so another file refreshing `metrics_hourly` can collide with
+  // no data-correctness issue, just a race to retry.
   await refreshMetricsHourly(fixturePool);
 });
 

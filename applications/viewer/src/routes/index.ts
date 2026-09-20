@@ -6,7 +6,6 @@ import { healthRouter } from './health.routes.js';
 import { legalRouter } from './legal.routes.js';
 import { metricsRouter } from './metrics.routes.js';
 import { projectsRouter } from './projects.routes.js';
-import { publicStatusRouter } from './public-status.routes.js';
 import { thresholdsRouter } from './thresholds.routes.js';
 
 /**
@@ -25,7 +24,6 @@ routes.use(projectsRouter);
 routes.use(applicationsRouter);
 routes.use(thresholdsRouter);
 routes.use(metricsRouter);
-routes.use(publicStatusRouter);
 routes.use(docsRouter);
 // Before the SPA fallback in main.ts, so `/impressum` renders the Impressum
 // rather than the chart app.
