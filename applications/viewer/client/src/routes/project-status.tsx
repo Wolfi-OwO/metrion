@@ -10,12 +10,13 @@ import {
 } from '../api/client.ts';
 import { DependencyGraph } from '../components/dependency-graph.tsx';
 import { Field } from '../components/field.tsx';
-import { StatusIcon } from '../components/icon.tsx';
+import { ChevronIcon, StatusIcon } from '../components/icon.tsx';
 import { ProjectShell } from '../components/project-shell.tsx';
 import { StatusBadge } from '../components/status-badge.tsx';
 import { StatusEventsPanel } from '../components/status-events.tsx';
-import { Body, Button, ErrorState, Heading, LoadingState, Panel } from '../components/states.tsx';
+import { Button, ErrorState, LoadingState } from '../components/states.tsx';
 import { ThresholdPanel } from '../components/threshold-panel.tsx';
+import { summariseApplications } from '../lib/status.ts';
 import { applicationKeyError, applicationNameError } from '../lib/validate.ts';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useLoader } from '../lib/use-loader.ts';
@@ -32,9 +33,11 @@ import { useProject } from '../lib/use-projects.ts';
 function CreateApplicationForm({
   projectId,
   onCreated,
+  onCancel,
 }: {
   projectId: string;
   onCreated: () => void;
+  onCancel?: () => void;
 }) {
   const [key, setKey] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -69,7 +72,7 @@ function CreateApplicationForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 flex flex-wrap items-end gap-3">
+    <form onSubmit={handleSubmit} className="mt-4 flex flex-wrap items-end gap-3 first:mt-0">
       <Field
         id="application-key"
         label="Key"
@@ -79,7 +82,7 @@ function CreateApplicationForm({
         onBlur={() => setTouched((current) => ({ ...current, key: true }))}
         error={keyError}
         placeholder="checkout-api"
-        inputClassName="w-48"
+        inputClassName="w-full sm:w-52"
       />
       <Field
         id="application-name"
@@ -90,11 +93,16 @@ function CreateApplicationForm({
         onBlur={() => setTouched((current) => ({ ...current, displayName: true }))}
         error={nameError}
         placeholder="Checkout API"
-        inputClassName="w-56"
+        inputClassName="w-full sm:w-64"
       />
-      <Button type="submit" loading={submitting}>
+      <Button type="submit" variant="primary" loading={submitting}>
         {submitting ? 'Registering…' : 'Register application'}
       </Button>
+      {onCancel && (
+        <Button variant="quiet" onClick={onCancel}>
+          Cancel
+        </Button>
+      )}
       {submitError && (
         <p role="alert" className="w-full text-label text-text-danger">
           {submitError}
@@ -105,90 +113,117 @@ function CreateApplicationForm({
 }
 
 function ApplicationRow({ app }: { app: ApplicationStatus }) {
+  const tripped = app.thresholds.filter((t) => t.state !== 'ok');
   return (
-    <li id={`app-${app.id}`} className="scroll-mt-20 px-1 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-mono text-body font-medium text-ink">
-          {app.displayName ?? app.key}
-        </span>
-        <StatusBadge status={app.effectiveStatus} />
+    <li
+      id={`app-${app.id}`}
+      className="grid scroll-mt-24 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-6 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,2fr)]"
+    >
+      <div className="min-w-0">
+        <p className="truncate text-body font-medium text-ink">{app.displayName ?? app.key}</p>
+        <p className="truncate font-mono text-meta text-ink-3">{app.key}</p>
       </div>
-      {app.causedBy && (
-        // The single most useful line on this page: full body size and
-        // bright ink, not a dim footnote, and it leads with the same status
-        // icon `StatusBadge` already uses above - reusing that three-channel
-        // vocabulary (shape + colour + word, see `status-badge.tsx`) instead
-        // of inventing a new container to draw the eye.
-        <p className="mt-1.5 flex max-w-prose items-baseline gap-1.5 text-body text-ink">
-          <span
-            className={
-              app.effectiveStatus === 'critical'
-                ? 'shrink-0 text-status-critical'
-                : 'shrink-0 text-status-warning'
-            }
-          >
-            <StatusIcon status={app.effectiveStatus} />
-          </span>
-          <span>
+      <StatusBadge status={app.effectiveStatus} />
+      <div className="col-span-2 min-w-0 md:col-span-1">
+        {app.causedBy ? (
+          // The most useful line on the page, so it is full-size ink, not a
+          // footnote: what is actually broken, and where to click for it.
+          <p className="text-body text-ink">
             Caused by{' '}
             <a
               href={`#app-${app.causedBy.id}`}
-              className="font-mono font-medium text-ink underline decoration-line-strong underline-offset-2 transition-colors duration-(--duration-fast) hover:text-accent hover:decoration-accent"
+              className="font-mono font-medium text-accent underline decoration-line-strong underline-offset-2 transition-colors hover:text-accent-strong hover:decoration-accent"
             >
               {app.causedBy.key}
             </a>
-            {' - '}this application's own thresholds read {app.status}.
-          </span>
-        </p>
-      )}
-      {app.thresholds.length > 0 && (
-        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-meta text-ink-3">
-          {app.thresholds
-            .filter((t) => t.state !== 'ok')
-            .map((t) => (
-              <li key={t.id} className="font-mono">
-                {t.metricName}: {t.value ?? 'no data'}
+            <span className="text-ink-2"> - its own thresholds read {app.status}.</span>
+          </p>
+        ) : tripped.length === 0 ? (
+          <p className="text-body text-ink-3">
+            {app.thresholds.length === 0 ? 'No thresholds set.' : 'Within every threshold.'}
+          </p>
+        ) : null}
+        {tripped.length > 0 && (
+          <ul className="mt-1 flex flex-wrap gap-2">
+            {tripped.map((t) => (
+              <li
+                key={t.id}
+                className="inline-flex items-center gap-2 rounded-control bg-raised px-2 py-1 font-mono text-label text-ink"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-2 w-2 rounded-pill ${
+                    t.state === 'critical' ? 'bg-status-critical' : 'bg-status-warning'
+                  }`}
+                />
+                {t.metricName}
+                <span className="text-ink-2">{t.value ?? 'no data'}</span>
               </li>
             ))}
-        </ul>
-      )}
+          </ul>
+        )}
+      </div>
     </li>
   );
 }
 
-/** Chevron-only disclosure marker for the three secondary `<details>`
- * sections below - a text glyph, not a new entry in `icon.tsx`'s vocabulary,
- * matching the `→` this route and `status-events.tsx` already render as
- * plain `aria-hidden` text rather than an SVG. */
-function DisclosureMark() {
+/**
+ * A native <details> with a heading-weight summary: keyboard and screen-reader
+ * behaviour come free, and the chevron is the only ornament. Configuration and
+ * history live in these so they never compete with the answer at the top.
+ */
+function Disclosure({
+  title,
+  meta,
+  children,
+}: {
+  title: string;
+  meta?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group mt-10 border-t border-line pt-2">
+      <summary className="flex min-h-11 list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+        <ChevronIcon className="shrink-0 text-ink-3 transition-transform group-open:rotate-90" />
+        <h2 className="text-heading font-semibold tracking-tight text-ink">{title}</h2>
+        {meta && <span className="font-mono text-meta text-ink-3">{meta}</span>}
+      </summary>
+      <div className="pt-4 pb-2">{children}</div>
+    </details>
+  );
+}
+
+function Count({ status, value }: { status: Status; value: number }) {
   return (
     <span
-      aria-hidden="true"
-      className="inline-block text-ink-3 transition-transform duration-(--duration-fast) group-open:rotate-90"
+      className={`inline-flex items-center gap-2 ${value === 0 ? 'text-ink-3' : STATUS_TEXT[status]}`}
     >
-      {'›'}
+      <StatusIcon status={status} />
+      <span className="font-mono text-heading font-semibold">{value}</span>
+      <span className="text-label">{STATUS_WORD[status]}</span>
     </span>
   );
 }
+
+const STATUS_TEXT: Record<Status, string> = {
+  ok: 'text-status-ok',
+  warning: 'text-status-warning',
+  critical: 'text-status-critical',
+};
+const STATUS_WORD: Record<Status, string> = { ok: 'ok', warning: 'warning', critical: 'critical' };
 
 function ProjectStatusPanel({ project }: { project: Project }) {
   const status = useLoader(`status/${project.id}`, (signal) =>
     fetchProjectStatus(project.id, signal),
   );
+  const [registering, setRegistering] = useState(false);
   const applications = status.data ?? [];
-  const counts = applications.reduce(
-    (acc, app) => {
-      acc[app.effectiveStatus] += 1;
-      return acc;
-    },
-    { ok: 0, warning: 0, critical: 0 } as Record<Status, number>,
-  );
 
-  return <main className="flex-1">{renderBody()}</main>;
+  return <main className="enter page flex-1 py-8 md:py-12">{renderBody()}</main>;
 
   function renderBody() {
     if (status.phase === 'error' && status.error) {
-      return <ErrorState error={status.error} onRetry={status.reload} />;
+      return <ErrorState error={status.error} onRetry={status.reload} what="status" />;
     }
     if (status.phase === 'loading' || status.phase === 'waking') {
       return <LoadingState waking={status.phase === 'waking'} seconds={status.elapsedSeconds} />;
@@ -196,94 +231,111 @@ function ProjectStatusPanel({ project }: { project: Project }) {
 
     if (applications.length === 0) {
       return (
-        <Panel>
-          <Heading>No applications registered yet</Heading>
-          <Body>
-            An application is what status, dependencies and thresholds attach to. Register one with
-            the same key a collector already writes under (the metrics view's server picker shows
-            the keys in use), then set thresholds for it below.
-          </Body>
-          <CreateApplicationForm projectId={project.id} onCreated={status.reload} />
-        </Panel>
+        <>
+          <h1 className="text-page font-semibold tracking-tight text-ink">Status</h1>
+          <section className="mt-8 rounded-surface border border-dashed border-line-strong px-6 py-8 md:px-8">
+            <h2 className="text-heading font-semibold tracking-tight text-ink">
+              Register your first application
+            </h2>
+            <p className="mt-2 max-w-prose text-body text-ink-2">
+              An application is what status, dependencies and thresholds attach to. Use the same key
+              a collector already writes under - the server picker on the Overview tab lists the
+              keys in use - then set thresholds for it below.
+            </p>
+            <CreateApplicationForm projectId={project.id} onCreated={status.reload} />
+          </section>
+        </>
       );
     }
 
-    // Applications is the answer to the question this whole route exists
-    // for ("which application is at fault, and why") and stays fully open,
-    // full weight. The graph and threshold editors are configuration, and
-    // recent transitions is history rather than current state - all three
-    // are real `<details>`, collapsed by default, so they never compete with
-    // the answer above for either space or attention. Native disclosure, not
-    // a hand-rolled toggle: keyboard and screen-reader behaviour come free.
+    const summary = summariseApplications(applications);
+    const allHealthy = summary.worst === 'ok';
+
+    // The page opens with the verdict, in a sentence, and the three counts as
+    // the numbers behind it. Everything below is the evidence.
     return (
-      <div className="px-gutter py-8 sm:px-gutter-lg">
-        <section>
-          <h1 className="text-heading font-semibold text-ink">Applications</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-meta text-ink-3">
-            <span className="flex items-center gap-1.5 text-status-critical">
-              <StatusIcon status="critical" />
-              {counts.critical} critical
-            </span>
-            <span className="flex items-center gap-1.5 text-status-warning">
-              <StatusIcon status="warning" />
-              {counts.warning} warning
-            </span>
-            <span className="flex items-center gap-1.5 text-status-ok">
-              <StatusIcon status="ok" />
-              {counts.ok} ok
-            </span>
-          </div>
-          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-2">
-            Effective status folds in every application this one depends on - when it differs from
-            what this application's own thresholds say, the cause is named underneath it.
+      <>
+        <h1 className="text-page font-semibold tracking-tight text-ink">Status</h1>
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-body text-ink-2">
+          <StatusBadge status={summary.worst} />
+          <span>
+            {allHealthy ? (
+              summary.headline
+            ) : (
+              <>
+                <span className="font-medium text-ink">{summary.headline}</span>
+                {summary.detail && <> · {summary.detail}</>}
+              </>
+            )}
+          </span>
+        </p>
+        <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2">
+          <Count status="critical" value={summary.counts.critical} />
+          <Count status="warning" value={summary.counts.warning} />
+          <Count status="ok" value={summary.counts.ok} />
+        </div>
+
+        <section className="mt-10" aria-labelledby="dependencies-heading">
+          <h2
+            id="dependencies-heading"
+            className="text-heading font-semibold tracking-tight text-ink"
+          >
+            Dependencies
+          </h2>
+          <p className="mt-1 mb-4 max-w-prose text-body text-ink-2">
+            Effective status folds in everything an application depends on, so an outage shows up
+            downstream of its cause.
           </p>
-          <ul className="mt-3 divide-y divide-line border-y border-line">
+          <DependencyGraph applications={applications} onChanged={status.reload} />
+        </section>
+
+        <section className="mt-10" aria-labelledby="applications-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2
+              id="applications-heading"
+              className="text-heading font-semibold tracking-tight text-ink"
+            >
+              Applications{' '}
+              <span className="font-mono text-meta font-normal text-ink-3">
+                {applications.length}
+              </span>
+            </h2>
+            {!registering && (
+              <Button onClick={() => setRegistering(true)}>Register application</Button>
+            )}
+          </div>
+          {registering && (
+            <div className="mt-4 rounded-surface border border-line bg-surface p-4">
+              <CreateApplicationForm
+                projectId={project.id}
+                onCreated={() => {
+                  setRegistering(false);
+                  status.reload();
+                }}
+                onCancel={() => setRegistering(false)}
+              />
+            </div>
+          )}
+          <ul className="mt-4 divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface">
             {applications.map((app) => (
               <ApplicationRow key={app.id} app={app} />
             ))}
           </ul>
-          <CreateApplicationForm projectId={project.id} onCreated={status.reload} />
         </section>
 
-        <details className="group mt-10 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-body font-medium text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
-            <DisclosureMark />
-            Dependency graph
-          </summary>
-          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-2">
-            Each application's direct dependencies. Editing saves the whole set at once; a save that
-            would create a cycle is rejected and the offending path is shown here, not a generic
-            error.
+        <Disclosure title="Thresholds">
+          <p className="mb-4 max-w-prose text-body text-ink-2">
+            Per application and metric. Either bound may be left empty, and &ldquo;below&rdquo; is
+            exactly as easy to set up as &ldquo;above&rdquo; - free memory and request-rate alerts
+            need it just as much.
           </p>
-          <div className="mt-3">
-            <DependencyGraph applications={applications} onChanged={status.reload} />
-          </div>
-        </details>
+          <ThresholdPanel projectId={project.id} applications={applications} />
+        </Disclosure>
 
-        <details className="group mt-6 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-body font-medium text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
-            <DisclosureMark />
-            Thresholds
-          </summary>
-          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-2">
-            Per application and metric. Either bound may be left empty, and "below" is exactly as
-            easy to set up as "above" - free memory and request-rate alerts need it just as much.
-          </p>
-          <div className="mt-3">
-            <ThresholdPanel projectId={project.id} applications={applications} />
-          </div>
-        </details>
-
-        <details className="group mt-6 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-body font-medium text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
-            <DisclosureMark />
-            Recent transitions
-          </summary>
-          <div className="mt-3">
-            <StatusEventsPanel projectId={project.id} applications={applications} />
-          </div>
-        </details>
-      </div>
+        <Disclosure title="Recent transitions">
+          <StatusEventsPanel projectId={project.id} applications={applications} />
+        </Disclosure>
+      </>
     );
   }
 }

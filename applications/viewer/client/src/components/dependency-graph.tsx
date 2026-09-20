@@ -1,30 +1,42 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ApiError,
   fetchDependencies,
   replaceDependencies,
   type ApplicationStatus,
+  type Status,
 } from '../api/client.ts';
+import {
+  edgePath,
+  layoutGraph,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  type LayoutEdge,
+} from '../lib/graph-layout.ts';
 import { cyclePathFromMessage } from '../lib/status.ts';
 import { useLoader } from '../lib/use-loader.ts';
 import { StatusBadge } from './status-badge.tsx';
+import { StatusIcon } from './icon.tsx';
 import { Button } from './states.tsx';
 
 /**
- * The dependency topology, drawn as an actual graph: no graph-drawing
- * library (the original decision stands - a handful of nodes does not
- * justify a layout-engine dependency), so layering and edge routing are done
- * by hand here, the same way `routes/landing.tsx#TimeAxisPreview` hand-draws
- * its SVG rather than reaching for a charting library for one static shape.
+ * The dependency topology as a drawn graph, with no graph library: a handful
+ * of nodes does not justify a layout engine. Every coordinate comes from
+ * `lib/graph-layout.ts` (pure numbers, unit-tested), so the lines and the
+ * nodes cannot disagree - the earlier version measured the DOM and drew
+ * curves between the measurements, which drifted whenever a node changed
+ * height and routed long edges straight through the nodes in between.
  *
- * Nodes are placed into columns by topological depth (a node with no
- * dependencies sits in column 0; everything else sits one column past its
- * deepest dependency), then an SVG overlay draws a cubic curve from each
- * dependency's right edge to its dependent's left edge, measured from the
- * real DOM via `getBoundingClientRect` after layout - there is no formula
- * for "where a node ended up", the node's own rendered position is the only
- * source of truth, same reasoning as this codebase's own rule against
- * deriving a number a real measurement should produce instead.
+ * What is drawn, and why:
+ *  - nodes are compact (name, status) and carry a status stripe on their left
+ *    edge, so the graph reads as a map of health before it reads as a map of
+ *    structure; editing lives in the detail panel below, not inside a node;
+ *  - an edge is neutral grey unless an outage travels along it (both ends are
+ *    unhealthy), in which case it takes the colour of the dependency it comes
+ *    from - so the blast radius of a root cause is the coloured part;
+ *  - hovering or selecting an application dims every edge that is not its own;
+ *  - applications with no edges are not drawn on the canvas at all - a wall of
+ *    unconnected boxes is noise - and are listed underneath instead.
  */
 
 function appLabel(app: { key: string; displayName: string | null }): string {
@@ -81,34 +93,38 @@ function EdgeEditor({
   };
 
   return (
-    // Full-bleed within the node card it now lives inside (`-mx-3 -mb-3`
-    // cancels the node's own padding on those sides) rather than its own
-    // bordered box, so opening the editor reads as the node expanding, not
-    // a card nested inside a card.
-    <div className="-mx-3 -mb-3 mt-2 border-t border-line-strong bg-raised p-3">
+    <div className="mt-4 border-t border-line pt-4">
       {candidates.length === 0 ? (
         <p className="text-label text-ink-2">
           No other applications in this project to depend on yet.
         </p>
       ) : (
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1 text-label text-ink-2">{appLabel(application)} depends on</legend>
+        <fieldset className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+          <legend className="mb-2 text-label font-medium text-ink-2">
+            {appLabel(application)} depends on
+          </legend>
           {candidates.map((app) => (
-            <label key={app.id} className="flex items-start gap-2 text-body text-ink">
+            <label
+              key={app.id}
+              className="flex min-h-11 items-center gap-3 text-body text-ink md:min-h-8"
+            >
               <input
                 type="checkbox"
                 checked={selected.has(app.id)}
                 onChange={() => toggle(app.id)}
-                className="mt-0.5 shrink-0"
+                className="h-4 w-4 shrink-0 accent-accent"
               />
-              <span className="min-w-0 flex-1 break-words font-mono">{appLabel(app)}</span>
+              <span className="min-w-0 flex-1 break-words">{appLabel(app)}</span>
             </label>
           ))}
         </fieldset>
       )}
 
       {cyclePath && (
-        <div role="alert" className="mt-3 border border-status-critical/40 bg-surface p-2.5">
+        <div
+          role="alert"
+          className="mt-4 rounded-control border border-status-critical/40 bg-status-critical/8 p-3"
+        >
           <p className="text-label font-medium text-status-critical">
             That would create a dependency cycle
           </p>
@@ -135,7 +151,7 @@ function EdgeEditor({
         </p>
       )}
 
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-4 flex items-center gap-2">
         <Button onClick={handleSave} loading={saving}>
           {saving ? 'Saving…' : 'Save dependencies'}
         </Button>
@@ -147,61 +163,121 @@ function EdgeEditor({
   );
 }
 
-interface Edge {
-  readonly key: string;
-  readonly source: string; // the dependency
-  readonly target: string; // the dependent
+const STRIPE: Record<Status, string> = {
+  ok: 'bg-status-ok',
+  warning: 'bg-status-warning',
+  critical: 'bg-status-critical',
+};
+
+const EDGE_COLOUR: Record<Status, string> = {
+  ok: 'var(--color-control)',
+  warning: 'var(--color-status-warning)',
+  critical: 'var(--color-status-critical)',
+};
+
+function GraphNode({
+  app,
+  selected,
+  dependsOn,
+  onSelect,
+  onHover,
+  style,
+}: {
+  app: ApplicationStatus;
+  selected: boolean;
+  dependsOn: string[];
+  onSelect: () => void;
+  onHover?: (hovering: boolean) => void;
+  style?: React.CSSProperties;
+}) {
+  const unhealthy = app.effectiveStatus !== 'ok';
+  const isRoot = unhealthy && app.causedBy === null;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
+      onFocus={() => onHover?.(true)}
+      onBlur={() => onHover?.(false)}
+      aria-pressed={selected}
+      aria-label={`${appLabel(app)}, ${STATUS_WORD[app.effectiveStatus]}. ${
+        dependsOn.length > 0 ? `Depends on ${dependsOn.join(', ')}.` : 'Depends on nothing.'
+      }`}
+      style={style}
+      className={`group relative flex min-h-11 flex-col justify-center overflow-hidden rounded-control border bg-surface py-1.5 pr-3 pl-4 text-left transition-colors md:min-h-0 ${
+        selected
+          ? 'border-accent'
+          : isRoot
+            ? 'border-status-critical/60 hover:border-status-critical'
+            : 'border-line-strong hover:border-control'
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`absolute inset-y-0 left-0 w-1 ${STRIPE[app.effectiveStatus]}`}
+      />
+      <span className="truncate text-body font-medium text-ink">{appLabel(app)}</span>
+      <span
+        className={`flex items-center gap-1 text-label ${
+          app.effectiveStatus === 'ok'
+            ? 'text-ink-3'
+            : app.effectiveStatus === 'warning'
+              ? 'text-status-warning'
+              : 'text-status-critical'
+        }`}
+      >
+        <StatusIcon status={app.effectiveStatus} />
+        {STATUS_WORD[app.effectiveStatus]}
+        {isRoot && <span className="text-ink-3">· root cause</span>}
+      </span>
+    </button>
+  );
 }
 
-interface EdgePath {
-  readonly key: string;
-  readonly d: string;
-}
+const STATUS_WORD: Record<Status, string> = { ok: 'OK', warning: 'Warning', critical: 'Critical' };
 
-/** Topological depth per node: 0 when it depends on nothing, otherwise one
- * past its deepest dependency. `visiting` only guards against a stale
- * optimistic override producing a momentary cycle client-side - the server
- * already rejects real cycles (409, handled in `EdgeEditor`) - so a node
- * caught mid-cycle just falls back to depth 0 instead of recursing forever. */
-function computeLayers(
-  applications: readonly ApplicationStatus[],
-  edgesFor: (id: string) => string[],
-): Map<string, number> {
-  const layer = new Map<string, number>();
-  const visiting = new Set<string>();
-
-  function resolve(id: string): number {
-    const cached = layer.get(id);
-    if (cached !== undefined) return cached;
-    if (visiting.has(id)) return 0;
-    visiting.add(id);
-    const deps = edgesFor(id).filter((depId) => depId !== id);
-    const value = deps.length === 0 ? 0 : 1 + Math.max(...deps.map((depId) => resolve(depId)));
-    visiting.delete(id);
-    layer.set(id, value);
-    return value;
-  }
-
-  applications.forEach((app) => resolve(app.id));
-  return layer;
-}
-
-function groupByLayer(applications: readonly ApplicationStatus[], layers: Map<string, number>) {
-  const byLayer = new Map<number, string[]>();
-  let maxLayer = 0;
-  applications.forEach((app) => {
-    const l = layers.get(app.id) ?? 0;
-    maxLayer = Math.max(maxLayer, l);
-    const column = byLayer.get(l) ?? [];
-    column.push(app.id);
-    byLayer.set(l, column);
-  });
-  return Array.from({ length: maxLayer + 1 }, (_, i) => byLayer.get(i) ?? []);
-}
-
-function samePaths(a: EdgePath[], b: EdgePath[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((edge, i) => edge.key === b[i]?.key && edge.d === b[i]?.d);
+function NameList({
+  title,
+  ids,
+  appById,
+  onSelect,
+}: {
+  title: string;
+  ids: string[];
+  appById: Map<string, ApplicationStatus>;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="min-w-0">
+      <h4 className="text-label font-medium text-ink-2">{title}</h4>
+      {ids.length === 0 ? (
+        <p className="mt-1 text-body text-ink-3">Nothing.</p>
+      ) : (
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {ids.map((id) => {
+            const app = appById.get(id);
+            if (!app) return null;
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(id)}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-control border border-line-strong bg-raised px-3 text-label text-ink transition-colors hover:border-control md:min-h-8"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`h-2 w-2 rounded-pill ${STRIPE[app.effectiveStatus]}`}
+                  />
+                  {appLabel(app)}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function DependencyGraph({
@@ -222,103 +298,22 @@ export function DependencyGraph({
     },
     ids.length > 0,
   );
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const [overrides, setOverrides] = useState<Map<string, string[]>>(new Map());
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const nodeRefs = useRef(new Map<string, HTMLDivElement>());
-  const [edgePaths, setEdgePaths] = useState<EdgePath[]>([]);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   const appById = new Map(applications.map((app) => [app.id, app]));
   const edgesFor = (id: string): string[] => overrides.get(id) ?? loader.data?.get(id) ?? [];
-  const knownIds = new Set(ids);
-  const edges: Edge[] = applications.flatMap((app) =>
+  const known = new Set(ids);
+  const edges: LayoutEdge[] = applications.flatMap((app) =>
     edgesFor(app.id)
-      .filter((depId) => knownIds.has(depId))
-      .map((depId) => ({ key: `${depId}=>${app.id}`, source: depId, target: app.id })),
+      .filter((depId) => known.has(depId))
+      .map((depId) => ({ source: depId, target: app.id })),
   );
-
-  // Recomputed after every commit (mount, data load, override applied, an
-  // editor opening and changing a node's height, a window resize): with the
-  // node count this view realistically has, redoing the measurement is
-  // cheaper than trying to invalidate it correctly, and the equality checks
-  // below stop it from looping.
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const containerBox = container.getBoundingClientRect();
-
-    const outgoing = new Map<string, Edge[]>();
-    const incoming = new Map<string, Edge[]>();
-    edges.forEach((edge) => {
-      const out = outgoing.get(edge.source) ?? [];
-      out.push(edge);
-      outgoing.set(edge.source, out);
-      const inc = incoming.get(edge.target) ?? [];
-      inc.push(edge);
-      incoming.set(edge.target, inc);
-    });
-
-    // Spreads a node's edges evenly across its height instead of every line
-    // leaving/arriving at the exact same pixel - what keeps a 4+ dependent
-    // fan-in from drawing as one illegible overlapping stack.
-    function spread(nodeId: string, list: Edge[]): Map<string, number> {
-      const positions = new Map<string, number>();
-      const el = nodeRefs.current.get(nodeId);
-      if (!el || list.length === 0) return positions;
-      const box = el.getBoundingClientRect();
-      const top = box.top - containerBox.top;
-      list.forEach((edge, i) => {
-        positions.set(edge.key, top + (box.height * (i + 1)) / (list.length + 1));
-      });
-      return positions;
-    }
-
-    const exitY = new Map<string, number>();
-    outgoing.forEach((list, nodeId) => spread(nodeId, list).forEach((y, key) => exitY.set(key, y)));
-    const entryY = new Map<string, number>();
-    incoming.forEach((list, nodeId) =>
-      spread(nodeId, list).forEach((y, key) => entryY.set(key, y)),
-    );
-
-    const nextPaths: EdgePath[] = [];
-    edges.forEach((edge) => {
-      const sourceEl = nodeRefs.current.get(edge.source);
-      const targetEl = nodeRefs.current.get(edge.target);
-      if (!sourceEl || !targetEl) return;
-      const sourceBox = sourceEl.getBoundingClientRect();
-      const targetBox = targetEl.getBoundingClientRect();
-      const x1 = sourceBox.right - containerBox.left;
-      const y1 = exitY.get(edge.key) ?? sourceBox.top - containerBox.top + sourceBox.height / 2;
-      const x2 = targetBox.left - containerBox.left;
-      const y2 = entryY.get(edge.key) ?? targetBox.top - containerBox.top + targetBox.height / 2;
-      const bend = Math.max(24, (x2 - x1) / 2);
-      nextPaths.push({
-        key: edge.key,
-        d: `M${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`,
-      });
-    });
-
-    setEdgePaths((prev) => (samePaths(prev, nextPaths) ? prev : nextPaths));
-    setCanvasSize((prev) => {
-      const width = container.scrollWidth;
-      const height = container.scrollHeight;
-      return prev.width === width && prev.height === height ? prev : { width, height };
-    });
-  });
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const observer = new ResizeObserver(() => {
-      // Forces the effect above to run again; the observer's own callback
-      // doesn't need to compute anything, only trigger a re-measure.
-      setCanvasSize((prev) => ({ ...prev }));
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
+  const edgeSignature = edges.map((edge) => `${edge.source}>${edge.target}`).join('|');
+  // `edges` is rebuilt every render; its signature is the real dependency.
+  const layout = useMemo(() => layoutGraph(ids, edges), [ids.join(','), edgeSignature]);
 
   if (applications.length === 0) return null;
 
@@ -333,136 +328,197 @@ export function DependencyGraph({
     return <p className="text-body text-ink-2">Loading the dependency graph…</p>;
   }
 
-  function renderNode(app: ApplicationStatus) {
-    const deps = edgesFor(app.id);
-    const editing = editingId === app.id;
-    const depNames = deps.map((depId) => {
-      const dep = appById.get(depId);
-      return dep ? appLabel(dep) : depId;
-    });
+  // Land on the thing worth looking at: the first application that is
+  // unhealthy for its own reasons. Falls back to nothing selected.
+  const rootCause = applications.find((app) => app.effectiveStatus !== 'ok' && !app.causedBy);
+  const selectedId = picked ?? rootCause?.id ?? null;
+  const selected = selectedId ? appById.get(selectedId) : undefined;
+  const focusId = hovered ?? selectedId;
 
-    return (
-      <div
-        key={app.id}
-        ref={(el) => {
-          if (el) nodeRefs.current.set(app.id, el);
-          else nodeRefs.current.delete(app.id);
-        }}
-        className="rounded-surface border border-line-strong bg-surface p-3"
-      >
-        {/* The lines carry this relationship visually; screen reader users
-            get the same fact as text, same pairing as
-            `metric-chart.tsx`'s sr-only reading beside its chart. */}
-        <p className="sr-only">
-          {depNames.length > 0 ? `Depends on ${depNames.join(', ')}.` : 'Depends on nothing yet.'}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-mono text-body text-ink">{appLabel(app)}</span>
-          <StatusBadge status={app.effectiveStatus} />
-        </div>
-        <Button
-          variant="quiet"
-          className="mt-2"
-          onClick={() => setEditingId(editing ? null : app.id)}
-        >
-          {editing ? 'Close' : deps.length > 0 ? 'Edit dependencies' : 'Connect dependencies'}
-        </Button>
+  const dependsOn = selected ? edgesFor(selected.id).filter((id) => known.has(id)) : [];
+  const dependents = selected
+    ? applications.filter((app) => edgesFor(app.id).includes(selected.id)).map((app) => app.id)
+    : [];
 
-        {editing && (
-          <EdgeEditor
-            application={app}
-            applications={applications}
-            current={deps}
-            onCancel={() => setEditingId(null)}
-            onSaved={(dependsOn) => {
-              setOverrides((prev) => new Map(prev).set(app.id, dependsOn));
-              setEditingId(null);
-              onChanged();
-            }}
-          />
-        )}
-      </div>
-    );
-  }
+  const select = (id: string) => {
+    setPicked(id);
+    setEditing(false);
+  };
 
-  // Nothing connected anywhere yet (today's real production state - 5
-  // applications, 0 edges): a single graph column would just be another
-  // vertical list, which is the exact complaint this redesign exists to
-  // fix. Framed as an open canvas instead - nodes laid out, dashed border,
-  // copy that explains why it's empty and what to do about it - never a
-  // blank or broken-looking graph.
-  if (applications.length > 1 && edges.length === 0) {
-    return (
-      <div className="rounded-surface border border-dashed border-line-strong p-5">
-        <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
-          No connections yet
-        </p>
-        <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-2">
-          These applications aren't linked yet. Click one to set what it depends on - once an edge
-          exists, this becomes a real graph instead of a shelf of unconnected nodes.
-        </p>
-        <div className="mt-4 flex flex-wrap items-start gap-4">
-          {applications.map((app) => (
-            <div key={app.id} className="w-64 shrink-0">
-              {renderNode(app)}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const columns = groupByLayer(applications, computeLayers(applications, edgesFor));
+  const depNames = (id: string) =>
+    edgesFor(id)
+      .map((depId) => appById.get(depId))
+      .filter((dep): dep is ApplicationStatus => dep !== undefined)
+      .map(appLabel);
 
   return (
     <div>
-      {edges.length > 0 && (
-        <p className="mb-4 flex items-center gap-1.5 font-mono text-meta uppercase tracking-eyebrow text-ink-3">
-          <span aria-hidden="true" className="text-accent">
-            →
-          </span>
-          points toward what a dependency can affect
-        </p>
-      )}
-      <div ref={containerRef} className="relative overflow-x-auto pb-1">
-        <svg
-          aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0"
-          width={canvasSize.width}
-          height={canvasSize.height}
-        >
-          <defs>
-            <marker
-              id="dependency-arrow"
-              viewBox="0 0 8 8"
-              refX="7"
-              refY="4"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
+      {layout.nodes.length > 0 ? (
+        <div className="overflow-x-auto rounded-surface border border-line bg-surface p-4">
+          <div className="relative mx-auto" style={{ width: layout.width, height: layout.height }}>
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 left-0"
+              width={layout.width}
+              height={layout.height}
             >
-              <path d="M0 0 L8 4 L0 8 Z" fill="var(--color-series-1)" />
-            </marker>
-          </defs>
-          {edgePaths.map((path) => (
-            <path
-              key={path.key}
-              d={path.d}
-              fill="none"
-              stroke="var(--color-series-1)"
-              strokeWidth="1.5"
-              markerEnd="url(#dependency-arrow)"
-            />
-          ))}
-        </svg>
-        <div className="relative flex items-start gap-x-14 gap-y-6">
-          {columns.map((columnIds, columnIndex) => (
-            <div key={columnIndex} className="flex w-64 shrink-0 flex-col gap-y-4">
-              {columnIds.map((id) => renderNode(appById.get(id)!))}
-            </div>
-          ))}
+              <defs>
+                {(['ok', 'warning', 'critical'] as const).map((status) => (
+                  <marker
+                    key={status}
+                    id={`dependency-arrow-${status}`}
+                    viewBox="0 0 8 8"
+                    refX="7"
+                    refY="4"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M0 0 L8 4 L0 8 Z" fill={EDGE_COLOUR[status]} />
+                  </marker>
+                ))}
+              </defs>
+              {layout.edges.map((edge) => {
+                const from = appById.get(edge.source);
+                const to = appById.get(edge.target);
+                // An outage travels along an edge when both ends are unhealthy.
+                const carried: Status =
+                  from && to && from.effectiveStatus !== 'ok' && to.effectiveStatus !== 'ok'
+                    ? from.effectiveStatus
+                    : 'ok';
+                const incident = focusId === edge.source || focusId === edge.target;
+                return (
+                  <path
+                    key={`${edge.source}>${edge.target}`}
+                    d={edgePath(edge.points)}
+                    fill="none"
+                    stroke={EDGE_COLOUR[carried]}
+                    strokeWidth={carried === 'ok' ? 1.25 : 2}
+                    markerEnd={`url(#dependency-arrow-${carried})`}
+                    style={{
+                      opacity: focusId && !incident ? 0.2 : 1,
+                      transition: 'opacity var(--duration-fast) var(--ease-instrument)',
+                    }}
+                  />
+                );
+              })}
+            </svg>
+            {layout.nodes.map((node) => {
+              const app = appById.get(node.id);
+              if (!app) return null;
+              return (
+                <GraphNode
+                  key={node.id}
+                  app={app}
+                  selected={selectedId === node.id}
+                  dependsOn={depNames(node.id)}
+                  onSelect={() => select(node.id)}
+                  onHover={(on) => setHovered(on ? node.id : null)}
+                  style={{
+                    position: 'absolute',
+                    left: node.x,
+                    top: node.y,
+                    width: NODE_WIDTH,
+                    minHeight: NODE_HEIGHT,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-label text-ink-3">
+            <span>Arrows point from a dependency to what depends on it.</span>
+            <span className="inline-flex items-center gap-2">
+              <span aria-hidden="true" className="h-0.5 w-5 bg-status-critical" />
+              an outage is travelling along this edge
+            </span>
+          </p>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-surface border border-dashed border-line-strong p-6">
+          <p className="text-body font-medium text-ink">No connections yet</p>
+          <p className="mt-1 max-w-prose text-body text-ink-2">
+            Select an application below and choose what it depends on. Once an edge exists this
+            becomes a graph, and an outage in a dependency shows up on everything downstream of it.
+          </p>
+        </div>
+      )}
+
+      {layout.isolated.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-label font-medium text-ink-2">
+            {layout.nodes.length > 0 ? 'Not connected' : 'Applications'}{' '}
+            <span className="font-mono text-ink-3">{layout.isolated.length}</span>
+          </h3>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {layout.isolated.map((id) => {
+              const app = appById.get(id);
+              if (!app) return null;
+              return (
+                <GraphNode
+                  key={id}
+                  app={app}
+                  selected={selectedId === id}
+                  dependsOn={[]}
+                  onSelect={() => select(id)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <section
+        aria-label="Selected application"
+        className="mt-6 rounded-surface border border-line bg-surface p-4 md:p-6"
+      >
+        {selected ? (
+          <>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h3 className="text-heading font-semibold tracking-tight text-ink">
+                {appLabel(selected)}
+              </h3>
+              <StatusBadge status={selected.effectiveStatus} />
+              <span className="font-mono text-meta text-ink-3">{selected.key}</span>
+            </div>
+            {selected.causedBy && (
+              <p className="mt-2 text-body text-ink-2">
+                Degraded because <span className="text-ink">{selected.causedBy.key}</span> is{' '}
+                {appById.get(selected.causedBy.id)?.status ?? 'unhealthy'}.
+              </p>
+            )}
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <NameList title="Depends on" ids={dependsOn} appById={appById} onSelect={select} />
+              <NameList
+                title="Depended on by"
+                ids={dependents}
+                appById={appById}
+                onSelect={select}
+              />
+            </div>
+            {editing ? (
+              <EdgeEditor
+                application={selected}
+                applications={applications}
+                current={dependsOn}
+                onCancel={() => setEditing(false)}
+                onSaved={(next) => {
+                  setOverrides((prev) => new Map(prev).set(selected.id, next));
+                  setEditing(false);
+                  onChanged();
+                }}
+              />
+            ) : (
+              <Button className="mt-6" onClick={() => setEditing(true)}>
+                {dependsOn.length > 0 ? 'Edit dependencies' : 'Connect dependencies'}
+              </Button>
+            )}
+          </>
+        ) : (
+          <p className="text-body text-ink-2">
+            Select an application to see what it depends on, and to change that.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

@@ -44,16 +44,16 @@ export function StatusEventsPanel({
   }
 
   return (
-    <ul className="divide-y divide-line border-y border-line">
+    <ul className="divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface">
       {events.map((event) => {
         const app = event.applicationId ? appById.get(event.applicationId) : null;
         return (
-          <li key={event.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2.5">
-            <span className="font-mono text-label text-ink">
-              {app ? (app.displayName ?? app.key) : 'project-wide'}
+          <li key={event.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+            <span className="min-w-0 text-body font-medium text-ink">
+              {app ? (app.displayName ?? app.key) : 'Project-wide'}
             </span>
             <span className="font-mono text-meta text-ink-3">{event.metricName}</span>
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-2">
               <StatusBadge status={asStatus(event.fromState)} />
               <span aria-hidden="true" className="text-ink-3">
                 →

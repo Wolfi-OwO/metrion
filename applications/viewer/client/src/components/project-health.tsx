@@ -1,7 +1,7 @@
-import { fetchProjectStatus, type ApplicationStatus, type Status } from '../api/client.ts';
+import { fetchProjectStatus, type ApplicationStatus } from '../api/client.ts';
 import { useInView } from '../lib/use-in-view.ts';
 import { useLoader } from '../lib/use-loader.ts';
-import { worseStatus } from '../lib/status.ts';
+import { summariseApplications } from '../lib/status.ts';
 import { StatusBadge } from './status-badge.tsx';
 
 /**
@@ -39,33 +39,6 @@ function fetchCached(projectId: string): Promise<ApplicationStatus[]> {
   return value;
 }
 
-function summarise(apps: readonly ApplicationStatus[]): {
-  worst: Status;
-  headline: string;
-  detail: string | null;
-} {
-  const worst = apps.reduce<Status>((acc, app) => worseStatus(acc, app.effectiveStatus), 'ok');
-  if (worst === 'ok') {
-    return {
-      worst,
-      headline: `${apps.length} ${apps.length === 1 ? 'application' : 'applications'} healthy`,
-      detail: null,
-    };
-  }
-  // A root cause is an application that is unhealthy on its own account;
-  // everything else that is unhealthy is being dragged down by a dependency.
-  const roots = apps.filter((app) => app.status !== 'ok' && app.causedBy === null);
-  const affected = apps.filter((app) => app.effectiveStatus !== 'ok' && app.causedBy !== null);
-  const first = roots.sort((a, b) => (a.status === b.status ? 0 : a.status === worst ? -1 : 1))[0];
-  const name = first ? (first.displayName ?? first.key) : 'A dependency';
-  const more = roots.length > 1 ? ` +${roots.length - 1} more` : '';
-  return {
-    worst,
-    headline: `${name}${more}`,
-    detail: affected.length > 0 ? `${affected.length} downstream affected` : null,
-  };
-}
-
 export function ProjectHealth({ projectId }: { projectId: string }) {
   const [ref, inView] = useInView<HTMLDivElement>();
   const status = useLoader(`project-status/${projectId}`, () => fetchCached(projectId), inView);
@@ -78,7 +51,7 @@ export function ProjectHealth({ projectId }: { projectId: string }) {
   } else if (status.data.length === 0) {
     body = <span className="text-label text-ink-3">No applications registered yet</span>;
   } else {
-    const summary = summarise(status.data);
+    const summary = summariseApplications(status.data);
     body = (
       <>
         <StatusBadge status={summary.worst} className="shrink-0" />

@@ -1,4 +1,4 @@
-import type { Status } from '../api/client.ts';
+import type { ApplicationStatus, Status } from '../api/client.ts';
 
 /**
  * Small shared pieces `status-badge.tsx`, `dependency-graph.tsx` and
@@ -34,4 +34,47 @@ export function cyclePathFromMessage(message: string): string[] | null {
   if (!message.startsWith(CYCLE_PREFIX)) return null;
   const path = message.slice(CYCLE_PREFIX.length).split(' -> ');
   return path.length > 1 ? path : null;
+}
+
+export interface ApplicationSummary {
+  readonly worst: Status;
+  /** "Postgres primary +1 more", or "8 applications healthy". */
+  readonly headline: string;
+  /** "5 downstream affected", when something is. */
+  readonly detail: string | null;
+  readonly counts: Record<Status, number>;
+}
+
+/**
+ * One project's applications folded to the sentence a health line needs. A
+ * root cause is an application that is unhealthy on its own account;
+ * everything else that is unhealthy is being dragged down by something it
+ * depends on. Shared by the dashboard rows and the status page's header so
+ * the two cannot describe the same project differently.
+ */
+export function summariseApplications(apps: readonly ApplicationStatus[]): ApplicationSummary {
+  const counts: Record<Status, number> = { ok: 0, warning: 0, critical: 0 };
+  for (const app of apps) counts[app.effectiveStatus] += 1;
+  const worst = apps.reduce<Status>((acc, app) => worseStatus(acc, app.effectiveStatus), 'ok');
+  if (worst === 'ok') {
+    return {
+      worst,
+      headline: `${apps.length} ${apps.length === 1 ? 'application' : 'applications'} healthy`,
+      detail: null,
+      counts,
+    };
+  }
+  // A root cause is an application that is unhealthy on its own account;
+  // everything else that is unhealthy is being dragged down by a dependency.
+  const roots = apps.filter((app) => app.status !== 'ok' && app.causedBy === null);
+  const affected = apps.filter((app) => app.effectiveStatus !== 'ok' && app.causedBy !== null);
+  const first = roots.sort((a, b) => (a.status === b.status ? 0 : a.status === worst ? -1 : 1))[0];
+  const name = first ? (first.displayName ?? first.key) : 'A dependency';
+  const more = roots.length > 1 ? ` +${roots.length - 1} more` : '';
+  return {
+    worst,
+    headline: `${name}${more}`,
+    detail: affected.length > 0 ? `${affected.length} downstream affected` : null,
+    counts,
+  };
 }

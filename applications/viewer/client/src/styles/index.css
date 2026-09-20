@@ -314,18 +314,19 @@ input:focus-visible + span {
   animation: rise-in var(--duration-base) var(--ease-instrument) both;
 }
 
-/* A status that just changed to something worse gets one flash of its own
-   colour behind the row. Not an idle loop: it fires once per change. */
+/* One flash of the accent behind the row that a link just scrolled to. Not an
+   idle loop: it fires once per arrival. */
 @keyframes flash-row {
   from {
-    background-color: color-mix(in srgb, var(--flash, var(--color-accent)) 18%, transparent);
+    background-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
   }
   to {
     background-color: transparent;
   }
 }
 
-.flash {
+/* Arriving at a row by its "Caused by" link flashes that row once. */
+[id^='app-']:target {
   animation: flash-row 1400ms var(--ease-instrument) both;
 }
 

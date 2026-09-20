@@ -31,7 +31,7 @@ import { Button } from './states.tsx';
 // number inputs whose hint/error swap rather than stack (`Field` always
 // shows description and error together, which does not fit that toggle).
 const CONTROL_CLASS =
-  'w-full rounded-control border border-line-strong bg-raised px-2.5 py-1.5 font-mono text-body text-ink';
+  'min-h-11 w-full rounded-control border border-control bg-surface px-3 font-mono text-label text-ink md:min-h-9';
 
 function fieldsFrom(threshold?: Threshold): ThresholdFormFields {
   return {
@@ -135,7 +135,7 @@ function ThresholdEditor({
     <form onSubmit={handleSubmit} className="border border-line-strong bg-raised p-4">
       {!existing && (
         <div className="mb-3 flex flex-col gap-1">
-          <label htmlFor="threshold-application" className="text-label text-ink-2">
+          <label htmlFor="threshold-application" className="text-label font-medium text-ink-2">
             Application
           </label>
           <select
@@ -184,28 +184,28 @@ function ThresholdEditor({
 
       <fieldset className="mb-3 flex flex-col gap-2">
         <legend className="mb-1 text-label text-ink-2">Direction</legend>
-        <label className="flex items-start gap-2 text-body text-ink">
+        <label className="flex min-h-11 items-start gap-3 text-body text-ink md:min-h-0">
           <input
             type="radio"
             name="threshold-direction"
             value="above"
             checked={fields.direction === 'above'}
             onChange={() => setFields((current) => ({ ...current, direction: 'above' }))}
-            className="mt-0.5"
+            className="mt-1 h-4 w-4 accent-accent"
           />
           <span>
             <span className="font-medium">Above</span> - alert when the value goes above the
             threshold.
           </span>
         </label>
-        <label className="flex items-start gap-2 text-body text-ink">
+        <label className="flex min-h-11 items-start gap-3 text-body text-ink md:min-h-0">
           <input
             type="radio"
             name="threshold-direction"
             value="below"
             checked={fields.direction === 'below'}
             onChange={() => setFields((current) => ({ ...current, direction: 'below' }))}
-            className="mt-0.5"
+            className="mt-1 h-4 w-4 accent-accent"
           />
           <span>
             <span className="font-medium">Below</span> - alert when the value goes below the
@@ -247,7 +247,7 @@ function ThresholdEditor({
 
       <div className="mb-3 grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-window" className="text-label text-ink-2">
+          <label htmlFor="threshold-window" className="text-label font-medium text-ink-2">
             Evaluation window (seconds)
           </label>
           <input
@@ -279,7 +279,7 @@ function ThresholdEditor({
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-breaches" className="text-label text-ink-2">
+          <label htmlFor="threshold-breaches" className="text-label font-medium text-ink-2">
             Consecutive breaches before alerting
           </label>
           <input
@@ -307,8 +307,9 @@ function ThresholdEditor({
         </div>
       </div>
 
-      <label className="mb-4 flex items-center gap-2 text-body text-ink">
+      <label className="mb-4 flex min-h-11 items-center gap-3 text-body text-ink md:min-h-0">
         <input
+          className="h-4 w-4 accent-accent"
           type="checkbox"
           checked={enabled}
           onChange={(event) => setEnabled(event.target.checked)}
@@ -377,7 +378,7 @@ function ThresholdRow({
 
   if (editing) {
     return (
-      <li className="py-3">
+      <li className="p-4">
         <ThresholdEditor
           applications={applications}
           existing={threshold}
@@ -405,16 +406,17 @@ function ThresholdRow({
   }
 
   return (
-    <li className="flex flex-wrap items-start gap-x-4 gap-y-1 px-1 py-3">
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="font-mono text-body text-ink">
-          {threshold.metricName}{' '}
+        <p className="text-body text-ink">
+          <span className="font-mono text-label font-medium">{threshold.metricName}</span>{' '}
           <span className="text-ink-2">
-            alerts when the value goes {threshold.direction} - warning{' '}
-            {bound(threshold.warningValue)}, critical {bound(threshold.criticalValue)}
+            goes {threshold.direction}{' '}
+            <span className="text-status-warning">{bound(threshold.warningValue)}</span> warning,{' '}
+            <span className="text-status-critical">{bound(threshold.criticalValue)}</span> critical
           </span>
         </p>
-        <p className="mt-0.5 text-meta text-ink-3">
+        <p className="mt-1 text-label text-ink-3">
           {applicationLabel} · every {formatDuration(threshold.windowSeconds)},{' '}
           {threshold.consecutiveBreaches} consecutive{' '}
           {threshold.consecutiveBreaches === 1 ? 'breach' : 'breaches'} ·{' '}
@@ -478,7 +480,7 @@ export function ThresholdPanel({
           )}
 
           {list.length > 0 && (
-            <ul className="divide-y divide-line border-y border-line">
+            <ul className="divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface">
               {list.map((threshold) => (
                 <ThresholdRow
                   key={threshold.id}
