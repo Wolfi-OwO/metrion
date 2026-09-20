@@ -8,7 +8,15 @@ import { Button } from './states.tsx';
  * label itself (rather than the whole button) is what makes "Copied" get
  * announced without the button's own accessible name flickering mid-click.
  */
-export function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+export function CopyButton({
+  text,
+  label = 'Copy',
+}: {
+  /** A function is read at click time, for text that must be fresh when
+   * copied (the landing example's timestamp expires after 24 hours). */
+  text: string | (() => string);
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -18,7 +26,10 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
   }, [copied]);
 
   return (
-    <Button variant="quiet" onClick={() => void copyText(text).then(setCopied)}>
+    <Button
+      variant="quiet"
+      onClick={() => void copyText(typeof text === 'function' ? text() : text).then(setCopied)}
+    >
       <span aria-live="polite">{copied ? 'Copied' : label}</span>
     </Button>
   );

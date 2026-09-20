@@ -1,4 +1,4 @@
-import { CopyButton } from '../components/copy-button.tsx';
+import { CodeSnippet } from '../components/code-snippet.tsx';
 import { PublicHeader } from '../components/public-header.tsx';
 
 /**
@@ -202,21 +202,6 @@ function TimeAxisPreview() {
   );
 }
 
-/** A real request against the real ingest schema
- * (`applications/ingest/src/schemas/ingest.schemas.ts`) - the placeholder
- * key and host are the only invented parts. `metrion.example.at` matches the
- * placeholder domain already used in `applications/viewer/.env.example`. */
-const QUICKSTART = `curl https://ingest.metrion.example.at/api/v1/ingest \\
-  -H "Authorization: Bearer mtr_<prefix>_<secret>" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "resource": "vps-01",
-    "metrics": [
-      { "name": "cpu.usage", "value": 42.5, "unit": "percent",
-        "intervalSeconds": 60, "timestamp": "2026-09-13T12:00:00Z" }
-    ]
-  }'`;
-
 export default function LandingRoute() {
   return (
     <>
@@ -260,15 +245,7 @@ export default function LandingRoute() {
                 it is shown once.
               </p>
             </div>
-            <div className="min-w-0 overflow-hidden rounded-surface border border-line bg-surface">
-              <div className="flex items-center justify-between border-b border-line py-1 pr-1 pl-4">
-                <span className="font-mono text-label text-ink-3">curl</span>
-                <CopyButton text={QUICKSTART} label="Copy snippet" />
-              </div>
-              <pre className="overflow-x-auto p-4 font-mono text-label text-ink">
-                <code>{QUICKSTART}</code>
-              </pre>
-            </div>
+            <CodeSnippet />
           </div>
         </section>
       </main>
