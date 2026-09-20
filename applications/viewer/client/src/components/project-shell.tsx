@@ -41,12 +41,12 @@ export function ProjectHeader({
 }) {
   return (
     <header
-      className={`border-b border-line bg-bg-900${sticky ? ' md:sticky md:top-0 md:z-10' : ''}`}
+      className={`border-b border-line bg-surface${sticky ? ' md:sticky md:top-0 md:z-10' : ''}`}
     >
       <AccountBar email={email} onSignedOut={onSignedOut}>
         <nav
           aria-label="Breadcrumb"
-          className="flex min-w-0 items-center gap-x-2 text-label text-ink-dim"
+          className="flex min-w-0 items-center gap-x-2 text-label text-ink-2"
         >
           <Link to="/" className="transition-colors duration-(--duration-fast) hover:text-ink">
             Projects
@@ -63,9 +63,7 @@ export function ProjectHeader({
             end={tab.end}
             className={({ isActive }) =>
               `-mb-px border-b-2 py-2.5 text-label font-medium transition-colors duration-(--duration-fast) ${
-                isActive
-                  ? 'border-series-1 text-ink'
-                  : 'border-transparent text-ink-dim hover:text-ink'
+                isActive ? 'border-accent text-ink' : 'border-transparent text-ink-2 hover:text-ink'
               }`
             }
           >
@@ -147,7 +145,7 @@ export function ProjectShell({
             <Heading>Project not found</Heading>
             <Body>
               It may have been removed, or it belongs to a different account.{' '}
-              <Link to="/" className="text-series-1 hover:underline">
+              <Link to="/" className="text-accent hover:underline">
                 Back to your projects
               </Link>
               .

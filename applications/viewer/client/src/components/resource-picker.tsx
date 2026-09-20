@@ -43,7 +43,7 @@ const KIND_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
 // control language, plus the truncation and hover this one needs for a value
 // that can be a full hostname.
 const SELECT_CLASS =
-  'max-w-[16rem] truncate rounded-control border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-body text-ink transition-colors duration-(--duration-fast) hover:border-ink-muted';
+  'max-w-[16rem] truncate rounded-control border border-line-strong bg-raised px-2.5 py-1.5 font-mono text-body text-ink transition-colors duration-(--duration-fast) hover:border-ink-3';
 
 /** Which `ScopeIcon` a sub-resource's prefix stands for; `host` covers the
  * whole-server option and anything with no recognised prefix. */
@@ -86,7 +86,7 @@ export function ResourcePicker({
   return (
     <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
       <div className="flex flex-col gap-1">
-        <label htmlFor="server-picker" className="text-label text-ink-dim">
+        <label htmlFor="server-picker" className="text-label text-ink-2">
           Server
         </label>
         <div className="flex items-center gap-1.5">
@@ -107,7 +107,7 @@ export function ResourcePicker({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="scope-picker" className="text-label text-ink-dim">
+        <label htmlFor="scope-picker" className="text-label text-ink-2">
           Showing
         </label>
         <div className="flex items-center gap-1.5">

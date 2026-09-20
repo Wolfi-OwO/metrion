@@ -18,7 +18,7 @@ export default function NotFoundRoute() {
       </header>
       <main className="flex-1 px-gutter py-14 sm:px-gutter-lg">
         <div className="flex max-w-prose flex-col gap-3">
-          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">404</p>
+          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">404</p>
           <Heading level="h1">Page not found</Heading>
           <Body>
             There is nothing at this address. It may have moved, or the link was mistyped.

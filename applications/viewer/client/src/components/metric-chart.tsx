@@ -74,8 +74,8 @@ function ChartTooltip({
     // busy strip of lines, not a card on an empty page - so it is the second
     // real user of `--shadow-raised`, the app's one elevation step, rather
     // than a fresh value invented for it.
-    <div className="border border-line-strong bg-bg-900 px-2.5 py-2 text-meta shadow-raised">
-      <div className="mb-1.5 font-mono text-ink-dim">
+    <div className="border border-line-strong bg-surface px-2.5 py-2 text-meta shadow-raised">
+      <div className="mb-1.5 font-mono text-ink-2">
         {typeof label === 'number' ? formatTimestamp(label) : ''}
       </div>
       {payload.map((entry) => {
@@ -86,12 +86,12 @@ function ChartTooltip({
             className="flex items-baseline gap-2 [&:not(:last-child)]:mb-1"
           >
             {match && <SeriesSwatch series={match} />}
-            <span className="font-mono text-ink-dim">{entry.name}</span>
+            <span className="font-mono text-ink-2">{entry.name}</span>
             {/* Muted and un-bolded rather than the same weight as a real
                 reading - "no sample" naming the gap is only honest if it also
                 looks unlike the number next to it. */}
             <span
-              className={`ml-auto font-mono ${typeof entry.value === 'number' ? 'text-ink' : 'text-ink-muted italic'}`}
+              className={`ml-auto font-mono ${typeof entry.value === 'number' ? 'text-ink' : 'text-ink-3 italic'}`}
             >
               {typeof entry.value === 'number' ? formatValue(entry.value, unit) : 'no sample'}
             </span>
@@ -137,10 +137,10 @@ export function MetricChart({
     <section className="border-t border-line pt-3 pb-1 first:border-t-0">
       <header className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5 px-gutter sm:px-gutter-lg">
         {/* --text-meta is documented for exactly this: "unit labels". Kept at
-            text-ink-dim rather than the dimmer text-ink-muted the app's other
+            text-ink-2 rather than the dimmer text-ink-3 the app's other
             eyebrows use - this one is read on every strip while scanning, not
             once as a section title, and needs the extra contrast step. */}
-        <h2 className="font-mono text-meta uppercase tracking-eyebrow text-ink-dim">
+        <h2 className="font-mono text-meta uppercase tracking-eyebrow text-ink-2">
           {group.unit ?? 'unitless'}
         </h2>
         <ul className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
@@ -157,12 +157,12 @@ export function MetricChart({
             // back out to `self-center` individually.
             <li key={series.name} className="flex items-baseline gap-1.5 whitespace-nowrap">
               <SeriesSwatch series={series} />
-              <span className="font-mono text-meta text-ink-dim">{series.name}</span>
+              <span className="font-mono text-meta text-ink-2">{series.name}</span>
               <span className="font-mono text-label font-medium text-ink">
                 {series.last === null ? '-' : formatValue(series.last, group.unit)}
               </span>
               {series.min !== null && series.max !== null && series.min !== series.max && (
-                <span className="font-mono text-meta text-ink-muted">
+                <span className="font-mono text-meta text-ink-3">
                   {formatValue(series.min, group.unit)} to {formatValue(series.max, group.unit)}
                 </span>
               )}
@@ -196,7 +196,7 @@ export function MetricChart({
             // what the last time tick needs, which was clipped at 4.
             margin={{ top: 8, right: 28, bottom: 8, left: 4 }}
           >
-            <CartesianGrid stroke="var(--color-bg-800)" strokeDasharray="0" vertical={false} />
+            <CartesianGrid stroke="var(--color-line)" strokeDasharray="0" vertical={false} />
 
             {/* Stretches where nothing arrived from anything in this group. Drawn
                 under the lines so a band never hides a reading, and repeated on
@@ -207,7 +207,7 @@ export function MetricChart({
                 key={band.from}
                 x1={band.from}
                 x2={band.to}
-                fill="var(--color-bg-900)"
+                fill="var(--color-surface)"
                 fillOpacity={1}
                 stroke="none"
                 ifOverflow="hidden"
@@ -221,7 +221,7 @@ export function MetricChart({
                     ? {
                         value: 'no samples',
                         position: 'insideBottom',
-                        fill: 'var(--color-ink-muted)',
+                        fill: 'var(--color-ink-3)',
                         fontSize: 'var(--text-meta)',
                         fontFamily: 'var(--font-mono)',
                       }
@@ -238,7 +238,7 @@ export function MetricChart({
               hide={!showAxis}
               tickFormatter={(value: number) => formatTick(value, spanMs)}
               tick={{
-                fill: 'var(--color-ink-muted)',
+                fill: 'var(--color-ink-3)',
                 fontSize: 'var(--text-meta)',
                 fontFamily: 'var(--font-mono)',
               }}
@@ -262,7 +262,7 @@ export function MetricChart({
               tickCount={4}
               tickFormatter={(value: number) => formatAxisValue(value, group.unit)}
               tick={{
-                fill: 'var(--color-ink-muted)',
+                fill: 'var(--color-ink-3)',
                 fontSize: 'var(--text-meta)',
                 fontFamily: 'var(--font-mono)',
               }}

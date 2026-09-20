@@ -153,7 +153,7 @@ function ProjectMetricsPanel({
             <RangeControl value={preset} onChange={setPreset} />
             <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
               {newestSample > 0 && (
-                <span className="font-mono text-meta text-ink-muted">
+                <span className="font-mono text-meta text-ink-3">
                   last sample {formatAge(now.getTime() - newestSample)}
                 </span>
               )}
@@ -170,11 +170,11 @@ function ProjectMetricsPanel({
             request per metric name. */}
         {(series.phase === 'loading' || series.phase === 'waking') && (
           <div
-            className="h-px w-full overflow-hidden bg-bg-800"
+            className="h-px w-full overflow-hidden bg-raised"
             role="progressbar"
             aria-label="Loading metrics"
           >
-            <div className="h-px w-1/3 animate-[loading-sweep_1.4s_ease-in-out_infinite] bg-series-1" />
+            <div className="h-px w-1/3 animate-[loading-sweep_1.4s_ease-in-out_infinite] bg-accent" />
           </div>
         )}
       </ProjectHeader>
@@ -249,9 +249,9 @@ function ProjectMetricsPanel({
             in the app. Loading/skipped-lines notices below it are the
             opposite - they change with this fetch - so they stay always
             visible rather than hidden behind a click. */}
-        <div className="border-t border-line px-gutter py-4 text-meta text-ink-muted sm:px-gutter-lg">
+        <div className="border-t border-line px-gutter py-4 text-meta text-ink-3 sm:px-gutter-lg">
           <details>
-            <summary className="cursor-pointer text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink">
+            <summary className="cursor-pointer text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink">
               How to read this data
             </summary>
             <p className="mt-2 max-w-prose leading-relaxed">
@@ -261,7 +261,7 @@ function ProjectMetricsPanel({
             </p>
           </details>
           {(series.phase === 'loading' || series.phase === 'waking') && (
-            <p className="mt-2 text-ink-dim">Reading the day-blobs for this window.</p>
+            <p className="mt-2 text-ink-2">Reading the day-blobs for this window.</p>
           )}
           {skippedLines > 0 && (
             <p className="mt-2 text-text-caution">

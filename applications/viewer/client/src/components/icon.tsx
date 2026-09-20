@@ -30,7 +30,7 @@ export type ScopeIconId = 'host' | 'container' | 'request';
 
 export function ScopeIcon({
   id,
-  className = 'shrink-0 text-ink-dim',
+  className = 'shrink-0 text-ink-2',
 }: {
   id: ScopeIconId;
   className?: string;
@@ -100,7 +100,7 @@ export function StatusIcon({ status }: { status: Status }) {
 }
 
 /** The `</>` glyph in the footer's build-info pill. */
-export function CodeIcon({ className = 'shrink-0 text-series-1' }: { className?: string }) {
+export function CodeIcon({ className = 'shrink-0 text-accent' }: { className?: string }) {
   return (
     <svg {...ICON_STROKE_PROPS} width={14} height={14} className={className}>
       <path d="m5 4.5-3.5 3.5L5 11.5M11 4.5 14.5 8 11 11.5M9.2 3 6.8 13" />

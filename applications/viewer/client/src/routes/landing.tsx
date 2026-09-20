@@ -90,10 +90,10 @@ function SignInButtons() {
         <a
           key={provider.id}
           href={`/auth/${provider.id}`}
-          className="group flex items-center gap-3 rounded-md border border-line-strong bg-bg-800 px-4 py-3 text-body font-medium text-ink transition-colors duration-(--duration-fast) hover:border-series-1 hover:bg-bg-900"
+          className="group flex items-center gap-3 rounded-surface border border-line-strong bg-raised px-4 py-3 text-body font-medium text-ink transition-colors duration-(--duration-fast) hover:border-accent hover:bg-surface"
         >
           <ProviderIcon id={provider.id} />
-          <span className="transition-colors duration-(--duration-fast) group-hover:text-series-1">
+          <span className="transition-colors duration-(--duration-fast) group-hover:text-accent">
             {provider.label}
           </span>
         </a>
@@ -139,10 +139,8 @@ const RESOURCE_KINDS: ReadonlyArray<{
  */
 function TimeAxisPreview() {
   return (
-    <div className="relative overflow-hidden rounded-md border border-line bg-bg-900 p-5 shadow-raised sm:p-6">
-      <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
-        One shared axis
-      </p>
+    <div className="relative overflow-hidden rounded-surface border border-line bg-surface p-5 shadow-raised sm:p-6">
+      <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">One shared axis</p>
       <svg
         viewBox="0 0 400 190"
         className="mt-4 w-full"
@@ -193,9 +191,9 @@ function TimeAxisPreview() {
           now
         </text>
       </svg>
-      <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-meta text-ink-dim">
+      <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 font-mono text-meta text-ink-2">
         <li className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-series-1" aria-hidden="true" />
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
           cpu.usage
         </li>
         <li className="flex items-center gap-1.5">
@@ -232,7 +230,7 @@ export default function LandingRoute() {
       <header className="border-b border-line px-gutter py-4 sm:px-gutter-lg">
         <div className="flex items-center justify-between">
           <Brand />
-          <span className="font-mono text-meta text-ink-muted">v{__APP_VERSION__}</span>
+          <span className="font-mono text-meta text-ink-3">v{__APP_VERSION__}</span>
         </div>
       </header>
 
@@ -240,19 +238,19 @@ export default function LandingRoute() {
         <section className="border-b border-line px-gutter py-16 sm:px-gutter-lg sm:py-24">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
             <div className="max-w-xl">
-              <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
+              <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
                 Metrics platform
               </p>
-              <h1 className="mt-3 text-display-sm font-semibold text-ink sm:text-display">
+              <h1 className="mt-3 text-display font-semibold text-ink sm:text-display">
                 One shared time axis for every server you run.
               </h1>
-              <p className="mt-5 max-w-prose text-heading leading-relaxed text-ink-dim">
+              <p className="mt-5 max-w-prose text-heading leading-relaxed text-ink-2">
                 metrion collects CPU, memory, disk, network and per-container metrics once a minute
                 and lines every reading up against the same clock, so a CPU spike and a network
                 spike read as one instant, not two dashboards you have to cross-reference by hand.
               </p>
               <div className="mt-9">
-                <p className="mb-3 text-label text-ink-muted">
+                <p className="mb-3 text-label text-ink-3">
                   Sign in to create a project and mint an API key.
                 </p>
                 <SignInButtons />
@@ -264,27 +262,27 @@ export default function LandingRoute() {
         </section>
 
         <section className="border-b border-line px-gutter py-14 sm:px-gutter-lg">
-          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
+          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
             What it tracks
           </p>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             {RESOURCE_KINDS.map((kind) => (
-              <div key={kind.id} className="rounded-md border border-line bg-bg-900 p-5">
+              <div key={kind.id} className="rounded-surface border border-line bg-surface p-5">
                 <ScopeIcon id={kind.id} />
                 {/* h2, not h3: the page's only other heading is the hero's
                     h1 above, and the eyebrow labels ("What it tracks") are
                     deliberately plain text, not headings, so a screen
                     reader's heading list stays short - which makes this the
                     first heading past the h1, not a third level down. */}
-                <h2 className="mt-3 text-title font-semibold text-ink">{kind.scope}</h2>
+                <h2 className="mt-3 text-body font-semibold text-ink">{kind.scope}</h2>
                 {kind.prefix && (
-                  <p className="mt-1 font-mono text-meta text-ink-muted">{kind.prefix}</p>
+                  <p className="mt-1 font-mono text-meta text-ink-3">{kind.prefix}</p>
                 )}
                 <ul className="mt-3 flex flex-wrap gap-1.5">
                   {kind.metrics.map((metric) => (
                     <li
                       key={metric}
-                      className="rounded-sm border border-line px-1.5 py-0.5 font-mono text-meta text-ink-dim"
+                      className="rounded-control border border-line px-1.5 py-0.5 font-mono text-meta text-ink-2"
                     >
                       {metric}
                     </li>
@@ -296,15 +294,15 @@ export default function LandingRoute() {
         </section>
 
         <section className="px-gutter py-14 sm:px-gutter-lg">
-          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
+          <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
             Already have a key? Send your first metric.
           </p>
-          <div className="mt-5 max-w-2xl rounded-md border border-line bg-bg-900 p-5">
-            <pre className="overflow-x-auto rounded-sm border border-line bg-bg-950 p-4 font-mono text-label leading-relaxed text-ink">
+          <div className="mt-5 max-w-2xl rounded-surface border border-line bg-surface p-5">
+            <pre className="overflow-x-auto rounded-control border border-line bg-bg p-4 font-mono text-label leading-relaxed text-ink">
               <code>{QUICKSTART}</code>
             </pre>
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-label text-ink-muted">
+              <p className="text-label text-ink-3">
                 No key yet? Sign in above, create a project, then mint one from its settings page.
               </p>
               <CopyButton text={QUICKSTART} label="Copy snippet" />

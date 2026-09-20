@@ -57,7 +57,7 @@ export function AccountBar({
         {children}
       </div>
       <div className="flex items-center justify-between gap-3 sm:ml-auto sm:justify-end sm:gap-x-4">
-        <span className="min-w-0 truncate font-mono text-meta text-ink-muted">{email}</span>
+        <span className="min-w-0 truncate font-mono text-meta text-ink-3">{email}</span>
         {failed && (
           <p role="alert" className="text-label text-text-danger">
             Could not sign out. Try again.

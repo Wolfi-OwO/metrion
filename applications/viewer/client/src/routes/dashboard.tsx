@@ -21,13 +21,13 @@ function ProjectRowSkeleton() {
   return (
     <li aria-hidden="true" className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3.5">
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <div className="h-3.5 w-36 rounded-sm bg-bg-800" />
-        <div className="h-2.5 w-12 rounded-sm bg-bg-800" />
+        <div className="h-3.5 w-36 rounded-control bg-raised" />
+        <div className="h-2.5 w-12 rounded-control bg-raised" />
       </div>
-      <div className="h-2.5 w-40 shrink-0 rounded-sm bg-bg-800" />
+      <div className="h-2.5 w-40 shrink-0 rounded-control bg-raised" />
       <div className="flex shrink-0 items-center gap-4">
-        <div className="h-2.5 w-10 rounded-sm bg-bg-800" />
-        <div className="h-2.5 w-14 rounded-sm bg-bg-800" />
+        <div className="h-2.5 w-10 rounded-control bg-raised" />
+        <div className="h-2.5 w-14 rounded-control bg-raised" />
       </div>
     </li>
   );
@@ -127,7 +127,7 @@ export default function DashboardRoute({
 
   return (
     <>
-      <header className="border-b border-line bg-bg-900">
+      <header className="border-b border-line bg-surface">
         <AccountBar email={user.email} onSignedOut={onSignedOut} />
       </header>
       <main className="flex-1 pb-8">{renderBody()}</main>
@@ -199,7 +199,7 @@ export default function DashboardRoute({
                     <div className="flex min-w-0 flex-1 items-center gap-2.5">
                       <Link
                         to={`/projects/${project.id}`}
-                        className="min-w-0 truncate text-title font-medium text-ink transition-colors duration-(--duration-fast) hover:text-series-1"
+                        className="min-w-0 truncate text-body font-medium text-ink transition-colors duration-(--duration-fast) hover:text-accent"
                       >
                         {project.name}
                       </Link>
@@ -208,7 +208,7 @@ export default function DashboardRoute({
                       </span>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2 font-mono text-meta text-ink-muted">
+                    <div className="flex shrink-0 items-center gap-2 font-mono text-meta text-ink-3">
                       <span className="max-w-40 truncate">{project.slug}</span>
                       <span aria-hidden="true">·</span>
                       <span>
@@ -223,13 +223,13 @@ export default function DashboardRoute({
                     <div className="flex shrink-0 items-center gap-4">
                       <Link
                         to={`/projects/${project.id}/status`}
-                        className="text-label text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink"
+                        className="text-label text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink"
                       >
                         Status
                       </Link>
                       <Link
                         to={`/projects/${project.id}/settings`}
-                        className="text-label text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink"
+                        className="text-label text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink"
                       >
                         Settings
                       </Link>

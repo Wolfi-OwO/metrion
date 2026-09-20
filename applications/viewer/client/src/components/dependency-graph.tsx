@@ -85,16 +85,14 @@ function EdgeEditor({
     // cancels the node's own padding on those sides) rather than its own
     // bordered box, so opening the editor reads as the node expanding, not
     // a card nested inside a card.
-    <div className="-mx-3 -mb-3 mt-2 border-t border-line-strong bg-bg-800 p-3">
+    <div className="-mx-3 -mb-3 mt-2 border-t border-line-strong bg-raised p-3">
       {candidates.length === 0 ? (
-        <p className="text-label text-ink-dim">
+        <p className="text-label text-ink-2">
           No other applications in this project to depend on yet.
         </p>
       ) : (
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1 text-label text-ink-dim">
-            {appLabel(application)} depends on
-          </legend>
+          <legend className="mb-1 text-label text-ink-2">{appLabel(application)} depends on</legend>
           {candidates.map((app) => (
             <label key={app.id} className="flex items-start gap-2 text-body text-ink">
               <input
@@ -110,7 +108,7 @@ function EdgeEditor({
       )}
 
       {cyclePath && (
-        <div role="alert" className="mt-3 border border-status-critical/40 bg-bg-900 p-2.5">
+        <div role="alert" className="mt-3 border border-status-critical/40 bg-surface p-2.5">
           <p className="text-label font-medium text-status-critical">
             That would create a dependency cycle
           </p>
@@ -118,7 +116,7 @@ function EdgeEditor({
             {cyclePath.map((key, index) => (
               <span key={`${key}-${index}`} className="flex items-center gap-1">
                 {index > 0 && (
-                  <span aria-hidden="true" className="text-ink-muted">
+                  <span aria-hidden="true" className="text-ink-3">
                     →
                   </span>
                 )}
@@ -126,7 +124,7 @@ function EdgeEditor({
               </span>
             ))}
           </p>
-          <p className="mt-1 text-meta text-ink-muted">
+          <p className="mt-1 text-meta text-ink-3">
             Remove one of the edges above to break the loop, then save again.
           </p>
         </div>
@@ -332,7 +330,7 @@ export function DependencyGraph({
     );
   }
   if (loader.phase === 'loading' || loader.phase === 'waking') {
-    return <p className="text-body text-ink-dim">Loading the dependency graph…</p>;
+    return <p className="text-body text-ink-2">Loading the dependency graph…</p>;
   }
 
   function renderNode(app: ApplicationStatus) {
@@ -350,7 +348,7 @@ export function DependencyGraph({
           if (el) nodeRefs.current.set(app.id, el);
           else nodeRefs.current.delete(app.id);
         }}
-        className="rounded-surface border border-line-strong bg-bg-900 p-3"
+        className="rounded-surface border border-line-strong bg-surface p-3"
       >
         {/* The lines carry this relationship visually; screen reader users
             get the same fact as text, same pairing as
@@ -396,10 +394,10 @@ export function DependencyGraph({
   if (applications.length > 1 && edges.length === 0) {
     return (
       <div className="rounded-surface border border-dashed border-line-strong p-5">
-        <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
+        <p className="font-mono text-meta uppercase tracking-eyebrow text-ink-3">
           No connections yet
         </p>
-        <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-dim">
+        <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-2">
           These applications aren't linked yet. Click one to set what it depends on - once an edge
           exists, this becomes a real graph instead of a shelf of unconnected nodes.
         </p>
@@ -419,8 +417,8 @@ export function DependencyGraph({
   return (
     <div>
       {edges.length > 0 && (
-        <p className="mb-4 flex items-center gap-1.5 font-mono text-meta uppercase tracking-eyebrow text-ink-muted">
-          <span aria-hidden="true" className="text-series-1">
+        <p className="mb-4 flex items-center gap-1.5 font-mono text-meta uppercase tracking-eyebrow text-ink-3">
+          <span aria-hidden="true" className="text-accent">
             →
           </span>
           points toward what a dependency can affect

@@ -31,13 +31,13 @@ export function StatusEventsPanel({
     );
   }
   if (loader.phase === 'loading' || loader.phase === 'waking') {
-    return <p className="text-body text-ink-dim">Loading recent transitions…</p>;
+    return <p className="text-body text-ink-2">Loading recent transitions…</p>;
   }
 
   const events = loader.data ?? [];
   if (events.length === 0) {
     return (
-      <p className="text-body text-ink-dim">
+      <p className="text-body text-ink-2">
         No transitions recorded yet - this fills in the first time a threshold's state changes.
       </p>
     );
@@ -52,15 +52,15 @@ export function StatusEventsPanel({
             <span className="font-mono text-label text-ink">
               {app ? (app.displayName ?? app.key) : 'project-wide'}
             </span>
-            <span className="font-mono text-meta text-ink-muted">{event.metricName}</span>
+            <span className="font-mono text-meta text-ink-3">{event.metricName}</span>
             <span className="flex items-center gap-1.5">
               <StatusBadge status={asStatus(event.fromState)} />
-              <span aria-hidden="true" className="text-ink-muted">
+              <span aria-hidden="true" className="text-ink-3">
                 →
               </span>
               <StatusBadge status={asStatus(event.toState)} />
             </span>
-            <span className="ml-auto font-mono text-meta text-ink-muted">
+            <span className="ml-auto font-mono text-meta text-ink-3">
               {formatTimestamp(Date.parse(event.at))}
             </span>
           </li>

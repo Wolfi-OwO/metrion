@@ -59,7 +59,7 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-3">
       <span className="font-mono text-body text-ink">mtr_{row.keyPrefix}_••••••••</span>
-      <span className="font-mono text-meta text-ink-muted">
+      <span className="font-mono text-meta text-ink-3">
         created{' '}
         {new Date(row.createdAt).toLocaleString(undefined, {
           dateStyle: 'medium',
@@ -67,7 +67,7 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
         })}
       </span>
       {row.revoked ? (
-        <span className="ml-auto text-label text-ink-muted">Revoked</span>
+        <span className="ml-auto text-label text-ink-3">Revoked</span>
       ) : (
         // Solid fill, not the outlined default every other action on this page
         // uses - the one place in the app a destructive action is irreversible
@@ -103,7 +103,7 @@ function KeyListItem({ row, onRevoked }: { row: KeyRow; onRevoked: (id: string) 
  * an ordinary status message. */
 function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void }) {
   return (
-    <div className="mt-4 overflow-hidden rounded-surface border border-text-caution/50 bg-bg-900 shadow-raised">
+    <div className="mt-4 overflow-hidden rounded-surface border border-text-caution/50 bg-surface shadow-raised">
       <div className="flex items-start gap-3 border-b border-text-caution/30 bg-text-caution/10 px-gutter py-4">
         <span className="mt-0.5 shrink-0 text-text-caution">
           <StatusIcon status="warning" />
@@ -117,7 +117,7 @@ function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void
         </div>
       </div>
       <div className="px-gutter py-4">
-        <label htmlFor="just-created-key" className="text-label text-ink-dim">
+        <label htmlFor="just-created-key" className="text-label text-ink-2">
           Full key
         </label>
         <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -129,7 +129,7 @@ function JustCreatedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void
             autoComplete="off"
             value={apiKey}
             onFocus={(event) => event.currentTarget.select()}
-            className="w-full min-w-0 flex-1 rounded-control border border-line-strong bg-bg-950 px-2.5 py-1.5 font-mono text-label text-ink sm:w-auto"
+            className="w-full min-w-0 flex-1 rounded-control border border-line-strong bg-bg px-2.5 py-1.5 font-mono text-label text-ink sm:w-auto"
           />
           <CopyButton text={apiKey} />
         </div>
@@ -214,7 +214,7 @@ export default function ProjectSettingsRoute() {
       {(project) => (
         <main className="flex-1 px-gutter py-8 sm:px-gutter-lg">
           <h1 className="text-heading font-semibold text-ink">API keys</h1>
-          <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-dim">
+          <p className="mt-1.5 max-w-prose text-body leading-relaxed text-ink-2">
             A key authenticates <code className="font-mono text-ink">POST /api/v1/ingest</code> for{' '}
             <span className="font-mono text-ink">{project.name}</span>. Revoking one takes effect
             immediately - a collector still presenting it starts getting 401s on its next write.
@@ -236,12 +236,12 @@ export default function ProjectSettingsRoute() {
           )}
 
           <div className="mt-8 border-t border-line pt-4">
-            <h2 className="font-mono text-label text-ink-dim">Existing keys</h2>
+            <h2 className="font-mono text-label text-ink-2">Existing keys</h2>
 
             {keysError && (
               <div className="mt-3 rounded-surface border border-line px-4 py-3.5" role="alert">
                 <p className="font-medium text-label text-text-danger">Could not load API keys</p>
-                <p className="mt-1 text-label text-ink-dim">{keysError}</p>
+                <p className="mt-1 text-label text-ink-2">{keysError}</p>
                 <Button
                   className="mt-3"
                   variant="secondary"
@@ -255,15 +255,15 @@ export default function ProjectSettingsRoute() {
             {!keysError && keysLoading && (
               <div className="mt-3 space-y-2" role="status" aria-live="polite">
                 <span className="sr-only">Loading API keys…</span>
-                <div className="h-11 animate-pulse rounded-control bg-bg-800" aria-hidden="true" />
-                <div className="h-11 animate-pulse rounded-control bg-bg-800" aria-hidden="true" />
+                <div className="h-11 animate-pulse rounded-control bg-raised" aria-hidden="true" />
+                <div className="h-11 animate-pulse rounded-control bg-raised" aria-hidden="true" />
               </div>
             )}
 
             {!keysError && !keysLoading && keys.length === 0 && (
               <div className="mt-3 rounded-surface border border-dashed border-line px-4 py-4">
-                <p className="text-body text-ink-dim">No keys yet</p>
-                <p className="mt-1 text-label text-ink-muted">
+                <p className="text-body text-ink-2">No keys yet</p>
+                <p className="mt-1 text-label text-ink-3">
                   Create one above - it appears here immediately, and that moment is the only chance
                   to copy its full value.
                 </p>

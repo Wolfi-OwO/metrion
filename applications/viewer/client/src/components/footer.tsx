@@ -19,16 +19,16 @@ import { CodeIcon } from './icon.tsx';
  * viewport when a page is short.
  */
 const LINK =
-  'rounded-control text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink';
+  'rounded-control text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink';
 
 export function Footer() {
   return (
     <footer
       aria-label="Site"
-      className="mt-auto border-t border-line bg-bg-900 px-gutter py-4 sm:px-gutter-lg"
+      className="mt-auto border-t border-line bg-surface px-gutter py-4 sm:px-gutter-lg"
     >
       <div className="grid grid-cols-1 items-center justify-items-center gap-y-3 text-meta md:grid-cols-[1fr_auto_1fr] md:gap-x-6">
-        <p className="order-3 text-center text-ink-muted md:order-none md:justify-self-start md:text-left">
+        <p className="order-3 text-center text-ink-3 md:order-none md:justify-self-start md:text-left">
           © {new Date().getFullYear()} Phillip Kofler
           <br />
           All rights reserved.
@@ -38,7 +38,7 @@ export function Footer() {
             for everyone else. */}
         <p
           aria-label={`Metrion version ${__APP_VERSION__}`}
-          className="order-1 inline-flex items-center gap-2 rounded-surface border border-line bg-bg-950 px-3.5 py-2 font-mono md:order-none"
+          className="order-1 inline-flex items-center gap-2 rounded-surface border border-line bg-bg px-3.5 py-2 font-mono md:order-none"
         >
           <CodeIcon />
           <span className="text-ink" aria-hidden="true">
@@ -47,7 +47,7 @@ export function Footer() {
           <span aria-hidden="true" className="text-line-strong">
             ·
           </span>
-          <span className="text-ink-muted" aria-hidden="true">
+          <span className="text-ink-3" aria-hidden="true">
             v{__APP_VERSION__}
           </span>
         </p>

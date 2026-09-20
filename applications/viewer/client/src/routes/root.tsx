@@ -25,7 +25,7 @@ export default function RootRoute() {
           <Brand />
         </header>
         <main className="flex-1 px-gutter py-14 sm:px-gutter-lg">
-          <p role="status" aria-live="polite" className="text-body text-ink-dim">
+          <p role="status" aria-live="polite" className="text-body text-ink-2">
             Loading…
           </p>
         </main>

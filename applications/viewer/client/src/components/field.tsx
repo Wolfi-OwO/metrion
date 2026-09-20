@@ -32,11 +32,11 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-label text-ink-dim">
+      <label htmlFor={id} className="text-label text-ink-2">
         {label}
       </label>
       {description && (
-        <p id={descriptionId} className="text-meta text-ink-muted">
+        <p id={descriptionId} className="text-meta text-ink-3">
           {description}
         </p>
       )}
@@ -44,7 +44,7 @@ export function Field({
         id={id}
         aria-invalid={error != null}
         aria-describedby={describedBy}
-        className={`rounded-control border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-body text-ink ${inputClassName}`}
+        className={`rounded-control border border-line-strong bg-raised px-2.5 py-1.5 font-mono text-body text-ink ${inputClassName}`}
         {...inputProps}
       />
       {error && (

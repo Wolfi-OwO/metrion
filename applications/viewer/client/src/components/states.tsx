@@ -41,7 +41,7 @@ export function Heading({
 }
 
 export function Body({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1.5 text-body leading-relaxed text-ink-dim">{children}</p>;
+  return <p className="mt-1.5 text-body leading-relaxed text-ink-2">{children}</p>;
 }
 
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet';
@@ -57,19 +57,18 @@ const BUTTON_BASE =
 // and active reach for) vary independently, so each is named once and
 // combined per cell rather than retyped six times.
 const VARIANT_STRUCTURE: Record<ButtonVariant, string> = {
-  primary: 'border border-transparent px-3 py-1.5 text-bg-950',
-  secondary: 'border border-line-strong bg-bg-800 px-3 py-1.5 text-ink',
-  quiet: 'border border-line-strong px-2.5 py-1 text-ink-dim',
+  primary: 'border border-transparent px-3 py-1.5 text-accent-ink',
+  secondary: 'border border-line-strong bg-raised px-3 py-1.5 text-ink',
+  quiet: 'border border-line-strong px-2.5 py-1 text-ink-2',
 };
 
 const FILL_TONE: Record<ButtonTone, string> = {
-  default: 'bg-series-1 hover:bg-series-1/85 active:bg-series-1/70',
+  default: 'bg-accent hover:bg-accent/85 active:bg-accent/80',
   danger: 'bg-series-8 hover:bg-series-8/85 active:bg-series-8/70',
 };
 
 const OUTLINE_TONE: Record<ButtonTone, string> = {
-  default:
-    'hover:border-series-1 hover:text-series-1 active:border-series-1/70 active:text-series-1/70',
+  default: 'hover:border-accent hover:text-accent active:border-accent/70 active:text-accent/70',
   danger:
     'hover:border-series-8 hover:text-series-8 active:border-series-8/70 active:text-series-8/70',
 };
@@ -151,11 +150,11 @@ function AxisGhost({ sweeping }: { sweeping: boolean }) {
           reading as one thick line instead of four evenly spaced ones. */}
       <div className="absolute inset-0 flex flex-col justify-between py-2">
         {[0, 1, 2, 3].map((line) => (
-          <div key={line} className="h-px w-full bg-bg-800" />
+          <div key={line} className="h-px w-full bg-raised" />
         ))}
       </div>
       {sweeping && (
-        <div className="sweep absolute inset-y-0 left-0 w-1/4 bg-linear-to-r from-transparent via-series-1/12 to-transparent" />
+        <div className="sweep absolute inset-y-0 left-0 w-1/4 bg-linear-to-r from-transparent via-accent/12 to-transparent" />
       )}
     </div>
   );

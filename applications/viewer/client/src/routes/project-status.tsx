@@ -133,7 +133,7 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
             Caused by{' '}
             <a
               href={`#app-${app.causedBy.id}`}
-              className="font-mono font-medium text-ink underline decoration-line-strong underline-offset-2 transition-colors duration-(--duration-fast) hover:text-series-1 hover:decoration-series-1"
+              className="font-mono font-medium text-ink underline decoration-line-strong underline-offset-2 transition-colors duration-(--duration-fast) hover:text-accent hover:decoration-accent"
             >
               {app.causedBy.key}
             </a>
@@ -142,7 +142,7 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
         </p>
       )}
       {app.thresholds.length > 0 && (
-        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-meta text-ink-muted">
+        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-meta text-ink-3">
           {app.thresholds
             .filter((t) => t.state !== 'ok')
             .map((t) => (
@@ -164,7 +164,7 @@ function DisclosureMark() {
   return (
     <span
       aria-hidden="true"
-      className="inline-block text-ink-muted transition-transform duration-(--duration-fast) group-open:rotate-90"
+      className="inline-block text-ink-3 transition-transform duration-(--duration-fast) group-open:rotate-90"
     >
       {'›'}
     </span>
@@ -219,7 +219,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
       <div className="px-gutter py-8 sm:px-gutter-lg">
         <section>
           <h1 className="text-heading font-semibold text-ink">Applications</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-meta text-ink-muted">
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-meta text-ink-3">
             <span className="flex items-center gap-1.5 text-status-critical">
               <StatusIcon status="critical" />
               {counts.critical} critical
@@ -233,7 +233,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
               {counts.ok} ok
             </span>
           </div>
-          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-dim">
+          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-2">
             Effective status folds in every application this one depends on - when it differs from
             what this application's own thresholds say, the cause is named underneath it.
           </p>
@@ -246,11 +246,11 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         </section>
 
         <details className="group mt-10 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-body font-medium text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
             <DisclosureMark />
             Dependency graph
           </summary>
-          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-dim">
+          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-2">
             Each application's direct dependencies. Editing saves the whole set at once; a save that
             would create a cycle is rejected and the offending path is shown here, not a generic
             error.
@@ -261,11 +261,11 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         </details>
 
         <details className="group mt-6 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-body font-medium text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
             <DisclosureMark />
             Thresholds
           </summary>
-          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-dim">
+          <p className="mt-2 max-w-prose text-body leading-relaxed text-ink-2">
             Per application and metric. Either bound may be left empty, and "below" is exactly as
             easy to set up as "above" - free memory and request-rate alerts need it just as much.
           </p>
@@ -275,7 +275,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         </details>
 
         <details className="group mt-6 border-t border-line pt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-title font-medium text-ink-dim transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-body font-medium text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink [&::-webkit-details-marker]:hidden">
             <DisclosureMark />
             Recent transitions
           </summary>

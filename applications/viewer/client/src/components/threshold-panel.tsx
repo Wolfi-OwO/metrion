@@ -31,7 +31,7 @@ import { Button } from './states.tsx';
 // number inputs whose hint/error swap rather than stack (`Field` always
 // shows description and error together, which does not fit that toggle).
 const CONTROL_CLASS =
-  'w-full rounded-control border border-line-strong bg-bg-800 px-2.5 py-1.5 font-mono text-body text-ink';
+  'w-full rounded-control border border-line-strong bg-raised px-2.5 py-1.5 font-mono text-body text-ink';
 
 function fieldsFrom(threshold?: Threshold): ThresholdFormFields {
   return {
@@ -132,10 +132,10 @@ function ThresholdEditor({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border border-line-strong bg-bg-800 p-4">
+    <form onSubmit={handleSubmit} className="border border-line-strong bg-raised p-4">
       {!existing && (
         <div className="mb-3 flex flex-col gap-1">
-          <label htmlFor="threshold-application" className="text-label text-ink-dim">
+          <label htmlFor="threshold-application" className="text-label text-ink-2">
             Application
           </label>
           <select
@@ -154,7 +154,7 @@ function ThresholdEditor({
         </div>
       )}
       {existing && (
-        <p className="mb-3 text-label text-ink-dim">
+        <p className="mb-3 text-label text-ink-2">
           Applies to{' '}
           <span className="font-mono text-ink">
             {existing.applicationId
@@ -183,7 +183,7 @@ function ThresholdEditor({
       </div>
 
       <fieldset className="mb-3 flex flex-col gap-2">
-        <legend className="mb-1 text-label text-ink-dim">Direction</legend>
+        <legend className="mb-1 text-label text-ink-2">Direction</legend>
         <label className="flex items-start gap-2 text-body text-ink">
           <input
             type="radio"
@@ -239,7 +239,7 @@ function ThresholdEditor({
           onBlur={() => touch('criticalValue')}
           error={touched.criticalValue ? (errors.criticalValue ?? null) : null}
         />
-        <p className="col-span-2 text-meta leading-relaxed text-ink-muted">
+        <p className="col-span-2 text-meta leading-relaxed text-ink-3">
           Leave a bound empty to skip alerting at that severity - a warning-only threshold with no
           critical value is fine.
         </p>
@@ -247,7 +247,7 @@ function ThresholdEditor({
 
       <div className="mb-3 grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-window" className="text-label text-ink-dim">
+          <label htmlFor="threshold-window" className="text-label text-ink-2">
             Evaluation window (seconds)
           </label>
           <input
@@ -268,7 +268,7 @@ function ThresholdEditor({
             className={CONTROL_CLASS}
           />
           {!errors.windowSeconds && Number.isFinite(Number(fields.windowSeconds)) && (
-            <p id="threshold-window-hint" className="text-meta text-ink-muted">
+            <p id="threshold-window-hint" className="text-meta text-ink-3">
               {formatDuration(Math.round(Number(fields.windowSeconds)))}
             </p>
           )}
@@ -279,7 +279,7 @@ function ThresholdEditor({
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="threshold-breaches" className="text-label text-ink-dim">
+          <label htmlFor="threshold-breaches" className="text-label text-ink-2">
             Consecutive breaches before alerting
           </label>
           <input
@@ -409,12 +409,12 @@ function ThresholdRow({
       <div className="min-w-0 flex-1">
         <p className="font-mono text-body text-ink">
           {threshold.metricName}{' '}
-          <span className="text-ink-dim">
+          <span className="text-ink-2">
             alerts when the value goes {threshold.direction} - warning{' '}
             {bound(threshold.warningValue)}, critical {bound(threshold.criticalValue)}
           </span>
         </p>
-        <p className="mt-0.5 text-meta text-ink-muted">
+        <p className="mt-0.5 text-meta text-ink-3">
           {applicationLabel} · every {formatDuration(threshold.windowSeconds)},{' '}
           {threshold.consecutiveBreaches} consecutive{' '}
           {threshold.consecutiveBreaches === 1 ? 'breach' : 'breaches'} ·{' '}
@@ -466,13 +466,13 @@ export function ThresholdPanel({
         </p>
       )}
       {(loader.phase === 'loading' || loader.phase === 'waking') && (
-        <p className="text-body text-ink-dim">Loading thresholds…</p>
+        <p className="text-body text-ink-2">Loading thresholds…</p>
       )}
 
       {seeded && (
         <>
           {list.length === 0 && !creating && (
-            <p className="text-body text-ink-dim">
+            <p className="text-body text-ink-2">
               No thresholds yet. Every application answers "OK" until one is created for it.
             </p>
           )}

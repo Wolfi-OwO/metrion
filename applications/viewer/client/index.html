@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="color-scheme" content="dark" />
-    <!-- Matches --color-bg-950, so the browser chrome on Android and the
-         iOS status bar do not frame the page in white. -->
-    <meta name="theme-color" content="#0d1117" />
+    <meta name="color-scheme" content="dark light" />
+    <!-- Match --color-bg in each theme, so the browser chrome on Android and
+         the iOS status bar do not frame the page in a foreign colour. -->
+    <meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f6f4" media="(prefers-color-scheme: light)" />
     <meta
       name="description"
       content="Minute-by-minute CPU, memory, disk, network and per-container metrics for my servers."

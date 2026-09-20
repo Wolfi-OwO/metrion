@@ -43,8 +43,8 @@ export function RangeControl({
                 last ? '' : 'border-r border-line'
               } ${
                 selected
-                  ? 'bg-bg-800 font-medium text-ink'
-                  : 'text-ink-dim hover:bg-bg-900 hover:text-ink'
+                  ? 'bg-raised font-medium text-ink'
+                  : 'text-ink-2 hover:bg-surface hover:text-ink'
               }`}
             >
               {preset.label}
