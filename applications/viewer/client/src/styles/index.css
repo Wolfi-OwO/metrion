@@ -143,7 +143,7 @@
      4, 8, 12, 16, 24, 32, 48, 64. */
   --spacing-gutter: 24px;
   --spacing-gutter-lg: 40px;
-  --container-page: 1200px;
+  --container-page: 1280px;
 
   --tracking-eyebrow: 0.08em;
 }
@@ -210,6 +210,19 @@
     --color-status-critical: #c72e2e;
     --shadow-raised: 0 1px 0 0 rgb(15 20 30 / 0.06);
     --shadow-popover: 0 8px 24px -6px rgb(15 20 30 / 0.18), 0 0 0 1px rgb(15 20 30 / 0.06);
+  }
+}
+
+/* The one page container: header, tabs, content and footer all share this
+   left edge, so the brand mark, the page title and the first column of every
+   list line up at any width. */
+@utility page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--container-page);
+  padding-inline: var(--spacing-gutter);
+  @media (min-width: 40rem) {
+    padding-inline: var(--spacing-gutter-lg);
   }
 }
 

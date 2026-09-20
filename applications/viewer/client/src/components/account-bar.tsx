@@ -51,7 +51,7 @@ export function AccountBar({
   };
 
   return (
-    <div className="flex items-center gap-x-4 px-gutter py-1 sm:gap-x-6 sm:px-gutter-lg">
+    <div className="flex items-center gap-x-4 page py-1 sm:gap-x-6">
       <div className="flex min-w-0 items-center gap-x-4">
         <Brand />
         {children}

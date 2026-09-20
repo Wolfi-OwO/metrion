@@ -25,11 +25,8 @@ const LINK =
 
 export function Footer() {
   return (
-    <footer
-      aria-label="Site"
-      className="mt-auto border-t border-line bg-surface px-gutter py-6 sm:px-gutter-lg"
-    >
-      <div className="grid grid-cols-1 items-center justify-items-center gap-y-4 text-meta md:grid-cols-[1fr_auto_1fr] md:gap-x-6">
+    <footer aria-label="Site" className="mt-auto border-t border-line bg-surface">
+      <div className="page grid grid-cols-1 py-6 items-center justify-items-center gap-y-4 text-meta md:grid-cols-[1fr_auto_1fr] md:gap-x-6">
         <p className="order-3 text-center text-ink-3 md:order-none md:justify-self-start md:text-left">
           © {new Date().getFullYear()} Phillip Kofler
           <br />

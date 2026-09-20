@@ -144,22 +144,24 @@ function ProjectMetricsPanel({
             narrows an answer rather than picking one - with Refresh, its
             supporting last-sample readout, demoted to the row's trailing
             corner as the one secondary action here. */}
-        <div className="flex flex-col gap-y-3 border-t border-line px-gutter py-3 sm:px-gutter-lg">
-          {list.length > 0 && active && (
-            <ResourcePicker resources={list} value={active} onChange={setSelection} />
-          )}
+        <div className="border-t border-line">
+          <div className="page flex flex-col gap-y-3 py-3">
+            {list.length > 0 && active && (
+              <ResourcePicker resources={list} value={active} onChange={setSelection} />
+            )}
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <RangeControl value={preset} onChange={setPreset} />
-            <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-              {newestSample > 0 && (
-                <span className="font-mono text-meta text-ink-3">
-                  last sample {formatAge(now.getTime() - newestSample)}
-                </span>
-              )}
-              <Button variant="quiet" onClick={refresh}>
-                Refresh
-              </Button>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <RangeControl value={preset} onChange={setPreset} />
+              <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+                {newestSample > 0 && (
+                  <span className="font-mono text-meta text-ink-3">
+                    last sample {formatAge(now.getTime() - newestSample)}
+                  </span>
+                )}
+                <Button variant="quiet" onClick={refresh}>
+                  Refresh
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -249,7 +251,7 @@ function ProjectMetricsPanel({
             in the app. Loading/skipped-lines notices below it are the
             opposite - they change with this fetch - so they stay always
             visible rather than hidden behind a click. */}
-        <div className="border-t border-line px-gutter py-4 text-meta text-ink-3 sm:px-gutter-lg">
+        <div className="page border-t border-line py-4 text-meta text-ink-3">
           <details>
             <summary className="cursor-pointer text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink">
               How to read this data

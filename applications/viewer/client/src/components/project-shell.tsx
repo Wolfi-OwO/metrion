@@ -55,7 +55,7 @@ export function ProjectHeader({
           <span className="truncate text-ink">{projectName ?? '…'}</span>
         </nav>
       </AccountBar>
-      <nav aria-label="Project sections" className="flex gap-x-6 px-gutter sm:px-gutter-lg">
+      <nav aria-label="Project sections" className="page flex gap-x-6">
         {TABS.map((tab) => (
           <NavLink
             key={tab.label}

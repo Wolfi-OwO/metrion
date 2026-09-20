@@ -231,12 +231,12 @@ function isGatewayFailure(error: ApiError): boolean {
   return error.status === null || error.status === 502 || error.status === 504;
 }
 
-function errorHeading(error: ApiError): string {
-  if (isGatewayFailure(error)) return 'No answer from the metrics API';
-  if (error.isStorageUnavailable) return 'The metrics store is not configured';
+function errorHeading(error: ApiError, what: string): string {
+  if (isGatewayFailure(error)) return `No answer from the ${what} API`;
+  if (error.isStorageUnavailable) return `The ${what} store is not configured`;
   if (error.status === 429) return 'Too many requests at once';
-  if (error.status === 400) return 'The metrics API rejected that request';
-  return `The metrics API returned ${error.status}`;
+  if (error.status === 400) return `The ${what} API rejected that request`;
+  return `The ${what} API returned ${error.status}`;
 }
 
 // `error.message` is server-written prose of unknown shape - some end in a
@@ -271,11 +271,20 @@ function errorBody(error: ApiError): string {
   return withAction(error.message, 'Try again, or check back later if it keeps happening.');
 }
 
-export function ErrorState({ error, onRetry }: { error: ApiError; onRetry: () => void }) {
+export function ErrorState({
+  error,
+  onRetry,
+  what = 'metrics',
+}: {
+  error: ApiError;
+  onRetry: () => void;
+  /** Which API failed, in a word, so the heading names the right one. */
+  what?: string;
+}) {
   return (
     <Panel>
       <div role="alert">
-        <Heading>{errorHeading(error)}</Heading>
+        <Heading>{errorHeading(error, what)}</Heading>
         <Body>{errorBody(error)}</Body>
       </div>
       <Button className="mt-4" onClick={onRetry}>

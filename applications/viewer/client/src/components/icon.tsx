@@ -107,3 +107,11 @@ export function CodeIcon({ className = 'shrink-0 text-accent' }: { className?: s
     </svg>
   );
 }
+
+export function ChevronIcon({ className = 'shrink-0 text-ink-3' }: { className?: string }) {
+  return (
+    <svg {...ICON_STROKE_PROPS} width={16} height={16} strokeWidth={1.5} className={className}>
+      <path d="m6 3.5 4.5 4.5L6 12.5" />
+    </svg>
+  );
+}

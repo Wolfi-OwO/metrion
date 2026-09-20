@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { ApiError, createProject, type MeResponse } from '../api/client.ts';
 import { AccountBar } from '../components/account-bar.tsx';
 import { Field } from '../components/field.tsx';
-import { ScopeIcon } from '../components/icon.tsx';
-import { ProjectStatusIndicator } from '../components/project-status-indicator.tsx';
-import { Body, Button, ErrorState, Heading, Panel } from '../components/states.tsx';
+import { ChevronIcon } from '../components/icon.tsx';
+import { ProjectHealth } from '../components/project-health.tsx';
+import { Button, ErrorState } from '../components/states.tsx';
 import { projectNameError } from '../lib/validate.ts';
 import { useProjects } from '../lib/use-projects.ts';
 
@@ -17,18 +17,20 @@ import { useProjects } from '../lib/use-projects.ts';
  * triggered motion in this app, so a second animated placeholder here would
  * be a second, competing answer to the same "still working" question.
  */
+const LIST =
+  'mt-6 divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface';
+
 function ProjectRowSkeleton() {
   return (
-    <li aria-hidden="true" className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3.5">
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <div className="h-3.5 w-36 rounded-control bg-raised" />
-        <div className="h-2.5 w-12 rounded-control bg-raised" />
+    <li
+      aria-hidden="true"
+      className="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-6"
+    >
+      <div className="flex-1 space-y-2">
+        <div className="h-4 w-40 rounded-control bg-raised" />
+        <div className="h-3 w-24 rounded-control bg-raised" />
       </div>
-      <div className="h-2.5 w-40 shrink-0 rounded-control bg-raised" />
-      <div className="flex shrink-0 items-center gap-4">
-        <div className="h-2.5 w-10 rounded-control bg-raised" />
-        <div className="h-2.5 w-14 rounded-control bg-raised" />
-      </div>
+      <div className="h-4 w-56 rounded-control bg-raised md:flex-1" />
     </li>
   );
 }
@@ -39,7 +41,7 @@ function ProjectsLoadingRows() {
       <p role="status" aria-live="polite" className="sr-only">
         Loading your projects…
       </p>
-      <ul aria-hidden="true" className="mt-6 divide-y divide-line border-y border-line">
+      <ul aria-hidden="true" className={LIST}>
         {Array.from({ length: 5 }, (_, index) => (
           <ProjectRowSkeleton key={index} />
         ))}
@@ -89,7 +91,10 @@ function CreateProjectForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 flex flex-wrap items-end gap-3">
+    <form
+      onSubmit={handleSubmit}
+      className="mt-6 flex flex-wrap items-end gap-3 rounded-surface border border-line bg-surface p-4"
+    >
       <Field
         id="project-name"
         label="Project name"
@@ -98,7 +103,7 @@ function CreateProjectForm({
         onChange={(event) => setName(event.target.value)}
         onBlur={() => setTouched(true)}
         error={fieldError}
-        inputClassName="w-64"
+        inputClassName="w-full sm:w-72"
       />
       <Button type="submit" loading={submitting}>
         {submitting ? 'Creating…' : 'Create project'}
@@ -130,7 +135,7 @@ export default function DashboardRoute({
       <header className="border-b border-line bg-surface">
         <AccountBar email={user.email} onSignedOut={onSignedOut} />
       </header>
-      <main className="flex-1 pb-8">{renderBody()}</main>
+      <main className="flex-1">{renderBody()}</main>
     </>
   );
 
@@ -139,108 +144,131 @@ export default function DashboardRoute({
     const isError = projects.phase === 'error' && projects.error != null;
     const list = projects.data ?? [];
     const isEmpty = !isLoading && !isError && list.length === 0;
-    // The one create action lives beside the title on every ready state,
-    // including the empty one - so a first-time visitor gets a single,
-    // unambiguous next step rather than that button repeated a second time
-    // inside the empty-state panel below.
-    const canCreate = !isLoading && !isError;
 
     return (
-      <>
-        <div className="flex flex-wrap items-center justify-between gap-3 px-gutter pt-8 sm:px-gutter-lg">
-          <h1 className="text-heading font-semibold text-ink">Projects</h1>
-          {canCreate && !showForm && <Button onClick={() => setShowForm(true)}>New project</Button>}
+      <div className="enter page py-8 md:py-12">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-page font-semibold tracking-tight text-ink">Projects</h1>
+            <p className="mt-1 text-body text-ink-2">
+              {list.length > 0
+                ? `${list.length} ${list.length === 1 ? 'project' : 'projects'}`
+                : 'Each project is one environment: its keys, applications and thresholds.'}
+            </p>
+          </div>
+          {!isLoading && !isError && !isEmpty && !showForm && (
+            <Button variant="primary" onClick={() => setShowForm(true)}>
+              New project
+            </Button>
+          )}
         </div>
 
-        {isError && <ErrorState error={projects.error!} onRetry={projects.reload} />}
-
-        {isEmpty && !showForm && (
-          <Panel>
-            <div className="flex items-center gap-2.5">
-              <ScopeIcon id="container" />
-              <Heading>No projects yet</Heading>
-            </div>
-            <Body>
-              A project is what an API key belongs to. Create one, mint a key from its settings
-              page, then point a collector at it - the quickstart on the landing page shows the
-              exact request.
-            </Body>
-          </Panel>
+        {isError && (
+          <ErrorState error={projects.error!} onRetry={projects.reload} what="projects" />
         )}
 
-        {!isError && (showForm || isLoading || list.length > 0) && (
-          <div className="px-gutter sm:px-gutter-lg">
-            {showForm && (
-              <CreateProjectForm
-                onCreated={() => {
-                  setShowForm(false);
-                  projects.reload();
-                }}
-                onCancel={() => setShowForm(false)}
-              />
-            )}
+        {(showForm || (isEmpty && showForm)) && (
+          <CreateProjectForm
+            onCreated={() => {
+              setShowForm(false);
+              projects.reload();
+            }}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
 
-            {isLoading && <ProjectsLoadingRows />}
+        {isEmpty && !showForm && <FirstRun onCreate={() => setShowForm(true)} />}
 
-            {!isLoading && list.length > 0 && (
-              // Three fixed-content clusters, not a table: name+status is the
-              // one flex-grow item, so it absorbs whatever width metadata and
-              // actions do not need and pushes them flush right on their own -
-              // no ml-auto, no breakpoint math. Under about 500-600px the
-              // clusters no longer fit one line and flex-wrap drops each onto
-              // its own row, left-aligned like the line above it, rather than
-              // a card grid or a second, narrower layout to maintain.
-              <ul className="mt-6 divide-y divide-line border-y border-line">
-                {list.map((project) => (
-                  <li
-                    key={project.id}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3.5"
+        {isLoading && <ProjectsLoadingRows />}
+
+        {!isLoading && list.length > 0 && (
+          // A list, not a card grid: what distinguishes one project from the
+          // next is a name and a health line, and those read best as rows
+          // that line up. The whole row is the link (the name link stretches
+          // over it); Status and Settings are secondary shortcuts that only
+          // appear from md up, because the project's own tabs cover them on a
+          // phone and a row of four 44px targets would not fit.
+          <ul className={LIST}>
+            {list.map((project) => (
+              <li
+                key={project.id}
+                className="group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-raised md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_auto_auto] md:gap-x-6"
+              >
+                <div className="min-w-0">
+                  <Link
+                    to={`/projects/${project.id}`}
+                    className="block truncate text-body font-medium text-ink after:absolute after:inset-0"
                   >
-                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <Link
-                        to={`/projects/${project.id}`}
-                        className="min-w-0 truncate text-body font-medium text-ink transition-colors duration-(--duration-fast) hover:text-accent"
-                      >
-                        {project.name}
-                      </Link>
-                      <span className="shrink-0">
-                        <ProjectStatusIndicator projectId={project.id} />
-                      </span>
-                    </div>
+                    {project.name}
+                  </Link>
+                  <p className="truncate font-mono text-meta text-ink-3">{project.slug}</p>
+                </div>
 
-                    <div className="flex shrink-0 items-center gap-2 font-mono text-meta text-ink-3">
-                      <span className="max-w-40 truncate">{project.slug}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>
-                        {new Date(project.createdAt).toLocaleDateString(undefined, {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </span>
-                    </div>
+                <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
+                  <ProjectHealth projectId={project.id} />
+                </div>
 
-                    <div className="flex shrink-0 items-center gap-4">
-                      <Link
-                        to={`/projects/${project.id}/status`}
-                        className="text-label text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink"
-                      >
-                        Status
-                      </Link>
-                      <Link
-                        to={`/projects/${project.id}/settings`}
-                        className="text-label text-ink-2 transition-colors duration-(--duration-fast) hover:text-ink"
-                      >
-                        Settings
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                <div className="hidden items-center gap-1 md:flex">
+                  <Link
+                    to={`/projects/${project.id}/status`}
+                    className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
+                  >
+                    Status
+                  </Link>
+                  <Link
+                    to={`/projects/${project.id}/settings`}
+                    className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
+                  >
+                    Settings
+                  </Link>
+                </div>
+
+                <ChevronIcon className="col-start-2 row-start-1 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink md:col-start-auto md:row-start-auto" />
+              </li>
+            ))}
+          </ul>
         )}
-      </>
+      </div>
     );
   }
+}
+
+/**
+ * First-run. Not an apology for an empty list: the three things that have to
+ * happen, in order, with the one action that starts them. The project
+ * `defaultResource` is left out on purpose - it does nothing until a key
+ * ingests something.
+ */
+function FirstRun({ onCreate }: { onCreate: () => void }) {
+  const steps = [
+    ['Create a project', 'One per environment: production, staging, a home lab.'],
+    ['Mint an API key', 'From the project’s Settings tab. It is shown once.'],
+    ['Send a metric', 'POST to /api/v1/ingest with the key. The landing page shows the request.'],
+  ] as const;
+  return (
+    <section className="mt-8 rounded-surface border border-dashed border-line-strong px-6 py-8 md:px-8">
+      <h2 className="text-heading font-semibold tracking-tight text-ink">
+        Start with your first project
+      </h2>
+      <ol className="mt-6 grid gap-6 md:grid-cols-3">
+        {steps.map(([title, body], index) => (
+          <li key={title} className="flex gap-4">
+            <span
+              aria-hidden="true"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-pill border border-line-strong font-mono text-label text-ink-2"
+            >
+              {index + 1}
+            </span>
+            <div>
+              <p className="text-body font-medium text-ink">{title}</p>
+              <p className="mt-1 text-body text-ink-2">{body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <Button className="mt-8" variant="primary" onClick={onCreate}>
+        Create your first project
+      </Button>
+    </section>
+  );
 }
