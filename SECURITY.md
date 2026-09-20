@@ -152,19 +152,30 @@ up - a key pasted somewhere public is burned the moment it lands.
   sign-in uses only a primary **and verified** email. A provider account without
   an accessible email is refused.
 - **Sessions** are an opaque `gen_random_uuid()` id in a row of the `sessions`
-  table, not a JWT. The cookie is `mtr_session`, `HttpOnly; Secure;
-SameSite=Lax; Path=/`, 30-day expiry, and carries an HMAC-SHA256 signature
+  table, not a JWT. The cookie is `__Host-mtr_session`, `HttpOnly; Secure;
+SameSite=Lax; Path=/` with no `Domain` (the `__Host-` prefix makes browsers reject a
+  cookie of that name set with a `Domain` or another path, which blocks
+  cookie-tossing from a sibling Container App), 30-day expiry, and carries an HMAC-SHA256 signature
   (`SESSION_SECRET`) that is verified in constant time as an early reject for a
   tampered cookie. The signature is not what makes the session unguessable; the
   random id is. `POST /auth/logout` deletes the row, so a replayed cookie is a 401. Expired rows are ignored on lookup; whether they are purged is not
   verified.
-- **CSRF**: there is no separate CSRF token. The controls are `SameSite=Lax`
-  (no cross-site POST/DELETE carries the cookie), state-changing routes being
-  `POST`/`PATCH`/`PUT`/`DELETE` only, and a CORS allowlist
-  (`CORS_ALLOWED_ORIGINS`, required at boot) limited to `GET, POST, DELETE,
-OPTIONS` with `Authorization` and `Content-Type` as allowed headers. Note the
-  CORS method list omits `PATCH` and `PUT` although routes for them exist; those
-  are same-origin only.
+- **CSRF**: there is no separate CSRF token. `azurecontainerapps.io` is **not**
+  on the public suffix list, so every Azure Container App is same-site to the
+  viewer and `SameSite=Lax` alone is not a CSRF defence here (neither is
+  `Sec-Fetch-Site: same-site`). The control is one app-level guard,
+  `middlewares/same-origin.ts`: every method other than `GET`/`HEAD`/`OPTIONS`
+  needs an `Origin` equal to the viewer's own origin (`PUBLIC_BASE_URL`, which
+  must be `https://` in production and fails the boot otherwise), or, with no
+  `Origin`, `Sec-Fetch-Site: same-origin`; anything else is a 403. The CORS
+  allowlist (`CORS_ALLOWED_ORIGINS`, required at boot; `GET, POST, DELETE,
+OPTIONS`) only serves the public reads and does not widen the guard.
+- **OAuth login CSRF**: `/auth/:provider` sets a short-lived `__Host-mtr_oauth`
+  cookie (`HttpOnly; Secure; SameSite=Lax`, the `state` as value; Lax because
+  the callback is a cross-site top-level navigation). The callback requires it to
+  equal the `state` in constant time before consuming the pending login, and
+  clears it on every outcome, so a callback URL captured by an attacker cannot
+  be replayed into a victim's browser.
 - **Authorisation** is per account. Every project, key, application and
   threshold route requires a session and resolves the caller's projects from
   `projects.owner_user_id`; a project id outside that set answers 404, not 403,
@@ -325,7 +336,10 @@ OPTIONS` with `Authorization` and `Content-Type` as allowed headers. Note the
   Docker bridge for ingest, and a host-key-pinned SSH tunnel for the viewer.
   Revisit only if a hop ever crosses a network not controlled end-to-end.
 - Backups have no offsite copy yet.
-- No CSRF token; the protection is `SameSite=Lax` plus the CORS allowlist.
+- No CSRF token; the protection is the same-origin guard above (see the CSRF
+  bullet for why `SameSite=Lax` alone is not enough on Azure Container Apps).
+- The `db-tunnel` sidecar image published as `0.1.0` still binds `0.0.0.0`; the
+  repo file binds loopback and takes effect at the next manual sidecar build.
 - The public-status rate limit is one shared bucket.
 - Secret scanning is manual.
 - Session-row purging, live `pg_hba.conf` and current OAuth client registration
