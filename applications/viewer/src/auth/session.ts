@@ -11,7 +11,11 @@ import { getPool } from '../lib/db.js';
  * truncated cookie value, not what makes the session secure.
  */
 
-export const SESSION_COOKIE_NAME = 'mtr_session';
+/** `__Host-`: browsers refuse a Set-Cookie for this name that carries a Domain
+ * or a non-`/` path, which blocks cookie-tossing from a sibling Container App
+ * (azurecontainerapps.io is not in the public suffix list). Renaming from
+ * `mtr_session` signed everyone out once. */
+export const SESSION_COOKIE_NAME = '__Host-mtr_session';
 
 /** 30 days - a read-heavy dashboard, not a banking app; revocation is a
  * `POST /auth/logout` away regardless of this TTL. */
@@ -57,6 +61,10 @@ function parseCookieHeader(header: string | undefined): Record<string, string> {
     cookies[name] = decodeURIComponent(pair.slice(separator + 1).trim());
   }
   return cookies;
+}
+
+export function readCookie(req: Request, name: string): string | undefined {
+  return parseCookieHeader(req.headers.cookie)[name];
 }
 
 /** `null` covers both "no cookie" and "cookie present but invalid" -

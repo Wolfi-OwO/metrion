@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
 import { getProvider, type PendingAuth } from '../auth/providers.js';
@@ -6,6 +7,7 @@ import {
   destroySession,
   setSessionCookie,
   clearSessionCookie,
+  readCookie,
 } from '../auth/session.js';
 import { getPool } from '../lib/db.js';
 import { NotFoundError, UnauthorizedError } from '../middlewares/error.js';
@@ -53,6 +55,23 @@ function takePending(state: string): PendingEntry | undefined {
   return entry;
 }
 
+/**
+ * Binds a login to the browser that started it. `pendingAuths` is keyed by
+ * `state` alone, so without this an attacker could start a login, capture the
+ * callback URL and get a victim to load it, planting the attacker's session
+ * in the victim's browser. `lax`, not `strict`: the callback arrives as a
+ * cross-site top-level navigation from the provider.
+ */
+const OAUTH_COOKIE_NAME = '__Host-mtr_oauth';
+const oauthCookieOptions = { httpOnly: true, secure: true, sameSite: 'lax', path: '/' } as const;
+
+function stateMatchesCookie(cookie: string | undefined, state: string | undefined): boolean {
+  if (!cookie || !state) return false;
+  const a = Buffer.from(cookie);
+  const b = Buffer.from(state);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function redirectUriFor(provider: string): string {
   return `${config.publicBaseUrl}/auth/${provider}/callback`;
 }
@@ -60,7 +79,7 @@ function redirectUriFor(provider: string): string {
 export async function startAuth(req: Request, res: Response): Promise<void> {
   const provider = getProvider(req.params.provider ?? '');
   if (!provider) {
-    throw new NotFoundError(`Unknown provider "${req.params.provider}".`);
+    throw new NotFoundError('Unknown authentication provider.');
   }
 
   const redirectUri = redirectUriFor(provider.name);
@@ -71,6 +90,7 @@ export async function startAuth(req: Request, res: Response): Promise<void> {
     redirectUri,
     expiresAt: Date.now() + PENDING_TTL_MS,
   });
+  res.cookie(OAUTH_COOKIE_NAME, pending.state, { ...oauthCookieOptions, maxAge: PENDING_TTL_MS });
   res.redirect(url.href);
 }
 
@@ -126,11 +146,17 @@ export async function authCallback(req: Request, res: Response): Promise<void> {
   const providerName = req.params.provider ?? '';
   const provider = getProvider(providerName);
   if (!provider) {
-    throw new NotFoundError(`Unknown provider "${providerName}".`);
+    throw new NotFoundError('Unknown authentication provider.');
   }
 
+  // Cleared on every path, success or failure: the cookie is single-use.
+  const oauthCookie = readCookie(req, OAUTH_COOKIE_NAME);
+  res.clearCookie(OAUTH_COOKIE_NAME, oauthCookieOptions);
+
   const state = typeof req.query.state === 'string' ? req.query.state : undefined;
-  const pending = state ? takePending(state) : undefined;
+  // Checked before takePending so a foreign callback cannot burn the victim's
+  // own pending entry either.
+  const pending = state && stateMatchesCookie(oauthCookie, state) ? takePending(state) : undefined;
   if (!pending || pending.provider !== providerName) {
     throw new UnauthorizedError('OAuth state mismatch.');
   }

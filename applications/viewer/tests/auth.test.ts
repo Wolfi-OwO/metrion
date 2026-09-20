@@ -122,30 +122,42 @@ const mockFetch: typeof fetch = async (input, init) => {
   throw new Error(`Unexpected fetch in auth.test.ts: ${method} ${url}`);
 };
 
-/** Extracts just `name=value` from a `Set-Cookie` response header, dropping
- * `Path`/`HttpOnly`/`Secure`/`SameSite`/`Expires` - a `fetch`-driven test has
- * no cookie jar of its own, so this is what stands in for a browser
- * forwarding the cookie on the next request. */
-function cookiePair(setCookieHeader: string | null): string {
-  assert.ok(setCookieHeader, 'expected a Set-Cookie header');
-  return setCookieHeader.split(';')[0]!;
+/** The `name=value` pair of the Set-Cookie header called `name`. */
+function namedCookiePair(response: Response, name: string): string | undefined {
+  return response.headers
+    .getSetCookie()
+    .map((header) => header.split(';')[0]!)
+    .find((pair) => pair.startsWith(`${name}=`));
 }
 
-/** Drives `GET /auth/:provider` then `GET /auth/:provider/callback`, and
- * returns the `Set-Cookie` pair from a successful sign-in. */
-async function signIn(provider: string): Promise<string> {
+/** Starts a login and returns the provider's `state` plus the OAuth binding
+ * cookie a browser would hold. */
+async function startLogin(provider: string): Promise<{ state: string; oauthCookie: string }> {
   const start = await fetch(`${baseUrl}/auth/${provider}`, { redirect: 'manual' });
   assert.equal(start.status, 302, `${provider}: GET /auth/${provider} must redirect`);
   const location = new URL(start.headers.get('location')!);
   const state = location.searchParams.get('state');
   assert.ok(state, `${provider}: authorization URL must carry a state`);
+  const oauthCookie = namedCookiePair(start, '__Host-mtr_oauth');
+  assert.ok(oauthCookie, `${provider}: start must set the OAuth binding cookie`);
+  return { state, oauthCookie };
+}
 
-  const callback = await fetch(
-    `${baseUrl}/auth/${provider}/callback?code=fake-code&state=${encodeURIComponent(state)}`,
-    { redirect: 'manual' },
-  );
+const callbackUrl = (provider: string, state: string) =>
+  `${baseUrl}/auth/${provider}/callback?code=fake-code&state=${encodeURIComponent(state)}`;
+
+/** Drives `GET /auth/:provider` then `GET /auth/:provider/callback`, and
+ * returns the session `Set-Cookie` pair from a successful sign-in. */
+async function signIn(provider: string): Promise<string> {
+  const { state, oauthCookie } = await startLogin(provider);
+  const callback = await fetch(callbackUrl(provider, state), {
+    redirect: 'manual',
+    headers: { cookie: oauthCookie },
+  });
   assert.equal(callback.status, 302, `${provider}: callback must redirect on success`);
-  return cookiePair(callback.headers.get('set-cookie'));
+  const session = namedCookiePair(callback, '__Host-mtr_session');
+  assert.ok(session, `${provider}: callback must set the session cookie`);
+  return session;
 }
 
 before(async () => {
@@ -222,15 +234,44 @@ test('a second sign-in with the same provider subject but a changed email reuses
 });
 
 test('a callback with a mismatched state is rejected', async () => {
-  const start = await fetch(`${baseUrl}/auth/google`, { redirect: 'manual' });
-  const location = new URL(start.headers.get('location')!);
-  assert.ok(location.searchParams.get('state'));
-
-  const response = await fetch(
-    `${baseUrl}/auth/google/callback?code=fake-code&state=not-the-state-we-issued`,
-    { redirect: 'manual' },
-  );
+  const { oauthCookie } = await startLogin('google');
+  const response = await fetch(callbackUrl('google', 'not-the-state-we-issued'), {
+    redirect: 'manual',
+    headers: { cookie: oauthCookie },
+  });
   assert.equal(response.status, 401);
+});
+
+test('a callback without the OAuth binding cookie is rejected (login CSRF)', async () => {
+  const { state } = await startLogin('google');
+  const response = await fetch(callbackUrl('google', state), { redirect: 'manual' });
+  assert.equal(response.status, 401);
+  assert.equal(namedCookiePair(response, '__Host-mtr_session'), undefined);
+});
+
+test('a callback whose cookie belongs to a different login is rejected', async () => {
+  const attacker = await startLogin('google');
+  const victim = await startLogin('google');
+  const response = await fetch(callbackUrl('google', attacker.state), {
+    redirect: 'manual',
+    headers: { cookie: victim.oauthCookie },
+  });
+  assert.equal(response.status, 401);
+});
+
+test('the OAuth binding cookie is cleared after the callback, success or not', async () => {
+  const { state, oauthCookie } = await startLogin('google');
+  const ok = await fetch(callbackUrl('google', state), {
+    redirect: 'manual',
+    headers: { cookie: oauthCookie },
+  });
+  assert.equal(ok.status, 302);
+  const cleared = ok.headers.getSetCookie().find((h) => h.startsWith('__Host-mtr_oauth='));
+  assert.ok(cleared && /expires=Thu, 01 Jan 1970/i.test(cleared), 'cookie must be expired');
+
+  const failed = await fetch(callbackUrl('google', 'nope'), { redirect: 'manual' });
+  assert.equal(failed.status, 401);
+  assert.ok(failed.headers.getSetCookie().some((h) => h.startsWith('__Host-mtr_oauth=')));
 });
 
 test('an unknown provider name is rejected before any provider call is made', async () => {

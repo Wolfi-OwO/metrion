@@ -47,14 +47,18 @@ test('non-GET from a foreign Origin is refused', async () => {
   assert.equal((await post({ Origin: 'https://evil.test' })).status, 403);
 });
 
-test('non-GET from a configured or own Origin reaches the handler', async () => {
-  assert.equal((await post({ Origin: 'https://example.test' })).status, 401);
+test('non-GET from the own Origin reaches the handler, a CORS-only origin does not', async () => {
+  assert.equal((await post({ Origin: 'https://example.test' })).status, 403);
   assert.equal((await post({ Origin: 'https://viewer.example.test' })).status, 401);
 });
 
 test('non-GET without Origin passes only as Sec-Fetch-Site same-origin', async () => {
   assert.equal((await post({ 'Sec-Fetch-Site': 'same-origin' })).status, 401);
   assert.equal((await post({ 'Sec-Fetch-Site': 'cross-site' })).status, 403);
+  // Every Azure Container App is same-site to the viewer (azurecontainerapps.io
+  // is not in the public suffix list), so same-site proves nothing.
+  assert.equal((await post({ 'Sec-Fetch-Site': 'same-site' })).status, 403);
+  assert.equal((await post({ Origin: 'null' })).status, 403);
 });
 
 test('GET is untouched', async () => {

@@ -81,11 +81,18 @@ async function signInAs(sub: string, email: string): Promise<string> {
 
   const start = await fetch(`${baseUrl}/auth/google`, { redirect: 'manual' });
   const state = new URL(start.headers.get('location')!).searchParams.get('state');
+  // The OAuth binding cookie a browser would send back with the callback.
+  const oauthCookie = start.headers
+    .getSetCookie()
+    .map((h) => h.split(';')[0]!)
+    .find((pair) => pair.startsWith('__Host-mtr_oauth='));
   const callback = await fetch(
     `${baseUrl}/auth/google/callback?code=fake-code&state=${encodeURIComponent(state!)}`,
-    { redirect: 'manual' },
+    { redirect: 'manual', headers: { cookie: oauthCookie! } },
   );
-  return cookiePair(callback.headers.get('set-cookie'));
+  return cookiePair(
+    callback.headers.getSetCookie().find((h) => h.startsWith('__Host-mtr_session=')) ?? null,
+  );
 }
 
 interface ProjectBody {

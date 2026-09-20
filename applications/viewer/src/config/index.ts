@@ -15,6 +15,25 @@ function requireEnv(name: string): string {
   return value;
 }
 
+/**
+ * `PUBLIC_BASE_URL` is what `middlewares/same-origin.ts` trusts as the
+ * viewer's own origin, so a malformed value must stop the boot rather than
+ * become the string "null". https is mandatory in production; http is only
+ * accepted for localhost (dev and tests use it).
+ */
+function requirePublicBaseUrl(): string {
+  const value = requireEnv('PUBLIC_BASE_URL');
+  const url = new URL(value); // throws on a malformed value
+  const isLocalhost = url.protocol === 'http:' && url.hostname === 'localhost';
+  const isHttps = url.protocol === 'https:';
+  if (!isHttps && !(isLocalhost && process.env.NODE_ENV !== 'production')) {
+    throw new Error(
+      'PUBLIC_BASE_URL must be an https:// URL (http://localhost only outside production).',
+    );
+  }
+  return value;
+}
+
 export const config = {
   port: Number(process.env.PORT) || 8080,
   nodeEnv: process.env.NODE_ENV ?? 'development',
@@ -67,7 +86,7 @@ export const config = {
    * literal host baked in elsewhere - so a later phase-2 domain switch is one
    * variable, not a grep across the auth code.
    */
-  publicBaseUrl: requireEnv('PUBLIC_BASE_URL'),
+  publicBaseUrl: requirePublicBaseUrl(),
 
   /** HMAC key for signing the opaque session cookie value (`auth/session.ts`).
    * The session itself lives in the `sessions` table, keyed by an
