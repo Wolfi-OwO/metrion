@@ -102,10 +102,12 @@ jobs:
             dir: applications/ingest
             dockerfile: applications/ingest/Dockerfile
             port: 8090
+            target: vps
           - app: metrion-viewer
             dir: applications/viewer
             dockerfile: applications/viewer/Dockerfile
             port: 8080
+            target: azure
 
     steps:
       - uses: actions/checkout@v4
@@ -126,6 +128,10 @@ jobs:
           VERSION=$(node -p "require('./${{ matrix.dir }}/package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "suffix=v${VERSION//./-}-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          # Immutable per-run tag: the VPS deploy needs a tag that can never
+          # be overwritten, otherwise "roll back to the previous tag" would
+          # roll back to whatever a later push of the same version left there.
+          echo "vps_tag=$VERSION-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         run: |
@@ -137,6 +143,10 @@ jobs:
             -t "$REGISTRY/${{ matrix.app }}:latest" .
           docker push "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}"
           docker push "$REGISTRY/${{ matrix.app }}:latest"
+          if [ "${{ matrix.target }}" = vps ]; then
+            docker tag "$REGISTRY/${{ matrix.app }}:latest" "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.vps_tag }}"
+            docker push "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.vps_tag }}"
+          fi
 
       # `--container-name` matters here: both apps run a `db-tunnel` sidecar
       # (see infra/db-tunnel-sidecar and the runbook's Database
@@ -146,6 +156,7 @@ jobs:
       # alone (no `--yaml`) otherwise leaves every other container in the
       # template untouched.
       - name: Deploy revision
+        if: matrix.target == 'azure'
         run: |
           az containerapp update -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
             --container-name "${{ matrix.app }}" \
@@ -157,6 +168,7 @@ jobs:
       # the code that was just replaced. Wait for a single active revision
       # first - same trap the viewer's very first deploy hit.
       - name: Wait for the handover
+        if: matrix.target == 'azure'
         run: |
           for _ in $(seq 1 60); do
             ACTIVE=$(az containerapp revision list -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
@@ -170,8 +182,33 @@ jobs:
       # see applications/*/src/lib/db.ts), so liveness answering 200 is the
       # whole post-deploy check available today.
       - name: Verify the running app
+        if: matrix.target == 'azure'
         run: |
           FQDN=$(az containerapp show -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
             --query properties.configuration.ingress.fqdn -o tsv)
           curl -fsS --max-time 60 -o /dev/null "https://$FQDN/api/v1/health/liveness"
           echo "https://$FQDN is live"
+
+      # metrion-ingest runs on the VPS now. The same forced-command key as the
+      # migrate job, but asking for `ingest <tag>` makes /opt/metrion/deploy.sh
+      # pull the image, restart only the ingest container, prove a DB round
+      # trip and roll back on failure - a non-zero exit here means it did.
+      # The Azure metrion-ingest app is no longer updated (it is retired
+      # separately) and keeps running whatever revision it had.
+      - name: Deploy to the VPS
+        if: matrix.target == 'vps'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.METRION_SSH_DEPLOY_KEY }}" > ~/.ssh/metrion_deploy_key
+          chmod 600 ~/.ssh/metrion_deploy_key
+          # Same pinned host key as the migrate job.
+          echo "$VPS_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0EZSmAYeYlrrvypv8MGUoUHVyFlDnWFf6rDKQkdD2C" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" "ingest ${{ steps.version.outputs.vps_tag }}"
+
+      # The gate inside deploy.sh only sees the container; this checks the
+      # path users hit (Caddy -> ingest) and that the new code is really the
+      # one answering (the public-status route 404s on older images).
+      - name: Verify the public endpoint
+        if: matrix.target == 'vps'
+        run: |
+          curl -fsS --max-time 60 "https://metrion-ingest.woofi-developments.at/api/v1/public/projects/86b02c8c-4357-4655-9835-1897787cdd9a/uptime" | head -c 200
