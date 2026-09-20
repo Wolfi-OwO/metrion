@@ -16,11 +16,13 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     /**
-     * Measured, not guessed: after the Tasks 5-11 redesign the bundle is
-     * 668 kB raw / 198 kB gzipped (was 566 kB / 169 kB before). Vite's
-     * default 500 kB warning would fire on every build, and a warning that
-     * always fires is a warning nobody reads - so the limit is moved once,
-     * deliberately, rather than the message being ignored.
+     * Measured, not guessed: after the second redesign (hand-laid dependency
+     * graph, chart legend and axis code, light theme, code highlighter) the JS
+     * bundle is 700 kB raw / 208 kB gzipped, up from 668 kB / 198 kB after the
+     * first one and 566 kB / 169 kB before either. Vite's default 500 kB
+     * warning would fire on every build, and a warning that always fires is a
+     * warning nobody reads - so the limit is moved deliberately to 750, which
+     * leaves room for one more feature before it has to be moved again.
      *
      * ponytail: accepted, not solved. Express serves this bundle from the same
      * scale-to-zero container as the API, so it is fetched during the same
@@ -30,7 +32,7 @@ export default defineConfig({
      * these strip charts actually are, before reaching for code splitting -
      * splitting moves the bytes, it does not remove them.
      */
-    chunkSizeWarningLimit: 700,
+    chunkSizeWarningLimit: 750,
     // Task 13 serves this directory from the Express app itself, so the output
     // stays inside the client workspace rather than being written up into the
     // server's tree - one build, one owner of the folder it writes.
