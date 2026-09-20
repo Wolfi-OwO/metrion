@@ -30,7 +30,8 @@ export const config = {
    * global cap exists here where the ingest route has none.
    */
   publicStatusRateLimitMax: Number(process.env['PUBLIC_STATUS_RATE_LIMIT_MAX']) || 120,
-  publicStatusRateLimitWindowMs: Number(process.env['PUBLIC_STATUS_RATE_LIMIT_WINDOW_MS']) || 60_000,
+  publicStatusRateLimitWindowMs:
+    Number(process.env['PUBLIC_STATUS_RATE_LIMIT_WINDOW_MS']) || 60_000,
 } as const;
 
 export const isProduction = config.nodeEnv === 'production';

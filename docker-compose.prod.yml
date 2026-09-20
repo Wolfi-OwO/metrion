@@ -83,7 +83,13 @@ services:
       PORT: '8090'
     # Liveness touches no DB, so a green check does not prove the DSN works.
     healthcheck:
-      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8090/api/v1/health/liveness').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8090/api/v1/health/liveness').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
