@@ -152,8 +152,9 @@ the same deletions as the ingest host's logger, so no proxy log line written
 after the change records a client IP, URI or header set, for any host. Caddy
 also logs the `Authorization` and `Cookie` request headers as `REDACTED`
 regardless of any filter (seen in retained lines of 2026-09-18 16:31:59Z and
-23:29:15Z). HTTPS API calls to the ingest host and the plain-HTTP redirect for
-that host log no client IP, URI or headers. **Transitional note:** lines
+23:29:15Z). HTTPS API calls to the ingest host and the plain-HTTP `400` answer for
+that host (since 2026-09-20 the ingest host no longer redirects plain HTTP) log
+no client IP, URI or headers. **Transitional note:** lines
 written before this change may still contain client IPs for unmatched-host
 traffic until they rotate out of the Docker log (see Retention below); the
 date the last such line disappears is not known and depends on traffic.
