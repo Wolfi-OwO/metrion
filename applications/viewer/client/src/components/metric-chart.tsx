@@ -69,6 +69,11 @@ function ChartTooltip({
   series,
 }: TooltipContentProps & { unit: string | null; series: SeriesView[] }) {
   if (!active || payload.length === 0) return null;
+  // The faint area under a single-series strip is a second recharts item with
+  // the same name; without this the tooltip listed that series twice.
+  const entries = payload.filter(
+    (entry, index) => payload.findIndex((other) => other.name === entry.name) === index,
+  );
 
   return (
     // This is the one popover-level surface in the chart - floating over a
@@ -79,7 +84,7 @@ function ChartTooltip({
       <div className="mb-2 font-mono text-ink-2">
         {typeof label === 'number' ? formatTimestamp(label) : ''}
       </div>
-      {payload.map((entry) => {
+      {entries.map((entry) => {
         const match = series.find((candidate) => candidate.name === entry.name);
         return (
           <div
