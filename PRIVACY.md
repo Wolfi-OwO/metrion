@@ -97,8 +97,8 @@ without qualification.
 **No client IP addresses. No user agents. No request paths. No query strings.**
 The applications never store them: not in the database, not in an application
 log line, not in an API response, not in an error body. The reverse proxy in
-front of ingest has one narrow exception, described under "Reverse-proxy layer"
-below. The application-side guarantee is enforced in four separate places rather than asserted once:
+front of ingest has a transitional caveat for log lines written before
+2026-09-20, described under "Reverse-proxy layer" below. The application-side guarantee is enforced in four separate places rather than asserted once:
 
 - The Caddy access-log reader types the log line as `status`, `duration` and
   `request.host` only. `request.remote_ip`, `request.headers` and `request.uri`
@@ -143,13 +143,20 @@ standard output, which Docker keeps in a `json-file` log. The logger the
 ingest host uses deletes `remote_ip`, `client_ip`, all request headers
 (including `Authorization`), the request `uri` and all response headers, so a
 line for an HTTPS request records only the time, method, host, TLS parameters,
-the client's source port, byte counts, duration and status. One line kind is
-not covered by that filter: the automatic redirect from plain HTTP (port 80)
-to HTTPS is written by Caddy's default logger and does contain the client IP
-address, the requested URI and the request headers such as the User-Agent (1 of
-602 lines for this host in the sampled log, a `curl` request). It affects
-plain-HTTP requests only, never API calls made over HTTPS. Whether Caddy's
-built-in redaction of credential headers applies to that line was not tested.
+the client's source port, byte counts, duration and status. Until 2026-09-20
+the proxy's global (catch-all) logger was unfiltered: the automatic redirect
+from plain HTTP (port 80) for a hostname without a site block, such as the
+bare server IP or a spoofed `Host` header, was written with the client IP
+address, the requested URI and the request headers. That logger now applies
+the same deletions as the ingest host's logger, so no proxy log line written
+after the change records a client IP, URI or header set, for any host. Caddy
+also logs the `Authorization` and `Cookie` request headers as `REDACTED`
+regardless of any filter (seen in retained lines of 2026-09-18 16:31:59Z and
+23:29:15Z). HTTPS API calls to the ingest host and the plain-HTTP redirect for
+that host log no client IP, URI or headers. **Transitional note:** lines
+written before this change may still contain client IPs for unmatched-host
+traffic until they rotate out of the Docker log (see Retention below); the
+date the last such line disappears is not known and depends on traffic.
 The purpose of the log is operating the service and investigating abuse (Art
 6(1)(f) DSGVO); it is not used for anything else. **Retention** is set by
 Docker only: for the Caddy container and the `metrion-ingest` container alike,
