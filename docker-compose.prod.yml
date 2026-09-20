@@ -1,10 +1,12 @@
 # Production database stack for the Contabo VPS (<VPS-IP>). Run with:
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# This file owns ONLY the database. metrion-ingest and metrion-viewer run on
-# Azure Container Apps (see organizational/deployment-runbook.md) - see ADR
-# 0004's Hosting section for why the database itself is self-hosted here
-# instead of managed Azure Postgres.
+# This file owns the database and the ingest API (metrion-ingest, moved here
+# from Azure Container Apps so ingest reaches the db over the local bridge
+# instead of the SSH tunnel). metrion-viewer still runs on Azure Container Apps
+# (see organizational/agent-deployment-runbook.md) - see ADR 0004's Hosting
+# section for why the database itself is self-hosted here instead of managed
+# Azure Postgres.
 #
 # ── How this differs from docker-compose.dev.yml ────────────────────────────
 #   * TLS is mandatory (ssl=on, TLSv1.2 minimum, hostssl-only in pg_hba.conf,
@@ -61,6 +63,40 @@ services:
     # this mirrors) - the same cap the sibling postgis-based nutrilens-db
     # container already runs under on this box.
     mem_limit: 512m
+
+  ingest:
+    image: globalcr01.azurecr.io/metrion-ingest:${INGEST_IMAGE_TAG:?INGEST_IMAGE_TAG must be set in .env}
+    restart: unless-stopped
+    mem_limit: 256m
+    # No `ports:` on purpose: Caddy (/opt/portfolio) is the only container
+    # allowed to publish host ports and reaches ingest as metrion-ingest-1:8090
+    # over edge-net.
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # sslmode=require, not verify-full: db/init/10-tls-hba.sh serves the
+      # snakeoil self-signed cert, which has no chain to verify. pg 8.x needs
+      # uselibpqcompat=true for libpq semantics (require = encrypt, no verify).
+      DATABASE_URL: postgres://metrion:${POSTGRES_PASSWORD}@db:5432/metrion?sslmode=require&uselibpqcompat=true
+      NODE_ENV: production
+      PORT: '8090'
+    # Liveness touches no DB, so a green check does not prove the DSN works.
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8090/api/v1/health/liveness').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - default
+      - edge-net
+
+networks:
+  # Created once on the host (`docker network create edge-net`), shared with
+  # the portfolio Caddy - see /opt/portfolio/docker-compose.prod.yaml.
+  edge-net:
+    external: true
 
 volumes:
   metrion-db-data:
