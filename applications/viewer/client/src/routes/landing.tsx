@@ -1,5 +1,4 @@
 import { CopyButton } from '../components/copy-button.tsx';
-import { ScopeIcon, type ScopeIconId } from '../components/icon.tsx';
 import { PublicHeader } from '../components/public-header.tsx';
 
 /**
@@ -105,32 +104,6 @@ function SignInButtons() {
     </div>
   );
 }
-
-const RESOURCE_KINDS: ReadonlyArray<{
-  readonly id: ScopeIconId;
-  readonly scope: string;
-  readonly prefix: string | null;
-  readonly metrics: readonly string[];
-}> = [
-  {
-    id: 'host',
-    scope: 'Host',
-    prefix: null,
-    metrics: ['cpu.usage', 'memory.used', 'disk.root.usedPercent'],
-  },
-  {
-    id: 'container',
-    scope: 'Container',
-    prefix: 'container:<name>',
-    metrics: ['restarts', 'memory', 'cpu'],
-  },
-  {
-    id: 'request',
-    scope: 'Request host',
-    prefix: 'requests:<host>',
-    metrics: ['latency', 'status counts'],
-  },
-];
 
 /** A small deterministic wave: `spike` is where the shared event lands, so
  * the three strips below can all show it at the same x - the whole pitch. */
@@ -253,7 +226,7 @@ export default function LandingRoute() {
 
       <main className="enter flex-1">
         <section className="border-b border-line">
-          <div className="page grid gap-12 py-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-16">
+          <div className="page grid gap-12 py-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-16">
             <div>
               <h1 className="max-w-[20ch] text-display font-semibold tracking-tight text-balance text-ink">
                 One shared time axis for every server you run.
@@ -272,32 +245,6 @@ export default function LandingRoute() {
             </div>
 
             <TimeAxisPreview />
-          </div>
-        </section>
-
-        <section className="border-b border-line">
-          <div className="page py-12">
-            <h2 className="text-heading font-semibold tracking-tight text-ink">What it tracks</h2>
-            {/* A definition list, not three cards: the three kinds are rows of
-                one table (what, how it is addressed, which metrics), and read
-                best as a table. */}
-            <dl className="mt-6 divide-y divide-line border-y border-line">
-              {RESOURCE_KINDS.map((kind) => (
-                <div
-                  key={kind.id}
-                  className="grid gap-x-8 gap-y-2 py-4 md:grid-cols-[12rem_14rem_minmax(0,1fr)]"
-                >
-                  <dt className="flex items-center gap-3 text-body font-medium text-ink">
-                    <ScopeIcon id={kind.id} />
-                    {kind.scope}
-                  </dt>
-                  <dd className="font-mono text-label text-ink-3">
-                    {kind.prefix ?? 'the machine itself'}
-                  </dd>
-                  <dd className="font-mono text-label text-ink-2">{kind.metrics.join('  ·  ')}</dd>
-                </div>
-              ))}
-            </dl>
           </div>
         </section>
 
