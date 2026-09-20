@@ -81,7 +81,10 @@ services:
       # uselibpqcompat=true for libpq semantics (require = encrypt, no verify).
       # verify-ca would authenticate nothing anyway: the snakeoil cert's private
       # key ships inside the public timescaledb-ha image (SECURITY.md).
-      DATABASE_URL: postgres://metrion:${POSTGRES_PASSWORD}@db:5432/metrion?sslmode=require&uselibpqcompat=true
+      # metrion_ingest (migration 0012): only the grants ingest's own queries
+      # need. Its password is INGEST_DB_PASSWORD in /opt/metrion/.env, set out
+      # of band. The `metrion` superuser stays reserved for migrations.
+      DATABASE_URL: postgres://metrion_ingest:${INGEST_DB_PASSWORD}@db:5432/metrion?sslmode=require&uselibpqcompat=true
       NODE_ENV: production
       PORT: '8090'
     # Liveness touches no DB, so a green check does not prove the DSN works.
