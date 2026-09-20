@@ -8,7 +8,7 @@ import {
 } from '../handlers/projects.handlers.js';
 import { asyncHandler } from '../middlewares/error.js';
 import { requireSession } from '../middlewares/require-session.js';
-import { validateBody } from '../middlewares/validate.js';
+import { uuidIdParams, validateBody } from '../middlewares/validate.js';
 import { createApiKeySchema, createProjectSchema } from '../schemas/projects.schemas.js';
 
 /**
@@ -33,6 +33,7 @@ projectsRouter.post(
 
 projectsRouter.post(
   '/api/v1/projects/:id/keys',
+  uuidIdParams,
   asyncHandler(requireSession),
   // Optional body (issue #20): a request with none at all still parses to
   // `{}`, so the pre-#20 project-wide-key behaviour is unaffected.
@@ -43,8 +44,14 @@ projectsRouter.post(
 
 projectsRouter.get(
   '/api/v1/projects/:id/keys',
+  uuidIdParams,
   asyncHandler(requireSession),
   asyncHandler(listApiKeys),
 );
 
-projectsRouter.delete('/api/v1/keys/:id', asyncHandler(requireSession), asyncHandler(revokeApiKey));
+projectsRouter.delete(
+  '/api/v1/keys/:id',
+  uuidIdParams,
+  asyncHandler(requireSession),
+  asyncHandler(revokeApiKey),
+);

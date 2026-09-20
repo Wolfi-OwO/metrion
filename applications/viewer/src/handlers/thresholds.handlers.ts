@@ -149,7 +149,7 @@ export async function updateThreshold(req: Request, res: Response): Promise<void
         SET sub_resource = $1, metric_name = $2, direction = $3, warning_value = $4,
             critical_value = $5, consecutive_breaches = $6, window_seconds = $7,
             enabled = $8, updated_at = now()
-      WHERE id = $9
+      WHERE id = $9 AND project_id = ANY($10)
       RETURNING ${THRESHOLD_COLUMNS}`,
     [
       merged.subResource,
@@ -161,8 +161,12 @@ export async function updateThreshold(req: Request, res: Response): Promise<void
       merged.windowSeconds,
       merged.enabled,
       thresholdId,
+      projectIds,
     ],
   );
+  // Zero rows: the threshold vanished (or left the caller's projects) between
+  // the read above and this write.
+  if (rows.length === 0) throw new NotFoundError('Threshold not found.');
   res.status(200).json(toThresholdJson(rows[0]!));
 }
 

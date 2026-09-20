@@ -8,7 +8,7 @@ import {
 import { asyncHandler } from '../middlewares/error.js';
 import { resolveProjectIds } from '../middlewares/project-scope.js';
 import { requireSession } from '../middlewares/require-session.js';
-import { validateBody } from '../middlewares/validate.js';
+import { uuidIdParams, validateBody } from '../middlewares/validate.js';
 import { createThresholdSchema, updateThresholdSchema } from '../schemas/thresholds.schemas.js';
 
 /** Same two-middleware chain as `applications.routes.ts` - see its comment. */
@@ -18,12 +18,14 @@ const requireProjectScope = [asyncHandler(requireSession), asyncHandler(resolveP
 
 thresholdsRouter.get(
   '/api/v1/projects/:id/thresholds',
+  uuidIdParams,
   ...requireProjectScope,
   asyncHandler(listThresholds),
 );
 
 thresholdsRouter.post(
   '/api/v1/projects/:id/thresholds',
+  uuidIdParams,
   ...requireProjectScope,
   express.json({ limit: '256kb' }),
   validateBody(createThresholdSchema),
@@ -32,6 +34,7 @@ thresholdsRouter.post(
 
 thresholdsRouter.patch(
   '/api/v1/thresholds/:id',
+  uuidIdParams,
   ...requireProjectScope,
   express.json({ limit: '256kb' }),
   validateBody(updateThresholdSchema),
@@ -40,6 +43,7 @@ thresholdsRouter.patch(
 
 thresholdsRouter.delete(
   '/api/v1/thresholds/:id',
+  uuidIdParams,
   ...requireProjectScope,
   asyncHandler(deleteThreshold),
 );

@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { ZodError, ZodIssue, ZodType } from 'zod';
+import { z, type ZodError, type ZodIssue, type ZodType } from 'zod';
 import type { FieldIssue } from './error.js';
 import { ValidationError } from './error.js';
 
@@ -83,3 +83,22 @@ export function validateQuery<T>(schema: ZodType<T>) {
     next();
   };
 }
+
+/**
+ * The same for `req.params`. Not reassigned (Express re-populates `params` per
+ * route layer); it only rejects. Without it a malformed uuid reaches Postgres
+ * and comes back as a 500 (`invalid input syntax for type uuid`).
+ */
+export function validateParams<T>(schema: ZodType<T>) {
+  return function validate(req: Request, _res: Response, next: NextFunction): void {
+    const result = schema.safeParse(req.params);
+    if (!result.success) {
+      next(new ValidationError(toFieldIssues(result.error)));
+      return;
+    }
+    next();
+  };
+}
+
+/** Every `:id` route in this app is a uuid. */
+export const uuidIdParams = validateParams(z.object({ id: z.uuid() }));

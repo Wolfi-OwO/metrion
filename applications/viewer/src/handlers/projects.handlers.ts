@@ -124,11 +124,6 @@ async function findOwnedProject(projectId: string, ownerUserId: string): Promise
  * 500. */
 export async function createApiKey(req: Request, res: Response): Promise<void> {
   const projectId = req.params.id!;
-  if (!(await findOwnedProject(projectId, req.userId!))) {
-    // Same 404 whether the project does not exist or simply is not this
-    // caller's - never confirms another owner's project id is real.
-    throw new NotFoundError('Project not found.');
-  }
   const { applicationId } = req.body as CreateApiKeyBody;
 
   const pool = getPool();
@@ -140,12 +135,19 @@ export async function createApiKey(req: Request, res: Response): Promise<void> {
         created_at: Date;
         application_id: string | null;
       }>(
+        // Ownership is part of the statement, not a separate check before it:
+        // the row exists only if the project is this caller's.
         `INSERT INTO api_keys (project_id, key_prefix, key_hash, application_id)
-         VALUES ($1, $2, $3, $4)
+         SELECT p.id, $2::text, $3::bytea, $4::uuid FROM projects p WHERE p.id = $1 AND p.owner_user_id = $5
          RETURNING id, created_at, application_id`,
-        [projectId, prefix, hash, applicationId ?? null],
+        [projectId, prefix, hash, applicationId ?? null, req.userId!],
       );
-      const row = rows[0]!;
+      const row = rows[0];
+      if (!row) {
+        // Same 404 whether the project does not exist or simply is not this
+        // caller's - never confirms another owner's project id is real.
+        throw new NotFoundError('Project not found.');
+      }
       res.status(201).json({
         id: row.id,
         key: `mtr_${prefix}_${secret}`,
