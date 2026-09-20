@@ -20,6 +20,9 @@ chmod 600 /tmp/ssh/key
 # pins for its own SSH step), and StrictHostKeyChecking=yes so a changed
 # key hard-fails the tunnel instead of silently re-trusting it.
 printf '%s\n' "${TUNNEL_HOST} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0EZSmAYeYlrrvypv8MGUoUHVyFlDnWFf6rDKQkdD2C" > /tmp/ssh/known_hosts
+# The forward binds loopback, not 0.0.0.0: the app shares this network
+# namespace, so nothing else needs it. Takes effect at the next sidecar image
+# build (the published 0.1.0 image still binds 0.0.0.0).
 exec autossh -M 0 -N \
   -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile=/tmp/ssh/known_hosts \
@@ -27,5 +30,5 @@ exec autossh -M 0 -N \
   -o ServerAliveCountMax=3 \
   -o ExitOnForwardFailure=yes \
   -i /tmp/ssh/key \
-  -L 0.0.0.0:5432:127.0.0.1:5432 \
+  -L 127.0.0.1:5432:127.0.0.1:5432 \
   "metrion-tunnel@${TUNNEL_HOST}"

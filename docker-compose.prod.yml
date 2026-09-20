@@ -9,7 +9,7 @@
 # Azure Postgres.
 #
 # ── How this differs from docker-compose.dev.yml ────────────────────────────
-#   * TLS is mandatory (ssl=on, TLSv1.2 minimum, hostssl-only in pg_hba.conf,
+#   * TLS is mandatory (ssl=on, TLSv1.2 minimum, no TCP trust in pg_hba.conf,
 #     set up by db/init/10-tls-hba.sh on first init - see that file). Local
 #     dev never needed a certificate; a database reachable from the public
 #     internet does.
@@ -48,7 +48,8 @@ services:
       - metrion-db-data:/home/postgres/pgdata/data
       # Runs once, only when the data directory is empty (the postgres image's
       # own first-init hook) - rewrites pg_hba.conf to hostssl-only,
-      # scram-sha-256, no trust, no md5. Never touches an already-initialized
+      # scram-sha-256, no TCP trust, no md5 (unix-socket trust is kept for the
+      # image's own tooling, unreachable from outside the container). Never touches an already-initialized
       # volume, so a restart or an image bump does not re-run it.
       - ./db/init/10-tls-hba.sh:/docker-entrypoint-initdb.d/10-tls-hba.sh:ro
     ports:
@@ -78,6 +79,8 @@ services:
       # sslmode=require, not verify-full: db/init/10-tls-hba.sh serves the
       # snakeoil self-signed cert, which has no chain to verify. pg 8.x needs
       # uselibpqcompat=true for libpq semantics (require = encrypt, no verify).
+      # verify-ca would authenticate nothing anyway: the snakeoil cert's private
+      # key ships inside the public timescaledb-ha image (SECURITY.md).
       DATABASE_URL: postgres://metrion:${POSTGRES_PASSWORD}@db:5432/metrion?sslmode=require&uselibpqcompat=true
       NODE_ENV: production
       PORT: '8090'

@@ -219,9 +219,12 @@ OPTIONS` with `Authorization` and `Content-Type` as allowed headers. Note the
   joins the shared `edge-net` network, and Caddy is the only container that
   publishes public ports.
 - **TLS to Postgres**: `ssl=on`, TLS 1.2 minimum, and `pg_hba.conf` is rewritten
-  on first init to `hostssl ... scram-sha-256` only, so plaintext connections are
+  on first init to `hostssl ... scram-sha-256` only, with no TCP `trust` rule
+  (the unix-socket `trust` line stays for the image's own tooling and is
+  unreachable from outside the container), so plaintext connections are
   rejected before authentication (`db/init/10-tls-hba.sh`; it runs only on an
-  empty data directory, so the live `pg_hba.conf` was not re-verified). The
+  empty data directory, so the live `pg_hba.conf` was corrected by hand on
+  2026-09-20, see the runbook). The
   server certificate is the image's self-signed snakeoil certificate and clients
   connect with `sslmode=require`, which encrypts but does **not** authenticate
   the server. Server identity is instead established by the network path: the
@@ -313,7 +316,14 @@ OPTIONS` with `Authorization` and `Content-Type` as allowed headers. Note the
 ## Known gaps
 
 - Ingest connects to Postgres as the `metrion` superuser (see Database).
-- Postgres TLS uses a self-signed certificate with `sslmode=require`.
+- Postgres TLS uses the image's self-signed snakeoil certificate with
+  `sslmode=require`: encryption without server authentication. Accepted
+  deliberately - the certificate's private key ships inside the public
+  `timescale/timescaledb-ha:pg17` image (modulus verified identical across a
+  fresh pull, 2026-09-20), so pinning it via `verify-ca` would authenticate
+  nothing. Server identity rests on the network path instead: a single-host
+  Docker bridge for ingest, and a host-key-pinned SSH tunnel for the viewer.
+  Revisit only if a hop ever crosses a network not controlled end-to-end.
 - Backups have no offsite copy yet.
 - No CSRF token; the protection is `SameSite=Lax` plus the CORS allowlist.
 - The public-status rate limit is one shared bucket.

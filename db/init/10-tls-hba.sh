@@ -11,5 +11,13 @@
 set -euo pipefail
 
 HBA="$PGDATA/pg_hba.conf"
-sed -i '/^host[[:space:]]\+all[[:space:]]\+all[[:space:]]\+all[[:space:]]\+/d' "$HBA"
+# Drops every TCP trust rule the image entrypoint writes, not just the
+# all-address one. pg_hba is first-match, and the image also emits
+# 127.0.0.1/32 and ::1/128 trust lines; leaving them meant passwordless
+# superuser for anything sharing the container's network namespace (measured
+# 2026-09-20). `local all all trust` is deliberately kept: init hooks and
+# pg_isready use the unix socket, which never leaves the container. This hook
+# only runs on an empty data dir; a running database needs the live file fixed
+# by hand (runbook).
+sed -i -E '/^host[[:space:]]+(all|replication)[[:space:]]+all[[:space:]]+(127\.0\.0\.1\/32|::1\/128|all)[[:space:]]/d' "$HBA"
 echo 'hostssl all all all scram-sha-256' >> "$HBA"
