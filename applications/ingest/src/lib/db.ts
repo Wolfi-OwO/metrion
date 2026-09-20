@@ -14,6 +14,9 @@ import type { Pool } from 'pg';
 let pool: Pool | null = null;
 
 export function getPool(): Pool {
-  pool ??= createPool();
+  // 10s cap: the unauthenticated public-status reads share this pool with the
+  // API-key-authenticated write path, so one slow aggregate must not be able
+  // to pin a connection indefinitely.
+  pool ??= createPool(undefined, { statementTimeoutMs: 10_000 });
   return pool;
 }

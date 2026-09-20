@@ -14,9 +14,19 @@ const LOCAL_DEV_DATABASE_URL = 'postgres://metrion:metrion@localhost:5432/metrio
  */
 export function createPool(
   connectionString = process.env['DATABASE_URL'] ?? LOCAL_DEV_DATABASE_URL,
+  options: { statementTimeoutMs?: number } = {},
 ): Pool {
-  // 10s server-side cap: the unauthenticated public-status reads share this
-  // pool with the ingest write path, and pg has no default timeout, so one
-  // slow aggregate could otherwise pin a connection indefinitely.
-  return new Pool({ connectionString, statement_timeout: 10_000 });
+  // The server-side statement cap is opt-in per consumer, never a default:
+  // this factory is shared by the migration runner, which runs long DDL and
+  // backfills (index builds, compression, continuous aggregates WITH DATA)
+  // on the metrics hypertable and must never be killed mid-statement, and by
+  // the viewer/evaluator, whose aggregate queries have no decided cap. pg has
+  // no default timeout, so leaving it unset keeps that behaviour.
+  const { statementTimeoutMs } = options;
+  return new Pool({
+    connectionString,
+    ...(statementTimeoutMs && statementTimeoutMs > 0
+      ? { statement_timeout: statementTimeoutMs }
+      : {}),
+  });
 }
