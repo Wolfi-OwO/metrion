@@ -1,0 +1,11 @@
+-- 0006 added `applications` after 0005 already locked `metrion_app` down to
+-- least privilege, so the new table never got a grant. Ingest's
+-- `registerResources` (auto-registering a resource the first time it sends
+-- metrics) and the viewer's applications CRUD handlers both run as
+-- `metrion_app` and were failing with a permission-denied on every INSERT/
+-- UPDATE/DELETE/SELECT against this table - silently, since the ingest
+-- error middleware turns a thrown query error into a logged 500 rather than
+-- crashing the process, so `metrics` kept filling up while `applications`
+-- stayed empty. Same full CRUD set as `applications.handlers.ts` uses
+-- (insert, update display_name, delete, select for ownership checks).
+GRANT SELECT, INSERT, UPDATE, DELETE ON applications TO metrion_app;
