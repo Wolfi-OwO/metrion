@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.2.0 - 2026-09-20
+
+Platform release: root, agent, ingest, evaluator, shared and db packages go to
+0.2.0; the viewer and its client go to 0.4.0 (next minor of their own line).
+
+- Ingest runs on the Contabo VPS behind Caddy at
+  `https://metrion-ingest.woofi-developments.at`, and the Azure `metrion-ingest`
+  app is deleted. Only the viewer stays on Azure (ADR 0008).
+- Ingest connects to the database as the least-privilege role `metrion_ingest`
+  with a connection limit; `PUBLIC` connect and temp on the database were
+  revoked.
+- Viewer hardening: state-changing requests must come from the viewer's own
+  origin, the session cookie carries the `__Host-` prefix, OAuth logins are
+  bound to the browser that started them, and malformed uuid path ids answer 400.
+- The ingest deploy gate now asserts ingest privileges on every chunk relation,
+  performs a real ingest POST and reads the public uptime endpoint, with
+  automatic rollback on failure.
+- Postgres `pg_hba` TCP trust rules were dropped, the tunnel sidecar binds
+  loopback only, and an `ubuntu` break-glass admin key is documented.
+- CI runs a gitleaks working-tree scan.
+- Caddy answers plain HTTP for the ingest host with 400 and filters its logs.
+- The public uptime endpoint moved from the viewer to ingest; the portfolio
+  status page reads it.
+- The viewer UI was overhauled (dashboard, project status, API keys, settings,
+  shared chrome, design tokens) and the dependency graph was redrawn as a real
+  layered graph.
+
 ## 2026-09-20 - Azure ingest deleted
 
 - Deleted the Azure `metrion-ingest` Container App and its role assignments

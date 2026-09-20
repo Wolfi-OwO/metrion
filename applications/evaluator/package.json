@@ -1,6 +1,6 @@
 {
   "name": "@metrion/evaluator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Runs once a minute (systemd timer) against Metrion's own database: evaluates every enabled threshold, computes dependency-aware root-cause attribution, and emails a digest per project. Standalone oneshot process, not a Container App - see organizational/agent-deployment-runbook.md.",
   "type": "module",

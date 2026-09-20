@@ -1,6 +1,6 @@
 {
   "name": "@metrion/db",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Postgres/TimescaleDB schema and migrations for metrics storage. Raw `pg` driver and hand-written `.sql` files, no ORM - hypertables, compression segmentby and continuous aggregates are not expressible in an ORM schema DSL. See docs/adr/0004-postgres-timescaledb-over-append-blob.md.",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "metrion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Minute-by-minute VPS resource metrics, collected on the Contabo box and pushed to Azure Blob Storage. The collector is the one source of truth these numbers come from; the viewer (Azure Container App) reads them back and is a follow-up project.",
   "license": "UNLICENSED",
