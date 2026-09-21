@@ -80,14 +80,27 @@ function toRows(envelopes: readonly MetricEnvelope[]): MetricRow[] {
 }
 
 const COLUMNS_PER_ROW = 8;
+const UPTIME_COLUMNS_PER_ROW = 7;
 
 /**
- * One parameterised multi-row `INSERT` per request. `projectId` is resolved
- * exactly once, by `requireApiKey`, from the authenticated key - it is the
- * only project a row from this request can ever land in, regardless of what
- * `resource` string the body names (ADR 0005: a `resource` value that
- * happens to match another project's own naming still writes here, under
- * this key's project).
+ * `uptime.*` points are also kept in `uptime_samples`, the permanent store
+ * with no retention (ADR 0009); `metrics` keeps its own copy for 90 days so
+ * the viewer's metric screens and thresholds work unchanged.
+ */
+const isUptime = (row: MetricRow): boolean => row.name.startsWith('uptime.');
+
+/**
+ * One parameterised multi-row `INSERT` per table per request, in ONE
+ * transaction so a request never lands in `metrics` without its
+ * `uptime_samples` twin or the reverse. `projectId` is resolved exactly once,
+ * by `requireApiKey`, from the authenticated key - it is the only project a
+ * row from this request can ever land in, regardless of what `resource`
+ * string the body names (ADR 0005: a `resource` value that happens to match
+ * another project's own naming still writes here, under this key's project).
+ *
+ * `uptime_samples` uses ON CONFLICT DO NOTHING so a replayed envelope does
+ * not duplicate history (`metrics` itself has no unique key and keeps its
+ * append behaviour).
  */
 async function insertRows(projectId: string, rows: readonly MetricRow[]): Promise<void> {
   if (rows.length === 0) return;
@@ -109,11 +122,45 @@ async function insertRows(projectId: string, rows: readonly MetricRow[]): Promis
     return `(${params.join(', ')})`;
   });
 
-  await getPool().query(
-    `INSERT INTO metrics (time, project_id, resource, sub_resource, name, value, unit, interval_seconds)
-     VALUES ${placeholders.join(', ')}`,
-    values,
-  );
+  const uptimeValues: unknown[] = [];
+  const uptimePlaceholders = rows.filter(isUptime).map((row, index) => {
+    const base = index * UPTIME_COLUMNS_PER_ROW;
+    uptimeValues.push(
+      row.time,
+      projectId,
+      row.resource,
+      row.name,
+      row.value,
+      row.unit,
+      row.intervalSeconds,
+    );
+    const params = Array.from({ length: UPTIME_COLUMNS_PER_ROW }, (_, i) => `$${base + i + 1}`);
+    return `(${params.join(', ')})`;
+  });
+
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO metrics (time, project_id, resource, sub_resource, name, value, unit, interval_seconds)
+       VALUES ${placeholders.join(', ')}`,
+      values,
+    );
+    if (uptimePlaceholders.length > 0) {
+      await client.query(
+        `INSERT INTO uptime_samples (time, project_id, resource, name, value, unit, interval_seconds)
+         VALUES ${uptimePlaceholders.join(', ')}
+         ON CONFLICT (project_id, resource, name, time) DO NOTHING`,
+        uptimeValues,
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**

@@ -153,6 +153,7 @@ before(async () => {
 
 after(async () => {
   await fixturePool.query('DELETE FROM metrics WHERE project_id = $1', [projectId]);
+  await fixturePool.query('DELETE FROM uptime_samples WHERE project_id = $1', [projectId]);
   await fixturePool.query('DELETE FROM api_keys WHERE project_id = $1', [projectId]);
   await fixturePool.query(
     'DELETE FROM projects WHERE owner_user_id = (SELECT id FROM users WHERE email = $1)',
@@ -338,4 +339,65 @@ test('POST /api/v1/ingest: a timestamp 48 hours old is 400', async () => {
     body.issues.some((issue) => issue.path.endsWith('timestamp')),
     `expected an issue naming "timestamp", got ${JSON.stringify(body.issues)}`,
   );
+});
+
+function uptimeEnvelope(resource: string, timestamp: string) {
+  return {
+    resource,
+    metrics: [
+      { name: 'uptime.ok', value: 1, unit: 'boolean', intervalSeconds: 60, timestamp },
+      { name: 'container.cpu', value: 3, unit: 'percent', intervalSeconds: 60, timestamp },
+    ],
+  };
+}
+
+async function countBoth(resource: string) {
+  const one = (table: string) =>
+    fixturePool.query<{ name: string }>(
+      `SELECT name FROM ${table} WHERE project_id = $1 AND resource = $2 ORDER BY name`,
+      [projectId, resource],
+    );
+  return {
+    metrics: (await one('metrics')).rows.map((r) => r.name),
+    uptime: (await one('uptime_samples')).rows.map((r) => r.name),
+  };
+}
+
+test('POST /api/v1/ingest: uptime.* lands in metrics AND uptime_samples, container.* only in metrics; a replay adds no uptime_samples row', async () => {
+  const body = uptimeEnvelope('dual-write', new Date().toISOString());
+  const auth = bearer(validPrefix, validSecret);
+
+  assert.equal((await post(body, auth)).status, 202);
+  assert.deepEqual(await countBoth('dual-write'), {
+    metrics: ['container.cpu', 'uptime.ok'],
+    uptime: ['uptime.ok'],
+  });
+
+  // Same envelope again: metrics appends (unchanged behaviour), history does not duplicate.
+  assert.equal((await post(body, auth)).status, 202);
+  assert.deepEqual(await countBoth('dual-write'), {
+    metrics: ['container.cpu', 'container.cpu', 'uptime.ok', 'uptime.ok'],
+    uptime: ['uptime.ok'],
+  });
+});
+
+test('POST /api/v1/ingest: a failing uptime_samples insert rolls the metrics insert back too', async () => {
+  await fixturePool.query(`
+    CREATE OR REPLACE FUNCTION ingest_test_boom() RETURNS trigger LANGUAGE plpgsql AS
+    $$ BEGIN RAISE EXCEPTION 'boom'; END $$;
+    CREATE TRIGGER ingest_test_boom BEFORE INSERT ON uptime_samples
+      FOR EACH ROW WHEN (NEW.resource = 'rollback-me') EXECUTE FUNCTION ingest_test_boom();
+  `);
+  try {
+    const response = await post(
+      uptimeEnvelope('rollback-me', new Date().toISOString()),
+      bearer(validPrefix, validSecret),
+    );
+    assert.equal(response.status, 500);
+    assert.deepEqual(await countBoth('rollback-me'), { metrics: [], uptime: [] });
+  } finally {
+    await fixturePool.query(
+      'DROP TRIGGER ingest_test_boom ON uptime_samples; DROP FUNCTION ingest_test_boom()',
+    );
+  }
 });
