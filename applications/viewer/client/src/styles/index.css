@@ -372,12 +372,17 @@ input:focus-visible + span {
   animation: flash-row 1400ms var(--ease-instrument) both;
 }
 
-/* The freshness dot beside "last sample": solid, with a ring that grows and
-   fades every 2.4s. */
+/* The freshness dot: solid, with a ring that grows and fades every 2.4s, but
+   only while the data it describes is fresh. `data-state` is set by the caller
+   from the same rule that words the label beside it (dashboard.ts
+   `freshnessOf`), so the dot can never pulse next to the word "stale".
+   No attribute keeps the original always-live look for the metrics screen,
+   which only renders the dot when it has just seen a sample. */
 .live-dot {
   position: relative;
   width: 8px;
   height: 8px;
+  flex-shrink: 0;
   border-radius: var(--radius-pill);
   background: var(--color-status-ok);
 }
@@ -389,6 +394,19 @@ input:focus-visible + span {
   background: var(--color-status-ok);
   animation: live-ring 2.4s var(--ease-instrument) infinite;
 }
+.live-dot[data-state='stale'] {
+  background: var(--color-status-warning);
+}
+.live-dot[data-state='none'] {
+  background: var(--color-ink-3);
+}
+/* A row's dot states freshness without moving: forty rows pulsing at once is
+   noise, one pulse in the overview band is a heartbeat. */
+.live-dot[data-state='stale']::after,
+.live-dot[data-state='none']::after,
+.live-dot[data-still]::after {
+  content: none;
+}
 @keyframes live-ring {
   from {
     opacity: 0.6;
@@ -397,6 +415,48 @@ input:focus-visible + span {
   to {
     opacity: 0;
     transform: scale(2.6);
+  }
+}
+
+/* Skeleton placeholder: the tone of a --color-raised surface with a soft light
+   band drifting across it. Duration is the base token times six (1.44s) so it
+   stays on the same scale as every other timing here; the curve is the one
+   easing. Blocks are sized like the text they stand in for (see
+   components/ghost.tsx), which is what keeps the swap to real data from
+   moving anything. */
+@layer components {
+  .ghost {
+    display: inline-block;
+    vertical-align: top;
+    border-radius: var(--radius-control);
+    background-color: var(--color-raised);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--color-ink) 7%, transparent) 50%,
+      transparent 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 60% 100%;
+    animation: ghost-shimmer calc(var(--duration-base) * 6) var(--ease-instrument) infinite;
+  }
+}
+@keyframes ghost-shimmer {
+  from {
+    background-position: -120% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
+}
+/* Reduced motion gets the static tone and no travelling band. The blanket rule
+   above would only freeze the shimmer mid-sweep. */
+@media (prefers-reduced-motion: reduce) {
+  @layer components {
+    .ghost {
+      animation: none;
+      background-image: none;
+    }
   }
 }
 

@@ -1,60 +1,23 @@
-import { useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  ApiError,
-  createProject,
-  type ApplicationStatus,
-  type MeResponse,
-  type Project,
-} from '../api/client.ts';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ApiError, createProject, type MeResponse, type Project } from '../api/client.ts';
 import { AccountBar } from '../components/account-bar.tsx';
 import { Field } from '../components/field.tsx';
-import { ChevronIcon } from '../components/icon.tsx';
-import { ApplicationsCell, HealthCell, useProjectStatus } from '../components/project-health.tsx';
+import { OverviewBand, OverviewBandSkeleton } from '../components/overview-band.tsx';
+import { ProjectList, ProjectListSkeleton } from '../components/project-list.tsx';
+import { ProjectsEmpty } from '../components/projects-empty.tsx';
 import { Button, ErrorState } from '../components/states.tsx';
+import {
+  buildRows,
+  FILTER_MIN_PROJECTS,
+  filterRows,
+  sortRows,
+  totalsOf,
+  verdictOf,
+} from '../lib/dashboard.ts';
+import { useNow } from '../lib/use-now.ts';
+import { useProjects, useProjectsSummary } from '../lib/use-projects.ts';
 import { projectNameError } from '../lib/validate.ts';
-import { useProjects } from '../lib/use-projects.ts';
-
-/**
- * One skeleton row, shaped like a real project row (name+status cluster,
- * metadata cluster, actions cluster) so the list does not reflow the instant
- * data lands. Static, not shimmering: `styles/index.css` names the axis
- * sweep in `states.tsx`'s `LoadingState` as the one piece of non-user-
- * triggered motion in this app, so a second animated placeholder here would
- * be a second, competing answer to the same "still working" question.
- */
-const LIST =
-  'mt-6 divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface';
-
-function ProjectRowSkeleton() {
-  return (
-    <li
-      aria-hidden="true"
-      className="flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-6"
-    >
-      <div className="flex-1 space-y-2">
-        <div className="h-4 w-40 rounded-control bg-raised" />
-        <div className="h-3 w-24 rounded-control bg-raised" />
-      </div>
-      <div className="h-4 w-56 rounded-control bg-raised md:flex-1" />
-    </li>
-  );
-}
-
-function ProjectsLoadingRows() {
-  return (
-    <>
-      <p role="status" aria-live="polite" className="sr-only">
-        Loading your projects…
-      </p>
-      <ul aria-hidden="true" className={LIST}>
-        {Array.from({ length: 5 }, (_, index) => (
-          <ProjectRowSkeleton key={index} />
-        ))}
-      </ul>
-    </>
-  );
-}
+import type { ProjectSummary } from '../lib/summary.ts';
 
 /**
  * Name only - `defaultResource` stays server-settable-only for now, not
@@ -126,6 +89,9 @@ function CreateProjectForm({
   );
 }
 
+/** Vertical rhythm of the screen: one step between the header, the band and the list. */
+const SECTION = 'mt-6';
+
 export default function DashboardRoute({
   user,
   onSignedOut,
@@ -134,245 +100,225 @@ export default function DashboardRoute({
   onSignedOut: () => void;
 }) {
   const projects = useProjects();
+  const summary = useProjectsSummary();
   const [showForm, setShowForm] = useState(false);
-  // What each row has learned about its own applications, kept here so the
-  // summary strip can add them up without asking the API a second time.
-  const [statuses, setStatuses] = useState<ReadonlyMap<string, readonly ApplicationStatus[]>>(
-    new Map(),
-  );
-  const onStatus = useCallback((id: string, applications: readonly ApplicationStatus[]) => {
-    setStatuses((current) =>
-      current.get(id) === applications ? current : new Map(current).set(id, applications),
-    );
-  }, []);
+  const [query, setQuery] = useState('');
+  const filterRef = useRef<HTMLInputElement>(null);
+
+  const list = projects.data ?? [];
+  const projectsBusy = projects.phase === 'loading' || projects.phase === 'waking';
+  const summaryBusy = summary.phase === 'loading' || summary.phase === 'waking';
+  const failed = projects.phase === 'error' && projects.error != null;
+  // Hold the skeleton until the summary has answered too (it fails fast when
+  // it fails): showing names first and health second would move every row.
+  const isLoading = !failed && (projectsBusy || (summaryBusy && list.length > 0));
+  const isEmpty = !failed && !projectsBusy && list.length === 0;
+  const waking = projects.phase === 'waking' || summary.phase === 'waking';
+  const seconds = Math.max(projects.elapsedSeconds, summary.elapsedSeconds);
+  const showNew = !isLoading && !failed && !isEmpty && !showForm;
+  // The filter lives in the header row, not in a row of its own above the
+  // list: a toolbar row that only exists for long lists would push the list
+  // down by its height the moment the data arrives.
+  const filterable = !isLoading && !failed && list.length >= FILTER_MIN_PROJECTS;
+
+  // "/" jumps to the filter, the convention of every tool with a long list.
+  // Ignored while typing in any field and with a modifier held, so it never
+  // steals a character or a browser shortcut.
+  useEffect(() => {
+    if (!filterable) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      filterRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [filterable]);
 
   return (
     <>
       <header className="border-b border-line bg-surface">
         <AccountBar email={user.email} onSignedOut={onSignedOut} />
       </header>
-      <main className="flex-1">{renderBody()}</main>
-    </>
-  );
-
-  function renderBody() {
-    const isLoading = projects.phase === 'loading' || projects.phase === 'waking';
-    const isError = projects.phase === 'error' && projects.error != null;
-    const list = projects.data ?? [];
-    const isEmpty = !isLoading && !isError && list.length === 0;
-
-    return (
-      <div className="enter page py-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-page font-semibold tracking-tight text-ink">Projects</h1>
-            <p className="mt-1 text-body text-ink-2">
-              {list.length > 0
-                ? `${list.length} ${list.length === 1 ? 'project' : 'projects'}`
-                : 'Each project is one environment: its keys, applications and thresholds.'}
-            </p>
+      <main className="flex-1">
+        <div className="enter page py-8">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-3 md:min-h-9">
+            <h1 className="mr-auto text-page font-semibold tracking-tight text-ink">Projects</h1>
+            {filterable && <ProjectFilter inputRef={filterRef} query={query} onChange={setQuery} />}
+            {showNew && (
+              <Button variant="primary" onClick={() => setShowForm(true)}>
+                New project
+              </Button>
+            )}
           </div>
-          {!isLoading && !isError && !isEmpty && !showForm && (
-            <Button variant="primary" onClick={() => setShowForm(true)}>
-              New project
-            </Button>
+
+          {showForm && (
+            <CreateProjectForm
+              onCreated={() => {
+                setShowForm(false);
+                projects.reload();
+                summary.reload();
+              }}
+              onCancel={() => setShowForm(false)}
+            />
+          )}
+
+          {failed && (
+            <div className={SECTION}>
+              <ErrorState
+                error={projects.error!}
+                onRetry={projects.reload}
+                what="projects"
+                framed
+              />
+            </div>
+          )}
+
+          {isLoading && (
+            <div aria-busy="true" className={SECTION}>
+              <OverviewBandSkeleton waking={waking} seconds={seconds} />
+              <div className={SECTION}>
+                <ProjectListSkeleton />
+              </div>
+            </div>
+          )}
+
+          {isEmpty && (
+            <div className={SECTION}>
+              <ProjectsEmpty creating={showForm} onCreate={() => setShowForm(true)} />
+            </div>
+          )}
+
+          {!isLoading && !failed && list.length > 0 && (
+            <Loaded
+              projects={list}
+              query={query}
+              onClearQuery={() => setQuery('')}
+              summaries={summary.phase === 'ready' ? summary.data : null}
+              onRetrySummary={summary.reload}
+            />
           )}
         </div>
-
-        {isError && (
-          <ErrorState error={projects.error!} onRetry={projects.reload} what="projects" nested />
-        )}
-
-        {(showForm || (isEmpty && showForm)) && (
-          <CreateProjectForm
-            onCreated={() => {
-              setShowForm(false);
-              projects.reload();
-            }}
-            onCancel={() => setShowForm(false)}
-          />
-        )}
-
-        {isEmpty && !showForm && <FirstRun onCreate={() => setShowForm(true)} />}
-
-        {isLoading && <ProjectsLoadingRows />}
-
-        {!isLoading && list.length > 0 && <SummaryStrip projects={list} statuses={statuses} />}
-
-        {!isLoading && list.length > 0 && (
-          // A list, not a card grid: what distinguishes one project from the
-          // next is a name, a health line and a count, and those read best as
-          // rows that line up. The whole row is the link (the name link
-          // stretches over it); Status and Settings are secondary shortcuts
-          // that only appear from md up, because the project's own tabs cover
-          // them on a phone and four 44px targets would not fit a row.
-          <ul className={LIST}>
-            {list.map((project) => (
-              <ProjectRow key={project.id} project={project} onStatus={onStatus} />
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-}
-
-/**
- * First-run. Not an apology for an empty list: the three things that have to
- * happen, in order, with the one action that starts them. The project
- * `defaultResource` is left out on purpose - it does nothing until a key
- * ingests something.
- */
-function FirstRun({ onCreate }: { onCreate: () => void }) {
-  const steps = [
-    ['Create a project', 'One per environment: production, staging, a home lab.'],
-    ['Mint an API key', 'From the project’s Settings tab. It is shown once.'],
-    ['Send a metric', 'POST to /api/v1/ingest with the key. The landing page shows the request.'],
-  ] as const;
-  return (
-    <section className="mt-8 rounded-surface border border-dashed border-line-strong px-6 py-8 md:px-8">
-      <h2 className="text-heading font-semibold tracking-tight text-ink">
-        Start with your first project
-      </h2>
-      <ol className="mt-6 grid gap-6 md:grid-cols-3">
-        {steps.map(([title, body], index) => (
-          <li key={title} className="flex gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-pill border border-line-strong font-mono text-label text-ink-2"
-            >
-              {index + 1}
-            </span>
-            <div>
-              <p className="text-body font-medium text-ink">{title}</p>
-              <p className="mt-1 text-body text-ink-2">{body}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <Button className="mt-8" variant="primary" onClick={onCreate}>
-        Create your first project
-      </Button>
-    </section>
+      </main>
+    </>
   );
 }
 
-const STRIP_STAT = 'flex min-w-24 flex-col gap-1';
-
 /**
- * The verdict for the whole account in five numbers, added up from the rows
- * below it. It only counts projects whose status has arrived, and says so
- * when that is not all of them - a total that quietly omits projects is worse
- * than no total.
+ * The populated screen. Its own component so the one-second clock re-renders
+ * only this, and so the empty, loading and error branches above never start a
+ * timer.
+ *
+ * `summaries` is null when the summary failed. Every row then renders with what
+ * the project list alone knows (name, slug, created), the overview band is
+ * replaced by a quiet note with a retry, and sorting falls back to newest first.
  */
-function SummaryStrip({
+function Loaded({
   projects,
-  statuses,
+  query,
+  onClearQuery,
+  summaries,
+  onRetrySummary,
 }: {
   projects: readonly Project[];
-  statuses: ReadonlyMap<string, readonly ApplicationStatus[]>;
+  query: string;
+  onClearQuery: () => void;
+  summaries: readonly ProjectSummary[] | null;
+  onRetrySummary: () => void;
 }) {
-  const counts = { ok: 0, warning: 0, critical: 0 };
-  let applications = 0;
-  let reporting = 0;
-  for (const project of projects) {
-    const list = statuses.get(project.id);
-    if (!list) continue;
-    reporting += 1;
-    for (const app of list) {
-      applications += 1;
-      counts[app.effectiveStatus] += 1;
-    }
-  }
-  const stats: { label: string; value: number; tone: string; hideOnPhone?: boolean }[] = [
-    { label: 'Projects', value: projects.length, tone: 'text-ink', hideOnPhone: true },
-    { label: 'Applications', value: applications, tone: 'text-ink' },
-    { label: 'Healthy', value: counts.ok, tone: counts.ok > 0 ? 'text-status-ok' : 'text-ink-3' },
-    {
-      label: 'Warning',
-      value: counts.warning,
-      tone: counts.warning > 0 ? 'text-status-warning' : 'text-ink-3',
-    },
-    {
-      label: 'Critical',
-      value: counts.critical,
-      tone: counts.critical > 0 ? 'text-status-critical' : 'text-ink-3',
-    },
-  ];
+  const now = useNow();
+  const rows = useMemo(() => sortRows(buildRows(projects, summaries)), [projects, summaries]);
+  const shown = useMemo(() => filterRows(rows, query), [rows, query]);
+  const totals = useMemo(() => totalsOf(rows), [rows]);
+  const verdict = useMemo(() => verdictOf(rows), [rows]);
+
   return (
-    <section aria-label="Summary" className="mt-6">
-      <dl className="grid grid-cols-2 gap-x-12 gap-y-4 sm:flex sm:flex-wrap">
-        {stats.map((stat) => (
+    <>
+      <div className={SECTION}>
+        {summaries ? (
+          <OverviewBand verdict={verdict} totals={totals} now={now} />
+        ) : (
           <div
-            key={stat.label}
-            className={`${STRIP_STAT}${stat.hideOnPhone ? ' max-sm:hidden' : ''}`}
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-surface border border-dashed border-line-strong px-4 py-2"
           >
-            <dt className="text-label text-ink-3">{stat.label}</dt>
-            <dd className={`text-page font-semibold tabular-nums ${stat.tone}`}>{stat.value}</dd>
+            <p className="text-label text-ink-2">
+              Health and activity could not be loaded, so they are left out. Every project is still
+              listed.
+            </p>
+            <Button variant="quiet" onClick={onRetrySummary}>
+              Retry
+            </Button>
           </div>
-        ))}
-      </dl>
-      {reporting < projects.length && (
-        <p className="mt-2 text-label text-ink-3">
-          Counting {reporting} of {projects.length} projects so far.
+        )}
+      </div>
+
+      {/* Announced, not shown: the list itself is the visible result. */}
+      {query.trim() !== '' && (
+        <p role="status" className="sr-only">
+          {shown.length} of {projects.length} projects match
         </p>
       )}
-    </section>
+
+      <div className={SECTION}>
+        {shown.length > 0 ? (
+          <ProjectList rows={shown} now={now} detailed={summaries !== null} />
+        ) : (
+          <div className="rounded-surface border border-dashed border-line-strong px-6 py-8">
+            <p className="text-heading font-semibold tracking-tight text-ink">
+              No project matches “{query.trim()}”
+            </p>
+            <p className="mt-1 text-body text-ink-2">
+              Filtering looks at names and slugs. All {projects.length} projects are still there.
+            </p>
+            <Button className="mt-4" onClick={onClearQuery}>
+              Clear filter
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
-function ProjectRow({
-  project,
-  onStatus,
+function ProjectFilter({
+  inputRef,
+  query,
+  onChange,
 }: {
-  project: Project;
-  onStatus: (id: string, applications: readonly ApplicationStatus[]) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  query: string;
+  onChange: (query: string) => void;
 }) {
-  const { ref, result } = useProjectStatus<HTMLLIElement>(project.id, onStatus);
-  const created = new Date(project.createdAt).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
   return (
-    <li
-      ref={ref}
-      className="group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-4 py-3 transition-colors hover:bg-raised md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.2fr)_8rem_auto_1rem]"
-    >
-      <div className="min-w-0">
-        <Link to={`/projects/${project.id}`} className="block py-1 after:absolute after:inset-0">
-          <span className="block truncate text-body font-medium text-ink">{project.name}</span>
-          <span className="block truncate font-mono text-meta text-ink-3">{project.slug}</span>
-        </Link>
-      </div>
-
-      <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
-        <HealthCell result={result} />
-      </div>
-
-      <div className="col-span-2 row-start-3 flex min-w-0 items-center justify-between gap-4 md:col-span-1 md:row-start-auto md:block">
-        <ApplicationsCell result={result} />
-        <span className="text-label whitespace-nowrap text-ink-3 md:hidden">{created}</span>
-      </div>
-
-      <span className="hidden text-label whitespace-nowrap text-ink-3 md:block">{created}</span>
-
-      <div className="hidden items-center gap-1 md:flex">
-        <Link
-          to={`/projects/${project.id}/status`}
-          className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
-        >
-          Status
-        </Link>
-        <Link
-          to={`/projects/${project.id}/settings`}
-          className="relative z-10 rounded-control px-2 py-1 text-label text-ink-2 transition-colors hover:bg-line hover:text-ink"
-        >
-          Settings
-        </Link>
-      </div>
-
-      <ChevronIcon className="col-start-2 row-start-1 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-ink md:col-start-auto md:row-start-auto" />
-    </li>
+    <div className="relative order-last w-full sm:order-none sm:w-72">
+      <label htmlFor="project-filter" className="sr-only">
+        Filter projects by name or slug
+      </label>
+      <input
+        id="project-filter"
+        ref={inputRef}
+        type="search"
+        value={query}
+        placeholder="Filter projects"
+        autoComplete="off"
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            onChange('');
+            event.currentTarget.blur();
+          }
+        }}
+        className="min-h-11 w-full rounded-control border border-control bg-surface pr-8 pl-3 font-mono text-label text-ink placeholder:text-ink-3 md:min-h-9"
+      />
+      <kbd
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded-control border border-line px-1 font-mono text-meta text-ink-3 max-sm:hidden"
+      >
+        /
+      </kbd>
+    </div>
   );
 }

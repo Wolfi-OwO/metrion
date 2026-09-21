@@ -291,15 +291,18 @@ export function ErrorState({
   onRetry,
   what = 'metrics',
   nested = false,
+  framed = false,
 }: {
   nested?: boolean;
+  /** A bordered surface instead of bare text, for a screen whose other states are surfaces too. */
+  framed?: boolean;
   error: ApiError;
   onRetry: () => void;
   /** Which API failed, in a word, so the heading names the right one. */
   what?: string;
 }) {
-  return (
-    <Panel nested={nested}>
+  const body = (
+    <>
       <div role="alert">
         <p className="mb-2 flex items-center gap-2 text-label font-medium text-text-danger">
           <StatusIcon status="critical" />
@@ -311,6 +314,14 @@ export function ErrorState({
       <Button className="mt-6" variant="primary" onClick={onRetry}>
         Try again
       </Button>
-    </Panel>
+    </>
   );
+  if (framed) {
+    return (
+      <div className="rounded-surface border border-line bg-surface p-6 lg:p-8">
+        <div className="max-w-prose">{body}</div>
+      </div>
+    );
+  }
+  return <Panel nested={nested}>{body}</Panel>;
 }

@@ -20,7 +20,7 @@ const KIND_CLASS: Record<TokenKind, string> = {
 };
 
 /**
- * The landing page's curl example: a header bar with the copy control, then the
+ * `muted` restyles the frame only (see below). The landing page's curl example: a header bar with the copy control, then the
  * highlighted text. The displayed timestamp is taken when the page mounts and
  * the copied one when the button is pressed, so a tab left open overnight still
  * copies a request the ingest API will accept.
@@ -29,10 +29,17 @@ const KIND_CLASS: Record<TokenKind, string> = {
  * keyboard-focusable and named - an unlabelled scroll region is a tab stop that
  * announces nothing.
  */
-export function CodeSnippet() {
+export function CodeSnippet({ muted = false }: { muted?: boolean }) {
   const [shown] = useState(() => quickstart());
   return (
-    <div className="min-w-0 overflow-hidden rounded-surface border border-line bg-surface">
+    <div
+      className={`min-w-0 overflow-hidden rounded-surface border ${
+        // Muted: the same block for a step that is not yet actionable. No
+        // fill and a dashed edge say "preview" without dimming the text,
+        // which would take the tokens below under their contrast floor.
+        muted ? 'border-dashed border-line-strong' : 'border-line bg-surface'
+      }`}
+    >
       <div className="flex items-center justify-between border-b border-line py-1 pr-1 pl-4">
         <span className="font-mono text-label text-ink-3">curl</span>
         <CopyButton text={() => quickstart()} label="Copy snippet" />
