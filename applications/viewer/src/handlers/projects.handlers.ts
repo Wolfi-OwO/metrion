@@ -3,6 +3,8 @@ import type { Request, Response } from 'express';
 import type { CreateApiKeyBody, CreateProjectBody } from '../schemas/projects.schemas.js';
 import { getPool } from '../lib/db.js';
 import { NotFoundError } from '../middlewares/error.js';
+import { scopeProjectIds } from '../middlewares/project-scope.js';
+import { getProjectsSummary as loadProjectsSummary } from '../services/project-summary-service.js';
 
 const UNIQUE_VIOLATION = '23505';
 const FOREIGN_KEY_VIOLATION = '23503';
@@ -74,6 +76,12 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
     [req.userId],
   );
   res.status(200).json({ projects: rows });
+}
+
+export async function getProjectsSummary(req: Request, res: Response): Promise<void> {
+  // Same ownership seam as every other read: only the session-derived ids.
+  const projects = await loadProjectsSummary(scopeProjectIds(req, undefined));
+  res.status(200).json({ projects });
 }
 
 export async function createProject(req: Request, res: Response): Promise<void> {

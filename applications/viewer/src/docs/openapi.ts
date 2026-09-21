@@ -320,6 +320,63 @@ export function buildOpenApiDocument(): object {
           },
         },
       },
+      '/api/v1/projects/summary': {
+        get: {
+          tags: ['projects'],
+          summary: "One summary row per project the caller owns, for the dashboard's project list.",
+          description:
+            'Status counts are per-application effective (dependency-folded) status, as on the ' +
+            'status screen; an application nothing has evaluated counts as ok, so `unknown` is ' +
+            'currently always 0 and `worst` is `unknown` only for a project without applications. ' +
+            '`lastSampleAt` is the newest metric within the last 30 days (null beyond that). ' +
+            '`activity24h` counts every metric row per whole UTC hour, oldest first, always 24 entries.',
+          responses: {
+            '200': {
+              description: 'The summaries; an empty list when the caller owns no projects.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      projects: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            projectId: { type: 'string', format: 'uuid' },
+                            applicationCount: { type: 'integer' },
+                            status: {
+                              type: 'object',
+                              properties: {
+                                critical: { type: 'integer' },
+                                warning: { type: 'integer' },
+                                ok: { type: 'integer' },
+                                unknown: { type: 'integer' },
+                              },
+                            },
+                            worst: {
+                              type: 'string',
+                              enum: ['ok', 'warning', 'critical', 'unknown'],
+                            },
+                            lastSampleAt: { type: 'string', format: 'date-time', nullable: true },
+                            activity24h: {
+                              type: 'array',
+                              minItems: 24,
+                              maxItems: 24,
+                              items: { type: 'integer' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            '401': errorResponse,
+          },
+        },
+      },
       '/api/v1/projects/{id}/applications': {
         get: {
           tags: ['applications'],

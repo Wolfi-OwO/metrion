@@ -120,6 +120,14 @@ before(async () => {
 });
 
 after(async () => {
+  // `metrics` has no FK to projects, so the summary tests' rows would
+  // otherwise outlive their projects.
+  await fixturePool.query(
+    `DELETE FROM metrics WHERE project_id IN (
+       SELECT id FROM projects WHERE owner_user_id IN (SELECT id FROM users WHERE email LIKE $1)
+     )`,
+    [`${marker}%`],
+  );
   await fixturePool.query(
     `DELETE FROM api_keys WHERE project_id IN (
        SELECT id FROM projects WHERE owner_user_id IN (SELECT id FROM users WHERE email LIKE $1)
@@ -392,4 +400,158 @@ test('DELETE /api/v1/keys/:id revokes the key; a repeat delete is 404', async ()
     headers: { cookie },
   });
   assert.equal(repeat.status, 404, 'an already-revoked key must not be revocable again');
+});
+
+interface Summary {
+  projectId: string;
+  applicationCount: number;
+  status: { critical: number; warning: number; ok: number; unknown: number };
+  worst: string;
+  lastSampleAt: string | null;
+  activity24h: number[];
+}
+
+async function createProjectFor(cookie: string, name: string): Promise<string> {
+  const response = await fetch(`${baseUrl}/api/v1/projects`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  return ((await response.json()) as { id: string }).id;
+}
+
+async function createApp(cookie: string, projectId: string, key: string): Promise<string> {
+  const response = await fetch(`${baseUrl}/api/v1/projects/${projectId}/applications`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ key, displayName: key }),
+  });
+  assert.equal(response.status, 201);
+  return ((await response.json()) as { id: string }).id;
+}
+
+async function getSummary(cookie: string): Promise<Summary[]> {
+  const response = await fetch(`${baseUrl}/api/v1/projects/summary`, { headers: { cookie } });
+  assert.equal(response.status, 200);
+  return ((await response.json()) as { projects: Summary[] }).projects;
+}
+
+test('GET /api/v1/projects/summary with no session is 401 - not 400 or 404', async () => {
+  const response = await fetch(`${baseUrl}/api/v1/projects/summary`);
+  assert.equal(response.status, 401);
+});
+
+test('GET /api/v1/projects/summary for a user with no projects is an empty list', async () => {
+  const cookie = await signInAs(`${marker}-sum-empty`, `${marker}-sum-empty@example.test`);
+  const response = await fetch(`${baseUrl}/api/v1/projects/summary`, { headers: { cookie } });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { projects: [] });
+});
+
+test('GET /api/v1/projects/summary: empty project, folded status, activity and lastSampleAt', async () => {
+  const cookie = await signInAs(`${marker}-sum-a`, `${marker}-sum-a@example.test`);
+  const emptyId = await createProjectFor(cookie, `${marker} Sum Empty`);
+  const busyId = await createProjectFor(cookie, `${marker} Sum Busy`);
+  const dep = await createApp(cookie, busyId, 'db');
+  const web = await createApp(cookie, busyId, 'web');
+  await createApp(cookie, busyId, 'batch');
+  // web depends on db, db is critical -> web's EFFECTIVE status is critical
+  // too, although it has no threshold of its own.
+  const put = await fetch(`${baseUrl}/api/v1/applications/${web}/dependencies`, {
+    method: 'PUT',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ dependsOn: [dep] }),
+  });
+  assert.equal(put.status, 200);
+  const {
+    rows: [threshold],
+  } = await fixturePool.query<{ id: string }>(
+    `INSERT INTO thresholds (project_id, application_id, metric_name, direction, critical_value)
+     VALUES ($1, $2, 'cpu', 'above', 90) RETURNING id`,
+    [busyId, dep],
+  );
+  await fixturePool.query(
+    `INSERT INTO threshold_status (threshold_id, state, value) VALUES ($1, 'critical', 95)`,
+    [threshold!.id],
+  );
+
+  // Two names in the current hour, one 3 hours ago, one outside the window.
+  const now = Date.now();
+  const hourStart = Math.floor(now / 3_600_000) * 3_600_000;
+  await fixturePool.query(
+    `INSERT INTO metrics (time, project_id, resource, name, value, unit, interval_seconds)
+     VALUES ($1, $4, 'h', 'uptime.ok', 1, 'bool', 60),
+            ($1, $4, 'h', 'container.cpu', 5, 'percent', 60),
+            ($2, $4, 'h', 'uptime.ok', 1, 'bool', 60),
+            ($3, $4, 'h', 'uptime.ok', 1, 'bool', 60)`,
+    [
+      new Date(hourStart + 1000).toISOString(),
+      new Date(hourStart - 3 * 3_600_000 + 1000).toISOString(),
+      new Date(hourStart - 24 * 3_600_000 - 1000).toISOString(),
+      busyId,
+    ],
+  );
+
+  const summaries = await getSummary(cookie);
+  assert.equal(summaries.length, 2);
+
+  const empty = summaries.find((s) => s.projectId === emptyId)!;
+  assert.equal(empty.applicationCount, 0);
+  assert.equal(empty.worst, 'unknown');
+  assert.equal(empty.lastSampleAt, null);
+  assert.deepEqual(empty.activity24h, new Array(24).fill(0));
+
+  const busy = summaries.find((s) => s.projectId === busyId)!;
+  assert.equal(busy.applicationCount, 3);
+  assert.deepEqual(busy.status, { critical: 2, warning: 0, ok: 1, unknown: 0 });
+  assert.equal(busy.worst, 'critical');
+  assert.equal(busy.activity24h.length, 24);
+  assert.equal(busy.activity24h[23], 2, 'every metric name counts, current hour is last');
+  assert.equal(busy.activity24h[20], 1);
+  assert.equal(
+    busy.activity24h.reduce((a, b) => a + b, 0),
+    3,
+    'the sample from beyond 24 buckets ago is not counted',
+  );
+  // max(time) is the newest sample, inside the 30 day window.
+  assert.equal(busy.lastSampleAt, new Date(hourStart + 1000).toISOString());
+});
+
+test('GET /api/v1/projects/summary never contains, or counts, another tenant', async () => {
+  const cookieA = await signInAs(`${marker}-sum-x`, `${marker}-sum-x@example.test`);
+  const cookieB = await signInAs(`${marker}-sum-y`, `${marker}-sum-y@example.test`);
+  const a = await createProjectFor(cookieA, `${marker} Tenant A`);
+  const b = await createProjectFor(cookieB, `${marker} Tenant B`);
+  await createApp(cookieA, a, 'a-app');
+  await createApp(cookieB, b, 'b-app-1');
+  await createApp(cookieB, b, 'b-app-2');
+  await fixturePool.query(
+    `INSERT INTO metrics (time, project_id, resource, name, value, unit, interval_seconds)
+     VALUES (now(), $1, 'h', 'uptime.ok', 1, 'bool', 60), (now(), $2, 'h', 'uptime.ok', 1, 'bool', 60),
+            (now(), $2, 'h', 'uptime.ok', 1, 'bool', 60)`,
+    [a, b],
+  );
+
+  const forA = await getSummary(cookieA);
+  const forB = await getSummary(cookieB);
+  assert.deepEqual(
+    forA.map((s) => s.projectId),
+    [a],
+  );
+  assert.deepEqual(
+    forB.map((s) => s.projectId),
+    [b],
+  );
+  assert.equal(forA[0]!.applicationCount, 1);
+  assert.equal(forA[0]!.activity24h[23], 1);
+  assert.equal(forB[0]!.applicationCount, 2);
+  assert.equal(forB[0]!.activity24h[23], 2);
+});
+
+test('/projects/summary is a literal route; a non-uuid :id route still answers 400', async () => {
+  const cookie = await signInAs(`${marker}-sum-z`, `${marker}-sum-z@example.test`);
+  const summary = await fetch(`${baseUrl}/api/v1/projects/summary`, { headers: { cookie } });
+  assert.equal(summary.status, 200);
+  const keys = await fetch(`${baseUrl}/api/v1/projects/summary/keys`, { headers: { cookie } });
+  assert.equal(keys.status, 400);
 });

@@ -270,7 +270,8 @@ export async function replaceDependencies(req: Request, res: Response): Promise<
 export async function getProjectStatus(req: Request, res: Response): Promise<void> {
   const projectId = req.params.id!;
   const projectIds = scopeProjectIds(req, projectId);
-  const applications = await getApplicationStatuses(projectIds);
+  const statuses = await getApplicationStatuses(projectIds);
+  const applications = statuses.map(({ projectId: _projectId, ...app }) => app);
   res.status(200).json({ applications });
 }
 

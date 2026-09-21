@@ -3,10 +3,12 @@ import {
   createApiKey,
   createProject,
   listApiKeys,
+  getProjectsSummary,
   listProjects,
   revokeApiKey,
 } from '../handlers/projects.handlers.js';
 import { asyncHandler } from '../middlewares/error.js';
+import { resolveProjectIds } from '../middlewares/project-scope.js';
 import { requireSession } from '../middlewares/require-session.js';
 import { uuidIdParams, validateBody } from '../middlewares/validate.js';
 import { createApiKeySchema, createProjectSchema } from '../schemas/projects.schemas.js';
@@ -19,6 +21,16 @@ import { createApiKeySchema, createProjectSchema } from '../schemas/projects.sch
 export const projectsRouter = Router();
 
 projectsRouter.get('/api/v1/projects', asyncHandler(requireSession), asyncHandler(listProjects));
+
+// A literal path, registered before every `/api/v1/projects/:id/...` route
+// so `summary` can never be parsed as an `:id` (those routes' `uuidIdParams`
+// would answer it 400).
+projectsRouter.get(
+  '/api/v1/projects/summary',
+  asyncHandler(requireSession),
+  asyncHandler(resolveProjectIds),
+  asyncHandler(getProjectsSummary),
+);
 
 projectsRouter.post(
   '/api/v1/projects',

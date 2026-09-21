@@ -34,6 +34,9 @@ export interface ThresholdStatusEntry {
 
 export interface ApplicationStatus {
   readonly id: string;
+  /** Internal grouping key for the batched callers (the projects summary);
+   * `getProjectStatus` strips it so the public wire format is unchanged. */
+  readonly projectId: string;
   readonly key: string;
   readonly displayName: string | null;
   readonly status: Status;
@@ -44,6 +47,7 @@ export interface ApplicationStatus {
 
 interface ApplicationRow {
   id: string;
+  project_id: string;
   key: string;
   display_name: string | null;
 }
@@ -89,7 +93,7 @@ export async function getApplicationStatuses(
   const pool = getPool();
 
   const { rows: appRows } = await pool.query<ApplicationRow>(
-    `SELECT id, key, display_name
+    `SELECT id, project_id, key, display_name
        FROM applications
       WHERE project_id = ANY($1)
       ORDER BY key`,
@@ -168,6 +172,7 @@ export async function getApplicationStatuses(
 
     return {
       id: app.id,
+      projectId: app.project_id,
       key: app.key,
       displayName: app.display_name,
       status,
