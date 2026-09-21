@@ -54,9 +54,16 @@ async function exportChecks() {
       names.set(String(m._id), m.name);
     }
     let n = 0;
+    // A monitor deleted earlier (82 checks on 2026-09-05, seen on the real
+    // data) leaves checks whose monitor no longer exists: no name, no key.
+    // They are skipped and counted, not guessed at.
+    let orphans = 0;
     for await (const c of db.collection('monitorchecks').find({}).sort({ at: 1 })) {
       const monitorName = names.get(String(c.monitor));
-      if (!monitorName) throw new Error(`check ${c._id} belongs to an unknown monitor`);
+      if (!monitorName) {
+        orphans++;
+        continue;
+      }
       const at = new Date(c.at);
       if (Number.isNaN(at.getTime())) throw new Error(`check ${c._id} has an invalid "at"`);
       const line =
@@ -70,7 +77,7 @@ async function exportChecks() {
       if (!process.stdout.write(line)) await new Promise((r) => process.stdout.once('drain', r));
       n++;
     }
-    console.error(`exported ${n} checks`);
+    console.error(`exported ${n} checks, skipped ${orphans} orphaned (deleted monitor)`);
   } finally {
     await mongoose.disconnect();
   }
@@ -153,9 +160,10 @@ async function load(file, until) {
   // (iii) then the Mongo rows strictly before each key's first authoritative
   // (interval_seconds = 60) row - or now() when there is none, or --until.
   // One transaction: all or nothing.
-  const bound = until
-    ? `'${until}'::timestamptz`
-    : `coalesce((SELECT min(u.time) FROM uptime_samples u WHERE u.project_id = '${PROJECT_ID}'::uuid AND u.resource = s.resource AND u.interval_seconds = 60), now())`;
+  // The bound is computed once per resource into a tiny table: as an inline
+  // correlated subquery it ran once per staged row (826k x every chunk) and
+  // pinned a CPU for 10+ minutes on the first real run.
+  const bound = until ? `'${until}'::timestamptz` : 'coalesce(min(u.time), now())';
   const sql = `
 BEGIN;
 INSERT INTO uptime_samples (time, project_id, resource, name, value, unit, interval_seconds)
@@ -167,12 +175,18 @@ CREATE TEMP TABLE stage (time timestamptz, resource text, name text, value doubl
 \\copy stage FROM STDIN WITH (FORMAT csv)
 ${rows.join('\n')}
 \\.
-CREATE INDEX ON stage (resource);
+
+CREATE TEMP TABLE cutover ON COMMIT DROP AS
+SELECT r.resource, ${bound} AS bound
+  FROM (SELECT DISTINCT resource FROM stage) r
+  LEFT JOIN uptime_samples u
+    ON u.project_id = '${PROJECT_ID}'::uuid AND u.resource = r.resource AND u.interval_seconds = 60
+ GROUP BY r.resource;
 
 INSERT INTO uptime_samples (time, project_id, resource, name, value, unit, interval_seconds)
 SELECT s.time, '${PROJECT_ID}'::uuid, s.resource, s.name, s.value, s.unit, 60
-  FROM stage s
- WHERE s.time < ${bound}
+  FROM stage s JOIN cutover c USING (resource)
+ WHERE s.time < c.bound
 ON CONFLICT (project_id, resource, name, time) DO NOTHING;
 COMMIT;
 `;
