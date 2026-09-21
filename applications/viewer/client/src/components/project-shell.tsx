@@ -41,7 +41,7 @@ export function ProjectHeader({
 }) {
   return (
     <header
-      className={`border-b border-line bg-surface${sticky ? ' md:sticky md:top-0 md:z-10' : ''}`}
+      className={`border-b border-line bg-surface${sticky ? ' md:sticky md:top-0 md:z-(--z-sticky)' : ''}`}
     >
       <AccountBar email={email} onSignedOut={onSignedOut}>
         <nav

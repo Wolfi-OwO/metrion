@@ -20,7 +20,7 @@ export default function App() {
   const auth = useAuth();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-dvh flex-col pb-(--footer-h)">
       <RouteErrorBoundary>
         <Outlet context={auth} />
       </RouteErrorBoundary>

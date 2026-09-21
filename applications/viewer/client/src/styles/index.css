@@ -162,6 +162,13 @@
   --spacing-gutter: clamp(16px, 2.5vw, 32px);
   --container-page: 1920px;
 
+  /* Stacking, one ladder: sticky page chrome < the pinned footer < popovers
+     (the footer's Legal menu, tooltips). Nothing else may take a z-index, so
+     an overlay can never end up under the footer. */
+  --z-sticky: 10;
+  --z-footer: 20;
+  --z-popover: 30;
+
   --tracking-eyebrow: 0.08em;
   /* Instrument Sans is already tightly set; Tailwind's stock -0.025em made the
      display headline's letters touch. */
@@ -243,7 +250,25 @@
   padding-inline: var(--spacing-gutter);
 }
 
+/* The pinned footer's height, single-sourced: the footer sets its `height` from
+   this, `App.tsx` reserves it as bottom padding and scroll-padding-bottom
+   keeps focus clear of it. 45px = one 44px control + the 1px border on a
+   phone; 53px = the 28px pill + 12px padding twice + the border from `lg`.
+   The inset is the iPhone home indicator (0 unless the page is standalone). */
+:root {
+  --footer-h: calc(45px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  :root {
+    --footer-h: calc(53px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 html {
+  /* A focused control or an anchor jump scrolls to just above the footer, not
+     under it (WCAG 2.4.11 Focus Not Obscured). The extra 16px is breathing
+     room. */
+  scroll-padding-bottom: calc(var(--footer-h) + 16px);
   /* Themes the parts of native widgets CSS cannot reach - the <select> popup
      list, scrollbars. The light blocks above flip it. */
   color-scheme: dark;
