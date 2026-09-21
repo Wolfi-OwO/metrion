@@ -4,6 +4,9 @@
 
 Accepted, 2026-09-12.
 
+Superseded in part by ADR 0009: uptime is now also written to the permanent
+`uptime_samples` table (no retention); the 90-day `metrics` copy stays.
+
 ## Context
 
 The portfolio site already runs its own uptime monitor: an Azure Function
