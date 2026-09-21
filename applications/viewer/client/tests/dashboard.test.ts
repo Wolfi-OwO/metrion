@@ -115,7 +115,6 @@ test('the verdict names one project, counts several, and does not call silence h
   assert.deepEqual(verdictOf(one), {
     tone: 'critical',
     headline: '1 project needs attention: Beta',
-    detail: null,
   });
 
   const two = buildRows(p, [
