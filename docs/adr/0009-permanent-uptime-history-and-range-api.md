@@ -95,38 +95,121 @@ retired. Both write `uptime.*` through ingest, so `uptime_samples` also holds
 300 s rows are kept but ignored ("VPS vantage, historical"). Every reader of
 `uptime_samples` must apply the same predicate.
 
-### 5. Range API contract (built later)
+### 5. Range API contract
+
+Implemented in `applications/ingest` (`services/public-uptime-range-service.ts`).
 
 `GET /api/v1/public/projects/:id/uptime/range?from=&to=`
 
-- `from`, `to`: ISO-8601 UTC, `from < to`. `to` is clamped to now. `from`
-  defaults to the earliest day with data ("whole period"). Days use UTC
-  semantics.
-- Granularity: the smallest of `1m, 5m, 15m, 1h, 6h, 1d` that yields at most
-  2000 buckets for the range.
-- Response, one entry per application:
+Access: unauthenticated, same `projects.public_status_enabled` gate, UUID
+pre-check, 404 body and shared rate limiter (`publicStatusRateLimiter`) as the
+existing `/uptime` route, which is unchanged. Read-only SELECTs as
+`metrion_ingest` on tables it already may read; no new grants.
+
+Parameters:
+
+- `from`, `to`: ISO-8601 with `Z`/offset, or a bare date. A bare `from` is
+  00:00:00Z of that day; a bare `to` is the END of that UTC day, inclusive
+  (`to=2026-08-31` covers all of 08-31; internally ranges are half-open,
+  `[from, to)`, and `range.to` reports the exclusive end).
+- `from` before 2000-01-01, `from >= to`, a malformed value, or `from` in the
+  future is a 400 with `issues`. `to` later than now is clamped to now, not an
+  error. Both are floored to whole minutes. Unknown query parameters are
+  ignored, as on the sibling route.
+- `from` absent: the first UTC day with data across the project's public
+  applications ("whole period"). `to` absent: now.
+
+Granularity: the smallest of `1m`, `5m`, `15m`, `1d` whose bucket count is at
+most 2000, where sub-daily steps are only used for ranges up to 7 days (longer
+is always `1d`). The chosen value is returned in `range.granularity`.
+`1h` and `6h` from the first draft were dropped: sub-daily reads raw
+`uptime_samples`, and measured on production (7 monitors, 73 days) 30 days at
+1h cost 171 ms warm and 1.56 s cold for the buckets alone, with ~1 s more for
+range latency. At 7 days the cost is 65 ms warm / 242 ms cold (buckets) plus
+78 / 115 ms (latency and idle), and 15m is already under the cap there, so 1h
+and 6h could never be selected. A `1d` range reads `uptime_daily` only (0.1 ms
+for the whole 73-day period). If the range would exceed 2000 daily buckets,
+`from` is raised to the first day with data; if it still does, 400.
+
+Buckets are aligned to UTC and whole: the first and last bucket may reach
+outside `[from, to)`, and the last one covers up to now. Bucketing is
+`time_bucket` on a fixed interval taken from a whitelist by granularity name
+and passed as a bind parameter.
+
+Response:
 
 ```json
 {
-  "from": "2026-07-11T00:00:00.000Z",
-  "to": "2026-09-21T12:00:00.000Z",
-  "granularity": "1d",
+  "projectId": "86b02c8c-4357-4655-9835-1897787cdd9a",
+  "generatedAt": "2026-09-21T20:00:00.000Z",
+  "range": {
+    "from": "2026-07-11T00:00:00.000Z",
+    "to": "2026-09-21T20:00:00.000Z",
+    "granularity": "1d",
+    "bucketCount": 73
+  },
   "applications": [
     {
-      "resource": "netviz",
+      "key": "netviz",
+      "displayName": "Network Visualizer",
+      "firstSampleAt": "2026-07-11T18:30:00.894Z",
+      "lastSampleAt": "2026-09-21T19:32:00.755Z",
       "uptimePct": 99.93,
-      "latency": { "p50": 41, "p95": 118 },
-      "buckets": [{ "start": "2026-07-11T00:00:00.000Z", "uptimePct": 100, "samples": 1440 }],
-      "incidents": [{ "startedAt": "...", "endedAt": "...", "downSamples": 3 }],
-      "truncated": false
+      "coverage": 0.9987,
+      "latency": { "p50": 41, "p95": 118, "approximate": true },
+      "idlePct": null,
+      "buckets": [{ "t": "2026-07-11T00:00:00.000Z", "upPct": 100, "samples": 330 }],
+      "incidents": [
+        {
+          "startedAt": "2026-08-05T10:00:00.000Z",
+          "endedAt": "2026-08-05T10:05:00.000Z",
+          "durationSeconds": 300,
+          "downSamples": 5
+        }
+      ],
+      "truncated": false,
+      "totalIncidents": 1
     }
   ]
 }
 ```
 
-`incidents` is capped at 100 (`truncated: true` when more exist).
-Buckets before a monitor's first sample have `uptimePct: null` (never 100).
-`endedAt` is null for an open incident.
+- Applications: those of the project with at least one `uptime.ok` sample on
+  the 60 s vantage AND a row in `uptime_daily` (so a brand-new monitor appears
+  after the next rollup run, at most 10 minutes). Only `key` and
+  `display_name`; never `sub_resource`, infrastructure names or raw errors.
+- `upPct` = up samples / `uptime.ok` samples * 100, `samples` = that total.
+  A bucket without samples is `null`, whether it precedes the monitor's first
+  sample or is a data hole inside its span (a hole is not downtime). Never
+  100 for "no data".
+- `uptimePct`: the same ratio over all buckets of the range, i.e. weighted by
+  samples over the time actually covered; `null` without samples.
+- `coverage`: samples present / samples expected (one per 60 s) between
+  `max(range start, firstSampleAt)` and `min(range end, now)`, capped at 1.
+  It is how a hole shows up numerically.
+- `latency`: p50/p95 of `uptime.latency` over the range (60 s vantage only).
+  Sub-daily ranges: exact `percentile_cont`, `approximate: false`. `1d`
+  ranges: the mean of the daily percentiles weighted by each day's sample
+  count, `approximate: true` (exact percentiles over raw rows cost 1.5 s for
+  73 days). Latency is NOT reported per bucket, to keep the payload small.
+- `idlePct`: share of `uptime.idle = 1`. Sub-daily: exact, `null` if the app
+  emitted none in the range. `1d`: from `uptime_daily.idle_samples` over
+  total samples; `null` when no idle sample was 1, because the rollup cannot
+  tell "never emitted" from "always 0".
+- `firstSampleAt`/`lastSampleAt`: whole history, not clamped to the range.
+- `incidents`: `uptime_incidents` overlapping the (aligned) range, newest
+  first, at most 100, with `truncated` and `totalIncidents`. `endedAt` is null
+  for an open incident; its `durationSeconds` runs to now.
+- The current day's `1d` bucket is as fresh as the last 10-minute job run.
+
+Caching: `Cache-Control: public, max-age=60`, or `3600` when `to` is at or
+before the start of today (UTC). In process: keyed on
+`(projectId, from, to, granularity)` after normalisation (whole minutes, `to`
+clamped; an absent `from` is keyed as "whole"), storing the in-flight promise,
+LRU with at most 256 entries and 250k buckets in total (one 24 h entry is 10k
+buckets, so the entry count alone is no memory bound), TTL 60 s for ranges
+including now and 1 h for ranges ending before today. 404s and errors are
+evicted at once. A cache miss holds one pool connection at a time.
 
 ## Consequences
 

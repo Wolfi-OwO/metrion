@@ -42,7 +42,7 @@ const cache = new Map<string, { at: number; result: Promise<PublicUptime | null>
  * it throws a raw pg error - which `errorHandler` has no reason to know is a
  * 404, and would otherwise answer 500 for what is, to a public caller, just
  * another "not found". */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface PublicUptimeHistoryEntry {
   readonly day: string;

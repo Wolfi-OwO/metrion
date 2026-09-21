@@ -3,11 +3,15 @@ import { rateLimit } from 'express-rate-limit';
 import { config } from '../config/index.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 import { ingestMetrics } from '../handlers/ingest.handlers.js';
-import { getPublicProjectUptime } from '../handlers/public-status.handlers.js';
+import {
+  getPublicProjectUptime,
+  getPublicProjectUptimeRange,
+} from '../handlers/public-status.handlers.js';
 import { requireApiKey } from '../middlewares/api-key.js';
 import { asyncHandler } from '../middlewares/error.js';
-import { validateBody } from '../middlewares/validate.js';
+import { validateBody, validateQuery } from '../middlewares/validate.js';
 import { ingestBodySchema } from '../schemas/ingest.schemas.js';
+import { publicRangeQuerySchema } from '../schemas/public-status.schemas.js';
 
 /** Every route this service serves, mounted in one place. */
 export const routes = Router();
@@ -81,4 +85,13 @@ routes.get(
   '/api/v1/public/projects/:id/uptime',
   publicStatusRateLimiter,
   asyncHandler(getPublicProjectUptime),
+);
+
+/** Same gate, same shared limiter as `/uptime`; the range is validated before
+ * any query runs, so a bad range costs no DB work. */
+routes.get(
+  '/api/v1/public/projects/:id/uptime/range',
+  publicStatusRateLimiter,
+  validateQuery(publicRangeQuerySchema),
+  asyncHandler(getPublicProjectUptimeRange),
 );

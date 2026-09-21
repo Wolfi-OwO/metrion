@@ -125,6 +125,109 @@ export function buildOpenApiDocument(): object {
           },
         },
       },
+      '/api/v1/public/projects/{id}/uptime/range': {
+        get: {
+          tags: ['public-status'],
+          summary: "A project's public uptime over an arbitrary date range, bucketed.",
+          description:
+            'No API key or session required; same public_status_enabled gate, 404 behaviour and ' +
+            'shared rate limit as /uptime. `from`/`to` are ISO-8601 (with offset or Z) or a bare ' +
+            'date; a bare `from` is 00:00:00Z of that day, a bare `to` is the END of that UTC day ' +
+            '(inclusive). `to` later than now is clamped to now; `from` in the future, `from` >= ' +
+            '`to` or `from` before 2000-01-01 is a 400. Both are floored to whole minutes. An ' +
+            'absent `from` means the whole period (first UTC day with data); an absent `to` means ' +
+            'now. A `from` before the first day with data is raised to it. Granularity is the ' +
+            'smallest of 1m, 5m, 15m (ranges up to 7 days) or 1d (longer) that keeps the bucket ' +
+            'count at or under 2000. Buckets are aligned to UTC and whole, so the first and last ' +
+            'may reach outside [from, to). A bucket without samples has upPct null (before the ' +
+            "monitor's first sample, or a data hole - never downtime). Only the 60 s vantage " +
+            'counts. For 1d, latency is an approximation (flagged) and idlePct is null unless ' +
+            'idle samples exist. Unknown query parameters are ignored.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+            { name: 'from', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'to', in: 'query', required: false, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description:
+                'Per-application buckets, range aggregates and incidents. Cache-Control ' +
+                'max-age is 60, or 3600 when the range ends before the start of today (UTC).',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      projectId: { type: 'string', format: 'uuid' },
+                      generatedAt: { type: 'string', format: 'date-time' },
+                      range: {
+                        type: 'object',
+                        properties: {
+                          from: { type: 'string', format: 'date-time' },
+                          to: { type: 'string', format: 'date-time' },
+                          granularity: { type: 'string', enum: ['1m', '5m', '15m', '1d'] },
+                          bucketCount: { type: 'integer' },
+                        },
+                      },
+                      applications: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            key: { type: 'string' },
+                            displayName: { type: 'string', nullable: true },
+                            firstSampleAt: { type: 'string', format: 'date-time' },
+                            lastSampleAt: { type: 'string', format: 'date-time' },
+                            uptimePct: { type: 'number', nullable: true },
+                            coverage: { type: 'number', nullable: true },
+                            latency: {
+                              type: 'object',
+                              properties: {
+                                p50: { type: 'number', nullable: true },
+                                p95: { type: 'number', nullable: true },
+                                approximate: { type: 'boolean' },
+                              },
+                            },
+                            idlePct: { type: 'number', nullable: true },
+                            buckets: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  t: { type: 'string', format: 'date-time' },
+                                  upPct: { type: 'number', nullable: true },
+                                  samples: { type: 'integer' },
+                                },
+                              },
+                            },
+                            incidents: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  startedAt: { type: 'string', format: 'date-time' },
+                                  endedAt: { type: 'string', format: 'date-time', nullable: true },
+                                  durationSeconds: { type: 'integer' },
+                                  downSamples: { type: 'integer' },
+                                },
+                              },
+                            },
+                            truncated: { type: 'boolean' },
+                            totalIncidents: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            '400': errorResponse,
+            '404': errorResponse,
+            '429': errorResponse,
+          },
+        },
+      },
       '/api/v1/public/projects/{id}/uptime': {
         get: {
           tags: ['public-status'],
