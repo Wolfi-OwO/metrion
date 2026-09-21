@@ -1,4 +1,5 @@
-import { fetchProjects, type Project } from '../api/client.ts';
+import { fetchProjects, fetchProjectsSummary, type Project } from '../api/client.ts';
+import type { ProjectSummary } from './summary.ts';
 import { useLoader, type LoadState } from './use-loader.ts';
 
 /**
@@ -11,6 +12,15 @@ import { useLoader, type LoadState } from './use-loader.ts';
  */
 export function useProjects(enabled = true): LoadState<Project[]> {
   return useLoader('projects', (signal) => fetchProjects(signal), enabled);
+}
+
+/**
+ * The dashboard's health layer, loaded beside `useProjects` rather than after
+ * it: the two answer independently, so a slow or failing summary never holds
+ * back the list of names.
+ */
+export function useProjectsSummary(): LoadState<ProjectSummary[]> {
+  return useLoader('projects-summary', (signal) => fetchProjectsSummary(signal));
 }
 
 export interface ProjectLookup {

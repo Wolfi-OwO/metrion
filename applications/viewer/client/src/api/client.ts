@@ -1,3 +1,5 @@
+import { parseProjectsSummary, type ProjectSummary } from '../lib/summary.ts';
+
 /**
  * The only place this app talks to the network.
  *
@@ -81,7 +83,14 @@ async function parseErrorMessage(response: Response): Promise<string> {
     : (body.message ?? `HTTP ${response.status}.`);
 }
 
-async function getJson<T>(path: string, params: URLSearchParams, signal: AbortSignal): Promise<T> {
+async function getJson<T>(
+  path: string,
+  params: URLSearchParams,
+  signal: AbortSignal,
+  // Names the API in the network-failure message: a dead projects call used to
+  // tell the dashboard that "the metrics API did not answer".
+  api: 'metrics' | 'projects' = 'metrics',
+): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${path}?${params}`, {
@@ -90,7 +99,7 @@ async function getJson<T>(path: string, params: URLSearchParams, signal: AbortSi
     });
   } catch (cause) {
     if (signal.aborted) throw cause;
-    throw new ApiError(null, 'The metrics API did not answer.');
+    throw new ApiError(null, `The ${api} API did not answer.`);
   }
 
   if (!response.ok) throw new ApiError(response.status, await parseErrorMessage(response));
@@ -172,9 +181,22 @@ export interface Project {
 }
 
 export function fetchProjects(signal: AbortSignal): Promise<Project[]> {
-  return getJson<{ projects: Project[] }>('/api/v1/projects', new URLSearchParams(), signal).then(
-    (body) => body.projects,
-  );
+  return getJson<{ projects: Project[] }>(
+    '/api/v1/projects',
+    new URLSearchParams(),
+    signal,
+    'projects',
+  ).then((body) => body.projects);
+}
+
+/** Health, freshness and a 24 h activity strip for every owned project in one call. */
+export function fetchProjectsSummary(signal: AbortSignal): Promise<ProjectSummary[]> {
+  return getJson<unknown>(
+    '/api/v1/projects/summary',
+    new URLSearchParams(),
+    signal,
+    'projects',
+  ).then(parseProjectsSummary);
 }
 
 export function createProject(name: string, signal: AbortSignal): Promise<Project> {
