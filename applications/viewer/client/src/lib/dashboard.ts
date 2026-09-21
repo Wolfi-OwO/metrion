@@ -100,13 +100,11 @@ export function verdictOf(rows: readonly DashboardRow[]): Verdict {
       return {
         tone,
         headline: `1 project needs attention: ${attention[0]!.project.name}`,
-        detail: null,
       };
     }
     return {
       tone,
       headline: `${attention.length} projects need attention`,
-      detail: attention.map((r) => r.project.name).join(', '),
     };
   }
   if (totalsOf(rows).applications === 0) {
