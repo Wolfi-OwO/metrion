@@ -318,6 +318,56 @@ test('POST /api/v1/ingest: an unseen resource auto-registers exactly one applica
   );
 });
 
+test('POST /api/v1/ingest: a mixed envelope with several distinct resources registers all of them in one query (finding 3)', async () => {
+  const { getPool } = await import('../dist/lib/db.js');
+  const resources = [0, 1, 2, 3, 4].map((i) => `${marker}-n1-${i}`);
+
+  const countRows = async () =>
+    (
+      await fixturePool.query(
+        'SELECT count(*)::int AS n FROM applications WHERE project_id = $1 AND key = ANY($2)',
+        [projectId, resources],
+      )
+    ).rows[0].n;
+
+  assert.equal(await countRows(), 0, 'none of these resources must already exist');
+
+  const pool = getPool();
+  const originalQuery = pool.query.bind(pool);
+  let applicationsInsertCalls = 0;
+  (pool as unknown as { query: unknown }).query = (...args: unknown[]) => {
+    if (typeof args[0] === 'string' && args[0].includes('INSERT INTO applications')) {
+      applicationsInsertCalls += 1;
+    }
+    return (originalQuery as (...a: unknown[]) => unknown)(...args);
+  };
+  try {
+    const body = resources.map((resource) => ({
+      resource,
+      metrics: [
+        {
+          name: 'shape.n1',
+          value: 1,
+          unit: 'count',
+          intervalSeconds: 60,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }));
+    const response = await post(body, bearer(validPrefix, validSecret));
+    assert.equal(response.status, 202);
+  } finally {
+    (pool as unknown as { query: unknown }).query = originalQuery;
+  }
+
+  assert.equal(
+    applicationsInsertCalls,
+    1,
+    'five distinct resources in one request must issue exactly one applications INSERT',
+  );
+  assert.equal(await countRows(), 5, 'all five resources must still be registered');
+});
+
 test("a key bound to another project's application is rejected by the database", async () => {
   await assert.rejects(
     fixturePool.query(

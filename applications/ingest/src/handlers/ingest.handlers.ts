@@ -116,7 +116,8 @@ function chargeUptimeQuota(rateLimitKey: string, rows: number): void {
 
   const now = Date.now();
   const existing = uptimeQuota.get(rateLimitKey);
-  const withinWindow = existing !== undefined && now - existing.windowStart < config.uptimeQuotaWindowMs;
+  const withinWindow =
+    existing !== undefined && now - existing.windowStart < config.uptimeQuotaWindowMs;
   const windowStart = withinWindow ? existing.windowStart : now;
   const priorRows = withinWindow ? existing.rows : 0;
 
@@ -212,17 +213,20 @@ async function insertRows(projectId: string, rows: readonly MetricRow[]): Promis
  * staying empty until someone creates an application by hand.
  * `display_name` is left null - the UI falls back to `key` until named.
  *
- * ponytail: per-request upsert, no cache; add an in-process seen-set if
- * request rate ever makes this measurable.
+ * One statement for every distinct resource in the request (security review
+ * finding 3, 2026-09-21) - `unnest` turns the array into one row per key, so
+ * a 200-envelope request with 200 distinct resources issues one INSERT, not
+ * 200 round trips serialized on the same pool connection.
  */
 async function registerResources(projectId: string, rows: readonly MetricRow[]): Promise<void> {
-  const resources = new Set(rows.map((row) => row.resource));
-  for (const resource of resources) {
-    await getPool().query(
-      'INSERT INTO applications (project_id, key) VALUES ($1, $2) ON CONFLICT (project_id, key) DO NOTHING',
-      [projectId, resource],
-    );
-  }
+  const resources = [...new Set(rows.map((row) => row.resource))];
+  if (resources.length === 0) return;
+  await getPool().query(
+    `INSERT INTO applications (project_id, key)
+     SELECT $1, k FROM unnest($2::text[]) AS k
+     ON CONFLICT (project_id, key) DO NOTHING`,
+    [projectId, resources],
+  );
 }
 
 /**
