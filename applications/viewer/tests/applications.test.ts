@@ -282,7 +282,11 @@ test('PATCH /applications/:id toggles publicStatusVisible (finding 2), defaults 
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({}),
   });
-  assert.equal(empty.status, 400, 'a PATCH naming neither field must be rejected, not a silent no-op');
+  assert.equal(
+    empty.status,
+    400,
+    'a PATCH naming neither field must be rejected, not a silent no-op',
+  );
 
   const toggled = await fetch(`${baseUrl}/api/v1/applications/${app1.id}`, {
     method: 'PATCH',
