@@ -1,7 +1,7 @@
 # Terms of Use (Nutzungsbedingungen)
 
 **metrion — server supervision platform**
-Effective: 2026-09-07
+Effective: 2026-09-22
 
 Operator: Phillip Kofler, Villach, Kärnten, Österreich — see `IMPRESSUM.md`.
 
@@ -79,12 +79,15 @@ future. A request breaching any of these is rejected with `400`, `413` or
 `429`. A rejected request is not stored.
 
 **Deletion.** A project owner may request deletion of a project and its
-metric rows at any time by writing to <koflerphillip@outlook.com>. No
-self-service project-deletion endpoint exists yet — only
-`DELETE /api/v1/keys/:id`, which revokes a key without deleting data — so
-deletion is currently carried out by the operator by hand, within the same
-one-month timeframe used for any DSGVO Art 12(3) request (see
-`PRIVACY.md` section 7).
+data at any time by writing to <koflerphillip@outlook.com> — its metric
+rows (`metrics`) and its permanent uptime history (`uptime_samples`,
+`uptime_daily`, `uptime_incidents`) alike. No self-service project-deletion
+endpoint exists yet — only `DELETE /api/v1/keys/:id`, which revokes a key
+without deleting data — so deletion is currently carried out by the
+operator by hand: `metrics` rows by a direct SQL statement, the three
+uptime tables by `scripts/purge-uptime.mjs` (the operator's own erasure
+tool, database-owner role only) — within the same one-month timeframe used
+for any DSGVO Art 12(3) request (see `PRIVACY.md` section 7).
 
 ## 4. No warranty, no availability promise
 
@@ -146,4 +149,4 @@ remain unaffected.
 
 ---
 
-Effective: 2026-09-07
+Effective: 2026-09-22

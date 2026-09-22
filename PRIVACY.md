@@ -1,8 +1,8 @@
 # Privacy Policy (Datenschutzerklärung)
 
 **metrion — server supervision platform**
-**Effective:** 2026-09-20
-**Last updated:** 2026-09-20
+**Effective:** 2026-09-22
+**Last updated:** 2026-09-22
 
 Controller: Phillip Kofler, Villach, Kärnten, Österreich
 Contact: <koflerphillip@outlook.com>
@@ -76,6 +76,47 @@ resolved once, at authentication, from the presented API key — never from
 anything in the request body (`docs/adr/0005-api-key-determines-tenancy.md`).
 `value` is always a finite number, enforced on ingest by a zod schema, so no
 free-text field can smuggle anything but a numeric measurement into a row.
+
+**Dual-write for `uptime.*` names.** A point whose `name` starts with
+`uptime.` (`uptime.ok`, `uptime.latency`, `uptime.idle`) is written to
+`metrics` as above AND, in the same database transaction, to the permanent
+`uptime_samples` table described in "Uptime history" below
+(`applications/ingest/src/handlers/ingest.handlers.ts:105-164`;
+`docs/adr/0009-permanent-uptime-history-and-range-api.md`). Every other
+metric name lands in `metrics` only.
+
+### Uptime history (new with this release)
+
+`uptime_samples` keeps every `uptime.*` point — the same shape as an
+ordinary metric row: `project_id`, `resource` (the application key),
+`name`, numeric `value`, `unit`, `interval_seconds`, `time` — with no
+retention policy at all, unlike `metrics`' own 90 days
+(`packages/db/migrations/0014_uptime_permanent_store.sql:1-13`). Two
+further plain tables, `uptime_daily` and `uptime_incidents`, are rebuilt
+from those raw rows every 10 minutes by a database job and hold the same
+kind of data at a coarser grain (a day's up/down counts and latency
+percentiles; a down run's start/end) — never anything not already derivable
+from `uptime_samples` itself (`packages/db/migrations/0015_uptime_rollup_job.sql`).
+Nothing about who is watching a status page is stored here, only what a
+monitor measured about the operator's own infrastructure — the same
+against-personal-data reasoning section 7 gives for `metrics` applies to
+`uptime_samples`/`uptime_daily`/`uptime_incidents` unchanged.
+
+**Public visibility is a separate, per-application opt-in.**
+`applications.public_status_visible` defaults `false`
+(`packages/db/migrations/0016_application_public_status_visible.sql`): an
+application that ingest auto-registers the first time a key sends a new
+`resource` name is never public by that fact alone — only one its owner has
+explicitly turned on appears on either public endpoint in section 6.
+
+**Erasure.** Unlike the previous edition of this document, this is no
+longer an open point: the operator can delete an account's or project's
+uptime history using `scripts/purge-uptime.mjs`, run against the
+database-owner role. It deletes the matching `uptime_samples` and `metrics`
+(`uptime.*` only) rows for a given project/application/time window and
+rebuilds `uptime_daily`/`uptime_incidents` for that window afterward. See
+section 7's deletion cascade for how this fits the rest of an erasure
+request.
 
 ### Account data (new with this release)
 
@@ -303,12 +344,13 @@ stays on-box only, 4-week rotation, unencrypted — it never leaves the host.
 
 ### Retention periods
 
-| Data                                                                 | Period                   | Enforced by                                                                                                                                                                                                                                                                                                   |
-| -------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Metrics (`metrics` hypertable)                                       | 90 days                  | TimescaleDB retention policy; chunks older than 90 days are dropped by the platform (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                                                                                                                                          |
-| Sessions (`sessions`)                                                | 30-day TTL from creation | Checked at read time — an expired `expires_at` is treated as no session (`applications/viewer/src/auth/session.ts:16-18`, `:107`). **No scheduled job deletes the row itself once it expires** — it becomes unusable but is not purged; this is an open point below, not a claimed 30-day deletion guarantee. |
-| Accounts (`users`/`identities`/`projects`/`api_keys`)                | Life of the account      | Deleted on request via section 8's process, or by the operator closing an account by hand. No automatic expiry exists in the schema.                                                                                                                                                                          |
-| `status_events` (**planned, not yet built** — GitHub issues #20-#24) | 180 days                 | Once shipped, enforced by a TimescaleDB retention policy on `status_events`, deleted 180 days after the event's own timestamp — the same mechanism already used for `metrics`' 90-day policy above (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                           |
+| Data                                                                  | Period                              | Enforced by                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metrics (`metrics` hypertable)                                        | 90 days                             | TimescaleDB retention policy; chunks older than 90 days are dropped by the platform (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                                                                                                                                                                   |
+| Uptime history (`uptime_samples`, `uptime_daily`, `uptime_incidents`) | Indefinite while the project exists | Deliberately no TimescaleDB retention policy (`packages/db/migrations/0014_uptime_permanent_store.sql`) — a status page needs real history, not a rolling 90-day window. Deleted on an erasure request via `scripts/purge-uptime.mjs`, run by the operator against the database-owner role (see "Uptime history" above and section 7). |
+| Sessions (`sessions`)                                                 | 30-day TTL from creation            | Checked at read time — an expired `expires_at` is treated as no session (`applications/viewer/src/auth/session.ts:16-18`, `:107`). **No scheduled job deletes the row itself once it expires** — it becomes unusable but is not purged; this is an open point below, not a claimed 30-day deletion guarantee.                          |
+| Accounts (`users`/`identities`/`projects`/`api_keys`)                 | Life of the account                 | Deleted on request via section 8's process, or by the operator closing an account by hand. No automatic expiry exists in the schema.                                                                                                                                                                                                   |
+| `status_events` (**planned, not yet built** — GitHub issues #20-#24)  | 180 days                            | Once shipped, enforced by a TimescaleDB retention policy on `status_events`, deleted 180 days after the event's own timestamp — the same mechanism already used for `metrics`' 90-day policy above (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                                                    |
 
 - **On the VPS:** undelivered samples wait in a local queue capped at 1440
   lines — one day — plus small state files
@@ -385,17 +427,34 @@ it is rate limited with one shared bucket. Visibility is the project's own
 opt-in, `projects.public_status_enabled`, default `false` — opt-in, not
 opt-out, because this flag exposes a project's data to callers with no
 account at all (`packages/db/migrations/0011_project_public_status.sql:1-8`).
-For an opted-in project it returns, per application that has ever written an
-`uptime.ok` sample: the application key and display name, uptime percentages
-(24 hours, 7 days, 30 days), the latest latency, the time of the last sample
-and a 30-day daily uptime history
+For an opted-in project it returns, per application that has both ever
+written an `uptime.ok` sample AND been individually opted in via
+`applications.public_status_visible` (see "Uptime history" above): the
+application key and display name, uptime percentages (24 hours, 7 days, 30
+days), the latest latency, the time of the last sample and a 90-day daily
+uptime history — corrected here from an earlier edition of this document,
+which understated it as 30 days; the code has always returned 90
 (`applications/ingest/src/services/public-status-service.ts`). It never
 returns the resource/metric inventory (no CPU, memory or container/host
 names); for every other project it returns the same 404 an unknown id would.
-It is consumed server-to-server by the portfolio status page
+
+**A second endpoint, `GET /api/v1/public/projects/:id/uptime/range`
+(added since the previous edition of this document; ADR 0009), reads
+further back than 90 days.** Same opt-in gate (project- and
+application-level), same field set (no resource/metric inventory), but a
+caller supplies its own `from`/`to` and can request the WHOLE stored
+history for an opted-in application in one call, not a fixed recent window
+— `uptime_samples` has no retention policy (see the retention table above),
+so "the whole history" can be the application's entire monitored lifetime.
+This is a deliberate consequence of choosing to keep permanent history at
+all, not an oversight: the data returned is the same operator-infrastructure
+measurements either endpoint already exposes for an opted-in application,
+just over a caller-chosen range instead of a fixed one.
+
+Both routes are consumed server-to-server by the portfolio status page
 (`organizational/uptime-sources.md`), so a status-page visitor's own IP
 address reaches the portfolio host only, never this application; the caller
-seen by ingest is the portfolio's server. The viewer no longer serves this
+seen by ingest is the portfolio's server. The viewer no longer serves either
 route.
 
 ## 7. Is personal data processed at all?
@@ -426,15 +485,29 @@ because there is something stored under which they can be found.
 | Account creation, OAuth sign-in, session maintenance                                                                     | Art 6(1)(b) — necessary to perform the contract the user enters by signing up                             |
 | Project and API-key management                                                                                           | Art 6(1)(b)                                                                                               |
 | Storing/serving a project's own ingested metrics                                                                         | Art 6(1)(b) — performance of the contract with that project's owner                                       |
-| Public uptime status endpoint (`GET /api/v1/public/projects/:id/uptime`), opt-in per project via `public_status_enabled` | Art 6(1)(f) — legitimate interest, as reasoned above                                                      |
+| Storing the permanent uptime history (`uptime_samples`/`uptime_daily`/`uptime_incidents`), kept with no retention policy | Art 6(1)(b) — performance of the contract with that project's owner, same basis as the metrics row above  |
+| Public uptime status endpoints (`GET .../uptime`, `GET .../uptime/range`), opt-in per project AND per application        | Art 6(1)(f) — legitimate interest, as reasoned above                                                      |
 | Account-table backups                                                                                                    | Art 6(1)(f) — legitimate interest in business continuity                                                  |
 | Threshold-alert email (**planned**, see below)                                                                           | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
 
 **DSAR / deletion cascade.** A request under Art 15/17/20 for a given user
 is answered by walking, in order: `identities` (by `user_id`) → `sessions`
 (by `user_id`) → `api_keys` (by `project_id`, for every project the user
-owns) → `projects` (by `owner_user_id`) → `metrics` rows (by `project_id`,
-for every project just identified) → `users` itself. Once the
+owns) → `projects` (by `owner_user_id`) → `metrics`, `uptime_samples`,
+`uptime_daily` and `uptime_incidents` rows (by `project_id`, for every
+project just identified) → `users` itself. These four tables carry no
+foreign key to `projects` at all — they are TimescaleDB hypertables and the
+plain tables rebuilt from one (`packages/db/migrations/0003_metrics_hypertable.sql`,
+`0014_uptime_permanent_store.sql`) — and grant `DELETE` to neither
+application role (`metrion_app`, `metrion_ingest`); erasing them is
+therefore always carried out by the operator connected as the
+database-owner role, never by an application code path. For the three
+uptime tables specifically, `scripts/purge-uptime.mjs` is that erasure
+mechanism as of 2026-09-22 — it deletes a project's (or one application's)
+uptime history for a given window and rebuilds `uptime_daily`/
+`uptime_incidents` for that window afterward, run by the operator with the
+database-owner DSN. `metrics` itself still has no equivalent scripted tool;
+deleting it remains a hand-run `DELETE` by the operator. Once the
 threshold-alerting feature ships (GitHub issues #20-#24), the same cascade
 extends to `thresholds`, `threshold_status` and `status_events` — all three
 scoped by `project_id`/`user_id` the same way `api_keys` and `metrics` are
@@ -510,7 +583,13 @@ that falsifies one of them is a change to this document too.
 - No scheduled job deletes an expired `sessions` row — it becomes unusable
   at 30 days but is not purged from the table (section 5).
 - No self-service account/project-deletion API endpoint exists; DSAR
-  erasure is currently a manual, operator-run process (section 7).
+  erasure is currently a manual, operator-run process (section 7). As of
+  2026-09-22 the uptime-history part of that process has a real tool
+  (`scripts/purge-uptime.mjs`, section 7's cascade); `metrics` itself still
+  has none and is deleted with a hand-run SQL statement.
+- `scripts/purge-uptime.mjs` deletes by project/application/window; it has
+  no bulk "every project this user owns" mode, so an account-wide erasure
+  still runs it once per project rather than once per request.
 - Whether Azure Container Apps ingress/diagnostic logging is enabled for
   `metrion-viewer`, and whether it records client IP addresses, is not
   determinable from this repository.
@@ -527,4 +606,4 @@ that falsifies one of them is a change to this document too.
   not yet chosen; section 6's Chapter V position for it is provisional until
   it is.
 
-Effective: 2026-09-20
+Effective: 2026-09-22
