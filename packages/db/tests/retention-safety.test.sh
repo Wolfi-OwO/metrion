@@ -67,12 +67,20 @@ SELECT t, '00000000-0000-0000-0000-000000000001'::uuid, 'app', 'uptime.ok',
 SELECT refresh_uptime_rollup(now() - INTERVAL '41 days', now());
 SQL
 
+# coalesce(..., 'EMPTY') on both md5(string_agg(...)) calls (security review
+# finding 6, 2026-09-21): string_agg over zero rows is NULL, so if either
+# table were ever empty before AND after - a bug that dropped every row from
+# both tables clean through - the two NULLs would compare equal and this
+# script would print OK over a table that had actually gone empty. The
+# coalesce makes an empty table read as the literal string 'EMPTY' instead of
+# NULL, so "empty before, empty after" and "N rows before, N different rows
+# after" can no longer look identical.
 snapshot() {
   val "select (select count(*) from uptime_samples) || ' ' ||
               (select count(*) from uptime_daily) || ' ' ||
               (select count(*) from uptime_incidents) || ' ' ||
-              (select md5(string_agg(d::text, ',' order by day)) from uptime_daily d) || ' ' ||
-              (select md5(string_agg(row(resource, started_at, ended_at, down_samples)::text, ',' order by started_at) ) from uptime_incidents)"
+              (select coalesce(md5(string_agg(d::text, ',' order by day)), 'EMPTY') from uptime_daily d) || ' ' ||
+              (select coalesce(md5(string_agg(row(resource, started_at, ended_at, down_samples)::text, ',' order by started_at)), 'EMPTY') from uptime_incidents)"
 }
 
 metrics_before=$(val "select count(*) from metrics")
@@ -115,5 +123,20 @@ if [ "$cagg_before" -gt 0 ] && [ "$cagg_after" -eq 0 ]; then
   echo "OK: contrast: a continuous aggregate refreshed over dropped raw chunks went empty ($cagg_before -> $cagg_after buckets), hence uptime_daily is a plain table"
 else
   echo "FAIL: continuous aggregate contrast unexpected ($cagg_before -> $cagg_after)" >&2
+  exit 1
+fi
+
+# Security review finding 6 (2026-09-21): the whole point of 0014's "no
+# add_retention_policy" comment is that uptime_samples is exempt - a second
+# retention policy quietly added on uptime_samples (or anywhere but metrics)
+# would silently start dropping the permanent history this file exists to
+# prove is safe from drop_chunks, and nothing above would ever notice, since
+# every check here only drops metrics chunks by hand.
+retention_hypertables=$(val "select coalesce(string_agg(hypertable_name, ',' order by hypertable_name), '(none)')
+                                from timescaledb_information.jobs where proc_name = 'policy_retention'")
+if [ "$retention_hypertables" = "metrics" ]; then
+  echo "OK: the only retention policy in the database is on metrics ($retention_hypertables)"
+else
+  echo "FAIL: expected exactly one retention policy, on metrics; found: $retention_hypertables" >&2
   exit 1
 fi
