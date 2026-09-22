@@ -40,6 +40,12 @@ export class NotFoundError extends AppError {
   }
 }
 
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Too Many Requests') {
+    super(429, message);
+  }
+}
+
 /** One field-level validation failure. `path` is dot-joined, e.g. `metrics.0.value`. */
 export interface FieldIssue {
   readonly path: string;

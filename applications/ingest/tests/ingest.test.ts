@@ -19,6 +19,13 @@ const REAL_DATABASE_URL = 'postgres://metrion:metrion@localhost:5432/metrion';
 // query against this URL would hang/fail.
 process.env['DATABASE_URL'] = 'postgres://bogus:bogus@127.0.0.1:1/bogus';
 
+// Small on purpose: the real default (10,000/hour, config/index.ts) needs a
+// multi-megabyte body to exercise over HTTP - `express.json({ limit: '256kb'
+// })` in routes/index.ts caps a single request well under 3,000 points. A
+// small override proves the same mechanism (charge-before-write, reject with
+// nothing partially written) without fighting that cap.
+process.env['UPTIME_QUOTA_MAX_ROWS_PER_HOUR'] = '10';
+
 const { app } = await import('../dist/main.js');
 const { createPool } = await import('@metrion/db/dist/pool.js');
 
@@ -379,6 +386,57 @@ test('POST /api/v1/ingest: uptime.* lands in metrics AND uptime_samples, contain
     metrics: ['container.cpu', 'container.cpu', 'uptime.ok', 'uptime.ok'],
     uptime: ['uptime.ok'],
   });
+});
+
+test('POST /api/v1/ingest: an hourly per-key quota on permanent uptime rows rejects an oversized burst, charged before the write', async () => {
+  // A dedicated key so this test's count is not affected by the uptime rows
+  // the other tests above already charged against validPrefix's quota.
+  const quotaPrefix = `${marker.replace(/_/g, '')}quota`;
+  const quotaSecret = randomBytes(24).toString('hex');
+  await fixturePool.query(
+    'INSERT INTO api_keys (project_id, key_prefix, key_hash) VALUES ($1, $2, $3)',
+    [projectId, quotaPrefix, hashSecret(quotaSecret)],
+  );
+  const auth = bearer(quotaPrefix, quotaSecret);
+  const resource = `${marker}-quota`;
+
+  function uptimeBurst(count: number, offsetSeconds: number) {
+    const now = Date.now();
+    return {
+      resource,
+      metrics: Array.from({ length: count }, (_, i) => ({
+        name: 'uptime.ok',
+        value: 1,
+        unit: 'boolean',
+        intervalSeconds: 60,
+        timestamp: new Date(now - (offsetSeconds + i) * 1000).toISOString(),
+      })),
+    };
+  }
+
+  const countRows = async () =>
+    (
+      await fixturePool.query(
+        'SELECT count(*)::int AS n FROM uptime_samples WHERE project_id = $1 AND resource = $2',
+        [projectId, resource],
+      )
+    ).rows[0].n;
+
+  // Quota override for this file is 10/hour (see the top of this file). 9
+  // rows is under it.
+  const first = await post(uptimeBurst(9, 0), auth);
+  assert.equal(first.status, 202);
+  assert.equal(await countRows(), 9);
+
+  // 2 more would bring the key to 11, over the 10/hour cap - rejected before
+  // insertRows ever runs, so uptime_samples must gain nothing from it.
+  const second = await post(uptimeBurst(2, 9), auth);
+  assert.equal(second.status, 429);
+  assert.equal(
+    await countRows(),
+    9,
+    'a request rejected by the quota must leave uptime_samples unchanged',
+  );
 });
 
 test('POST /api/v1/ingest: a failing uptime_samples insert rolls the metrics insert back too', async () => {

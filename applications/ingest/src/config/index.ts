@@ -32,6 +32,19 @@ export const config = {
   publicStatusRateLimitMax: Number(process.env['PUBLIC_STATUS_RATE_LIMIT_MAX']) || 120,
   publicStatusRateLimitWindowMs:
     Number(process.env['PUBLIC_STATUS_RATE_LIMIT_WINDOW_MS']) || 60_000,
+
+  /**
+   * Per-API-key hourly cap on rows written to the permanent `uptime_samples`
+   * store (security review finding 1, 2026-09-21). `uptime_samples` has no
+   * retention policy by design (ADR 0009), so one key with no cap could grow
+   * it forever; the default is about 8x the real fleet's need (7 monitors x 3
+   * metrics x 60 samples/h = 1,260/h). Charged BEFORE the write
+   * (`handlers/ingest.handlers.ts`), so a rejected request leaves nothing
+   * behind. Overridable so a test can exercise the boundary without a
+   * multi-thousand-row HTTP body.
+   */
+  uptimeQuotaMaxRowsPerHour: Number(process.env['UPTIME_QUOTA_MAX_ROWS_PER_HOUR']) || 10_000,
+  uptimeQuotaWindowMs: Number(process.env['UPTIME_QUOTA_WINDOW_MS']) || 60 * 60 * 1000,
 } as const;
 
 export const isProduction = config.nodeEnv === 'production';

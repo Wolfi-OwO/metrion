@@ -1,8 +1,9 @@
 import type { Request, Response } from 'express';
 import type { MetricEnvelope, MetricPoint } from '@metrion/shared';
+import { config } from '../config/index.js';
 import { getPool } from '../lib/db.js';
 import { logger } from '../lib/logger.js';
-import { BadRequestError } from '../middlewares/error.js';
+import { BadRequestError, TooManyRequestsError } from '../middlewares/error.js';
 import type { IngestBody } from '../schemas/ingest.schemas.js';
 
 function isBareMetricPoints(body: IngestBody): body is MetricPoint[] {
@@ -88,6 +89,47 @@ const UPTIME_COLUMNS_PER_ROW = 7;
  * the viewer's metric screens and thresholds work unchanged.
  */
 const isUptime = (row: MetricRow): boolean => row.name.startsWith('uptime.');
+
+/**
+ * Per-API-key hourly counter of rows charged against `uptimeQuotaMaxRowsPerHour`
+ * (security review finding 1, 2026-09-21): one key writing forever into
+ * `uptime_samples` - which has no retention policy - could exhaust disk with
+ * no delete path (`scripts/purge-uptime.mjs` is the operator's manual
+ * cleanup, not an automatic cap). Keyed on `apiKeyContext.rateLimitKey`, the
+ * same non-secret bucket key `routes/index.ts`'s `ingestRateLimiter` already
+ * uses.
+ *
+ * ponytail: in-process `Map`, correct for the one ingest container that runs
+ * today; add a shared store (Redis, or a Postgres advisory counter) if a
+ * second replica of this service ever ships, or one replica's quota resets
+ * while the other's is still exhausted.
+ */
+const uptimeQuota = new Map<string, { windowStart: number; rows: number }>();
+
+/**
+ * Charged BEFORE `insertRows` runs, never after - a request that would push
+ * a key over its hourly cap is rejected with nothing written, not written
+ * then charged back.
+ */
+function chargeUptimeQuota(rateLimitKey: string, rows: number): void {
+  if (rows === 0) return;
+
+  const now = Date.now();
+  const existing = uptimeQuota.get(rateLimitKey);
+  const withinWindow = existing !== undefined && now - existing.windowStart < config.uptimeQuotaWindowMs;
+  const windowStart = withinWindow ? existing.windowStart : now;
+  const priorRows = withinWindow ? existing.rows : 0;
+
+  if (priorRows + rows > config.uptimeQuotaMaxRowsPerHour) {
+    throw new TooManyRequestsError(
+      `This API key has already written ${priorRows} permanent uptime rows in the current ` +
+        `hourly window; this request's ${rows} would exceed the ` +
+        `${config.uptimeQuotaMaxRowsPerHour}/hour cap.`,
+    );
+  }
+
+  uptimeQuota.set(rateLimitKey, { windowStart, rows: priorRows + rows });
+}
 
 /**
  * One parameterised multi-row `INSERT` per table per request, in ONE
@@ -202,6 +244,8 @@ export async function ingestMetrics(req: Request, res: Response): Promise<void> 
     auth.applicationResource,
   );
   const rows = toRows(envelopes);
+
+  chargeUptimeQuota(auth.rateLimitKey, rows.filter(isUptime).length);
 
   await insertRows(auth.projectId, rows);
   await registerResources(auth.projectId, rows);
