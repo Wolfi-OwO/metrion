@@ -284,11 +284,15 @@ async function computePublicUptime(projectId: string): Promise<PublicUptime | nu
   // Only keys that have ever written an `uptime.ok` sample - an application
   // with no uptime instrumentation at all (organizational/uptime-sources.md's
   // `fuwwy-platform` gap) has nothing this endpoint can show, not even a
-  // "no data" row.
+  // "no data" row. `public_status_visible` (finding 2, security review
+  // 2026-09-21) is a second, separate gate: an application auto-registered
+  // by `registerResources` has one by default, never true, so a leaked key
+  // cannot forge a public entry just by sending a sample under a new name.
   const { rows: appRows } = await pool.query<{ key: string; display_name: string | null }>(
     `SELECT a.key, a.display_name
        FROM applications a
       WHERE a.project_id = $1
+        AND a.public_status_visible
         AND EXISTS (
           SELECT 1 FROM metrics m
            WHERE m.project_id = a.project_id AND m.resource = a.key AND m.name = $2

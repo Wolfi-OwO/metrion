@@ -265,6 +265,10 @@ async function computeRange(
   // to one day each: without that bound the planner walked the time index
   // across every chunk (753 ms on production, 3 ms with it). Consequence: an
   // application appears once the 10-minute rollup job has seen its first day.
+  // `a.public_status_visible` (finding 2, security review 2026-09-21) gates
+  // this the same way `public-status-service.ts` gates its own listing - an
+  // auto-registered application defaults to invisible here regardless of how
+  // much history it has.
   const { rows: appRows } = await pool.query<AppRow>(
     `WITH d AS (
        SELECT resource, min(day) AS first_day, max(day) AS last_day
@@ -280,7 +284,7 @@ async function computeRange(
                 AND s.name = $2 AND s.interval_seconds <= $3
                 AND s.time >= d.last_day::timestamp AT TIME ZONE 'UTC') AS last_at
        FROM applications a JOIN d ON d.resource = a.key
-      WHERE a.project_id = $1
+      WHERE a.project_id = $1 AND a.public_status_visible
       ORDER BY a.key`,
     [projectId, OK, VANTAGE_MAX_INTERVAL_S],
   );

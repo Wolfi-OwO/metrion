@@ -47,10 +47,14 @@ export async function createApplication(req: Request, res: Response): Promise<vo
   const body = req.body as CreateApplicationBody;
 
   try {
-    const { rows } = await getPool().query<{ id: string; created_at: Date }>(
+    const { rows } = await getPool().query<{
+      id: string;
+      created_at: Date;
+      public_status_visible: boolean;
+    }>(
       `INSERT INTO applications (project_id, key, display_name)
        VALUES ($1, $2, $3)
-       RETURNING id, created_at`,
+       RETURNING id, created_at, public_status_visible`,
       [projectId, body.key, body.displayName],
     );
     const row = rows[0]!;
@@ -58,6 +62,7 @@ export async function createApplication(req: Request, res: Response): Promise<vo
       id: row.id,
       key: body.key,
       displayName: body.displayName,
+      publicStatusVisible: row.public_status_visible,
       createdAt: row.created_at,
     });
   } catch (err) {
@@ -70,6 +75,11 @@ export async function createApplication(req: Request, res: Response): Promise<vo
   }
 }
 
+/**
+ * Both `displayName` and `publicStatusVisible` are optional (the schema
+ * requires at least one); `COALESCE` leaves whichever was omitted at its
+ * current value rather than this handler having to fetch the row first.
+ */
 export async function updateApplication(req: Request, res: Response): Promise<void> {
   const applicationId = req.params.id!;
   const body = req.body as UpdateApplicationBody;
@@ -79,13 +89,15 @@ export async function updateApplication(req: Request, res: Response): Promise<vo
     id: string;
     key: string;
     display_name: string | null;
+    public_status_visible: boolean;
     created_at: Date;
   }>(
     `UPDATE applications
-        SET display_name = $1
-      WHERE id = $2 AND project_id = ANY($3)
-      RETURNING id, key, display_name, created_at`,
-    [body.displayName, applicationId, projectIds],
+        SET display_name = COALESCE($1, display_name),
+            public_status_visible = COALESCE($2, public_status_visible)
+      WHERE id = $3 AND project_id = ANY($4)
+      RETURNING id, key, display_name, public_status_visible, created_at`,
+    [body.displayName ?? null, body.publicStatusVisible ?? null, applicationId, projectIds],
   );
   if (rows.length === 0) throw new NotFoundError('Application not found.');
 
@@ -94,6 +106,7 @@ export async function updateApplication(req: Request, res: Response): Promise<vo
     id: row.id,
     key: row.key,
     displayName: row.display_name,
+    publicStatusVisible: row.public_status_visible,
     createdAt: row.created_at,
   });
 }

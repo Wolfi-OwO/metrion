@@ -267,6 +267,34 @@ test('PATCH /applications/:id renames displayName; key is immutable and rejected
   assert.equal(updated.displayName, 'New Name');
 });
 
+test('PATCH /applications/:id toggles publicStatusVisible (finding 2), defaults false, an empty body is 400', async () => {
+  const cookie = await signInAs(`${marker}-viz`, `${marker}-viz@example.test`);
+  const project = await createProject(cookie, `${marker} Visibility Project`);
+  const app1 = await mustCreateApplication(cookie, project.id, 'viz-app', 'Viz App');
+  assert.equal(
+    (app1 as unknown as { publicStatusVisible: boolean }).publicStatusVisible,
+    false,
+    'a newly created application defaults to not publicly visible',
+  );
+
+  const empty = await fetch(`${baseUrl}/api/v1/applications/${app1.id}`, {
+    method: 'PATCH',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  assert.equal(empty.status, 400, 'a PATCH naming neither field must be rejected, not a silent no-op');
+
+  const toggled = await fetch(`${baseUrl}/api/v1/applications/${app1.id}`, {
+    method: 'PATCH',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ publicStatusVisible: true }),
+  });
+  assert.equal(toggled.status, 200);
+  const body = (await toggled.json()) as { publicStatusVisible: boolean; displayName: string };
+  assert.equal(body.publicStatusVisible, true);
+  assert.equal(body.displayName, 'Viz App', 'omitting displayName must leave it unchanged');
+});
+
 test('DELETE /applications/:id cascades dependencies and thresholds, and states metrics are kept', async () => {
   const cookie = await signInAs(`${marker}-e`, `${marker}-e@example.test`);
   const project = await createProject(cookie, `${marker} Delete Project`);

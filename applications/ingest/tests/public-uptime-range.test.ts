@@ -133,14 +133,17 @@ before(async () => {
   );
   unflaggedProjectId = unflagged.rows[0]!.id;
 
+  // All opted in (`public_status_visible = true`, finding 2) - this file
+  // exercises the project-level flag and the data itself, not the
+  // per-application opt-in, which gets its own dedicated test below.
   await fixturePool.query(
-    `INSERT INTO applications (project_id, key, display_name) VALUES
-       ($1, 'alpha', 'Alpha'), ($1, 'beta', 'Beta'), ($1, 'flappy', 'Flappy'),
-       ($1, 'live', 'Live'), ($1, 'silent', 'Silent')`,
+    `INSERT INTO applications (project_id, key, display_name, public_status_visible) VALUES
+       ($1, 'alpha', 'Alpha', true), ($1, 'beta', 'Beta', true), ($1, 'flappy', 'Flappy', true),
+       ($1, 'live', 'Live', true), ($1, 'silent', 'Silent', true)`,
     [flaggedProjectId],
   );
   await fixturePool.query(
-    `INSERT INTO applications (project_id, key, display_name) VALUES ($1, 'alpha', 'Alpha')`,
+    `INSERT INTO applications (project_id, key, display_name, public_status_visible) VALUES ($1, 'alpha', 'Alpha', true)`,
     [unflaggedProjectId],
   );
 
@@ -519,6 +522,49 @@ test('range: no sub_resource, no unflagged data, no application without uptime s
   // The unflagged project's alpha is all "down"; the flagged one's is not.
   assert.equal(appOf(body, 'alpha').buckets[2]!.upPct, 100);
   assert.equal(body.projectId, flaggedProjectId);
+});
+
+test('range: an application not opted in (public_status_visible default false) is absent even with real samples, and appears once toggled true (finding 2)', async () => {
+  // Mirrors an auto-registered resource: real ingest never sets
+  // public_status_visible, so it defaults false (packages/db/migrations,
+  // finding 2 - a leaked key could otherwise forge a public entry).
+  await fixturePool.query(
+    `INSERT INTO applications (project_id, key, display_name) VALUES ($1, $2, 'Not Opted In')`,
+    [flaggedProjectId, 'not-opted-in'],
+  );
+  await seed(
+    flaggedProjectId,
+    'not-opted-in',
+    'uptime.ok',
+    '2026-08-03T00:00Z',
+    '2026-08-10T23:59Z',
+    '1',
+  );
+  await fixturePool.query("SELECT refresh_uptime_rollup('2026-08-01T00:00Z', '2026-09-01T00:00Z')");
+
+  clearPublicRangeCache();
+  const before = JSON.parse(
+    await (await getRange(flaggedProjectId, '?from=2026-08-01&to=2026-08-31')).text(),
+  ) as RangeBody;
+  assert.equal(
+    before.applications.some((a) => a.key === 'not-opted-in'),
+    false,
+    'public_status_visible = false (the default) must hide it, sample or not',
+  );
+
+  await fixturePool.query(
+    'UPDATE applications SET public_status_visible = true WHERE project_id = $1 AND key = $2',
+    [flaggedProjectId, 'not-opted-in'],
+  );
+  clearPublicRangeCache();
+  const after = JSON.parse(
+    await (await getRange(flaggedProjectId, '?from=2026-08-01&to=2026-08-31')).text(),
+  ) as RangeBody;
+  assert.equal(
+    after.applications.some((a) => a.key === 'not-opted-in'),
+    true,
+    'toggling public_status_visible true must make it appear',
+  );
 });
 
 // ---- cache -----------------------------------------------------------------

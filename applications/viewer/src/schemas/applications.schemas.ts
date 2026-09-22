@@ -28,15 +28,28 @@ export const createApplicationSchema = z
   })
   .strict();
 
-/** `key` is immutable - it is the join to every historical `metrics.resource`
- * row already written, and renaming it would orphan all of them. This is the
- * only field a PATCH may ever carry, so it is the only key this schema
- * accepts at all rather than an optional one a caller could omit. */
+/**
+ * `key` is immutable - it is the join to every historical `metrics.resource`
+ * row already written, and renaming it would orphan all of them, so it is
+ * not one of the two fields a PATCH may carry.
+ *
+ * `publicStatusVisible` (finding 2, security review 2026-09-21) is the
+ * per-application opt-in the two public ingest endpoints gate on
+ * (`packages/db/migrations/0016_application_public_status_visible.sql`) -
+ * this is the one place a project owner can flip it, an explicit action
+ * rather than a side effect of ingest auto-registering a resource. Both
+ * fields are optional; at least one must be present, or a PATCH would be a
+ * silent no-op.
+ */
 export const updateApplicationSchema = z
   .object({
-    displayName: z.string().min(1).max(200),
+    displayName: z.string().min(1).max(200).optional(),
+    publicStatusVisible: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine((body) => body.displayName !== undefined || body.publicStatusVisible !== undefined, {
+    message: 'At least one of displayName or publicStatusVisible must be provided.',
+  });
 
 /** `PUT .../dependencies` replaces the whole set in one call - see
  * `handlers/applications.handlers.ts#replaceDependencies` for the

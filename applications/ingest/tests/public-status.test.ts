@@ -130,17 +130,21 @@ before(async () => {
 
   // Four registered applications, only three of which ever write `uptime.ok` -
   // `fuwwy-platform` mirrors the real gap organizational/uptime-sources.md
-  // measured, and must never appear in the response at all.
+  // measured, and must never appear in the response at all. All four are
+  // opted in (`public_status_visible = true`, finding 2) so exclusion in the
+  // tests below is attributable to what each test actually names (no
+  // samples, the project flag), not to the new per-application gate - that
+  // gate gets its own dedicated test further down.
   await fixturePool.query(
-    `INSERT INTO applications (project_id, key, display_name) VALUES
-       ($1, 'netviz', 'Network Visualizer'),
-       ($1, 'nutrilens', 'NutriLens'),
-       ($1, 'ml-visualizer', 'ML Visualizer'),
-       ($1, 'fuwwy-platform', 'Fuwwy Platform')`,
+    `INSERT INTO applications (project_id, key, display_name, public_status_visible) VALUES
+       ($1, 'netviz', 'Network Visualizer', true),
+       ($1, 'nutrilens', 'NutriLens', true),
+       ($1, 'ml-visualizer', 'ML Visualizer', true),
+       ($1, 'fuwwy-platform', 'Fuwwy Platform', true)`,
     [flaggedProjectId],
   );
   await fixturePool.query(
-    `INSERT INTO applications (project_id, key, display_name) VALUES ($1, 'netviz', 'Network Visualizer')`,
+    `INSERT INTO applications (project_id, key, display_name, public_status_visible) VALUES ($1, 'netviz', 'Network Visualizer', true)`,
     [unflaggedProjectId],
   );
 
@@ -454,4 +458,36 @@ test('GET .../uptime: a second request within 60s is served from cache without t
     flaggedProjectId,
   ]);
   assert.equal((await getUptime(flaggedProjectId)).status, 200);
+});
+
+test('GET .../uptime: an application not opted in (public_status_visible default false) is absent even with real recent samples, and appears once toggled true (finding 2)', async () => {
+  // Mirrors what `registerResources` (ingest.handlers.ts) does for real: any
+  // resource name a key sends gets an `applications` row auto-created, with
+  // no visibility opt-in. Before finding 2 this endpoint listed anything
+  // with a sample; a leaked key could forge a public "service" this way.
+  await fixturePool.query(
+    `INSERT INTO applications (project_id, key, display_name) VALUES ($1, $2, 'Not Opted In')`,
+    [flaggedProjectId, 'not-opted-in'],
+  );
+  await insertMetric(flaggedProjectId, 'not-opted-in', 'uptime.ok', 1, new Date());
+
+  clearPublicUptimeCache();
+  const before = (await (await getUptime(flaggedProjectId)).json()) as UptimeBody;
+  assert.equal(
+    before.applications.some((application) => application.key === 'not-opted-in'),
+    false,
+    'an application with public_status_visible = false (the default) must not appear, sample or not',
+  );
+
+  await fixturePool.query(
+    'UPDATE applications SET public_status_visible = true WHERE project_id = $1 AND key = $2',
+    [flaggedProjectId, 'not-opted-in'],
+  );
+  clearPublicUptimeCache();
+  const after = (await (await getUptime(flaggedProjectId)).json()) as UptimeBody;
+  assert.equal(
+    after.applications.some((application) => application.key === 'not-opted-in'),
+    true,
+    'toggling public_status_visible true must make it appear',
+  );
 });
