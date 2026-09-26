@@ -27,5 +27,5 @@ systemd-timer one-shot, next tick picks up the new code). See the delivery
 report for the exact systemd units and directory layout.
 
 The server-side paths and unit names still say `vps-metrics` even though
-the repo is now metrion - `organizational/deployment-runbook.md` records why
+the repo is now metrion - `organizational/agent-deployment-runbook.md` records why
 under "Why the server still says vps-metrics".
