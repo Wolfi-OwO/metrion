@@ -1,17 +1,17 @@
 import { fileURLToPath } from 'node:url';
 import type { MetricEnvelope, VpsSample } from '@metrion/shared';
-import { appendLine, dayBlobName } from './azure/append-blob-client.js';
 import { collectHostRequestStats } from './collectors/caddy-requests.js';
 import { collectContainerSamples } from './collectors/docker-containers.js';
 import { collectSystemSample } from './collectors/system.js';
 import { config } from './config/index.js';
 import { SampleQueue } from './lib/queue.js';
 import { toMetricEnvelopes } from './lib/to-metric-envelopes.js';
+import { sendEnvelopes } from './sink/http-post.js';
 
 /**
  * One run: collect everything, map it to `MetricEnvelope[]` (one JSONL line
  * per run, see ADR 0003), then flush the local queue (this new line
- * included) to Azure oldest-first. No `.listen()` in this app - it is a
+ * included) to the ingest endpoint oldest-first. No `.listen()` in this app - it is a
  * systemd-timer one-shot, not an HTTP service - so this is the whole
  * "startup file", run directly by the timer's ExecStart.
  * Pure collection/aggregation logic lives in `collectors/`/`lib/` and is
@@ -82,34 +82,28 @@ export async function collectAndSend(): Promise<{
 }
 
 /**
- * The UTC day a queued line belongs in. Handles both shapes on purpose: a
- * line written after the ADR 0003 cutover is an array of envelopes, but the
- * queue file on the live box can still hold pre-cutover object lines at the
- * moment the new build is deployed, and those are real undelivered samples.
- * Returns `null` for anything unparseable rather than throwing.
+ * A queued line is `JSON.stringify(MetricEnvelope[])` (`main.ts`'s own
+ * `queue.push` call below). Returns `null` for anything unparseable rather
+ * than throwing - the queue file on the live box could in principle still
+ * hold a line from before this sink existed at the moment a new build is
+ * deployed, and that must not wedge the flush.
  */
-function lineTimestamp(line: string): Date | null {
+function parseQueuedLine(line: string): MetricEnvelope[] | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(line);
   } catch {
     return null;
   }
-
-  const iso = Array.isArray(parsed)
-    ? (parsed as MetricEnvelope[])[0]?.metrics[0]?.timestamp
-    : (parsed as VpsSample).timestamp;
-
-  if (typeof iso !== 'string') return null;
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return Array.isArray(parsed) ? (parsed as MetricEnvelope[]) : null;
 }
 
 /**
  * Sends every queued line, oldest first, stopping at the first failure so
- * order is preserved and a down Azure doesn't get hammered once per queued
- * line every run. `flushBudgetMs` bounds how long one run can spend on
- * this so a slow/degraded Azure never eats into the next minute's timer.
+ * order is preserved and a down ingest endpoint doesn't get hammered once
+ * per queued line every run. `flushBudgetMs` bounds how long one run can
+ * spend on this so a slow/degraded ingest endpoint never eats into the next
+ * minute's timer.
  */
 async function flushQueue(queue: SampleQueue): Promise<void> {
   const budgetEndsAt = Date.now() + config.queue.flushBudgetMs;
@@ -118,32 +112,29 @@ async function flushQueue(queue: SampleQueue): Promise<void> {
 
   for (const line of lines) {
     if (Date.now() >= budgetEndsAt) break;
-    const timestamp = lineTimestamp(line);
-    if (timestamp === null) {
+    const envelopes = parseQueuedLine(line);
+    if (envelopes === null) {
       // Dropped, not fatal - same policy as `SampleQueue.readAll`. Throwing
       // here would abort the flush before `replaceAll` runs, so one bad line
       // would wedge the queue permanently and nothing would ever be
       // delivered again.
-      console.error('Dropping a queued line with no usable timestamp.');
+      console.error('Dropping a queued line that is not a valid envelope array.');
       sentCount += 1;
       continue;
     }
-    const blobName = dayBlobName(timestamp);
     try {
-      await appendLine(
+      await sendEnvelopes(
         {
-          storageAccount: config.azure.storageAccount,
-          container: config.azure.container,
-          sasToken: config.azure.sasToken,
-          timeoutMs: config.azure.sendTimeoutMs,
+          ingestUrl: config.ingest.url,
+          apiKey: config.ingest.apiKey,
+          timeoutMs: config.ingest.sendTimeoutMs,
         },
-        blobName,
-        line,
+        envelopes,
       );
       sentCount += 1;
     } catch (error) {
       console.error(
-        `Azure send failed, ${lines.length - sentCount} sample(s) staying queued: ${(error as Error).message}`,
+        `Ingest send failed, ${lines.length - sentCount} sample(s) staying queued: ${(error as Error).message}`,
       );
       break;
     }

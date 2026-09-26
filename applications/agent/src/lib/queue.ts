@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * A local, append-only line queue for samples Azure hasn't accepted yet.
+ * A local, append-only line queue for samples the ingest endpoint hasn't accepted yet.
  * Bounded (`maxLines`, FIFO-evict-oldest) so a long outage degrades to
  * "lost the oldest minutes" instead of an unbounded file - see
  * `config.queue.maxLines` for the exact number and why.
