@@ -2,7 +2,7 @@
   "name": "metrion",
   "version": "0.2.0",
   "private": true,
-  "description": "Minute-by-minute VPS resource metrics, collected on the Contabo box and pushed to Azure Blob Storage. The collector is the one source of truth these numbers come from; the viewer (Azure Container App) reads them back and is a follow-up project.",
+  "description": "A small multi-tenant metrics platform: any application, in any language, POSTs numbers to one authenticated ingest endpoint, which writes them to Postgres/TimescaleDB; a viewer reads them back as charts.",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=18.19"

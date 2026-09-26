@@ -1,12 +1,10 @@
 # viewer
 
-The Azure Container App (`minReplicas: 0`, `maxReplicas: 1`) that reads the
-day-blobs `applications/agent` writes to `<YYYY-MM-DD>.jsonl` in Azure
-Blob Storage and serves them. The collector never talks to this app - it
-writes to the blob directly (see the root README and
-`docs/adr/0001-*.md` for why). That container is still named `vps-metrics`
-even though the repo is now metrion - see "Why the server still says
-vps-metrics" in `organizational/agent-deployment-runbook.md`.
+The Azure Container App (`minReplicas: 0`, `maxReplicas: 1`) that reads
+back the metrics written to Postgres/TimescaleDB by the ingest service
+(`applications/ingest`) and serves them. That container is still named
+`vps-metrics` even though the repo is now metrion - see "Why the server
+still says vps-metrics" in `organizational/agent-deployment-runbook.md`.
 
 This is also the one place the planned overload alarm and the
 `status.woofi-developments.at` CPU/RAM tiles should read from - see
