@@ -1,45 +1,49 @@
 # metrion
 
-The server supervision platform for my infrastructure. Today that is one
-metrics pipeline for my Contabo VPS: a collector that reads CPU, RAM,
-disk, network throughput, per-container stats and per-hostname request
-counts off the box once a minute and ships them to Azure Blob Storage, and
-a viewer that reads them back - a public read API, an API documentation
-site at `/docs`, an authenticated ingest endpoint, and a React charts
-client.
+A small multi-tenant metrics platform: any application, in any language,
+`POST`s numbers to one authenticated ingest endpoint; a viewer reads them
+back as charts. It started as a single-purpose collector for my own Contabo
+VPS and grew a real write API once a second use case (uptime checks from
+`portfolio-webpage`'s status page, see `docs/adr/0007-*.md`) needed the same
+pipeline instead of its own.
 
-The deploy path, state directory, systemd units and the Azure container on
-the live box all still carry the old `vps-metrics` name; see
-`organizational/deployment-runbook.md` for why they were deliberately left
-alone.
+New to this - send your first metric in under five minutes with
+[`docs/quickstart/`](docs/quickstart/), one complete copy-pasteable program
+per language, no SDK required.
 
 I built it because three separate things were about to measure the same
-numbers independently (this collector, a planned overload alarm, and a
+numbers independently (the VPS collector, a planned overload alarm, and a
 planned CPU/RAM tile on my status page) - see
 `docs/adr/0002-one-metrics-source.md` for why that's exactly the kind of
 bug I've hit before and why there's now exactly one source instead.
 
 ## Features
 
-- Minute-by-minute CPU%, load average, honest RAM usage (not the classic
+- One authenticated write path, `POST /api/v1/ingest`
+  (`applications/ingest`), that any sender can use with nothing but an HTTP
+  client and a per-project API key (`mtr_<prefix>_<secret>`) - no SDK
+  published or implied. Tenancy is resolved from the key alone, never from
+  request content - see `docs/adr/0005-api-key-determines-tenancy.md`.
+- A generic metric envelope (`docs/adr/0003-generic-metric-envelope.md`):
+  `{ resource, subResource?, metrics: [{ name, value, unit, timestamp,
+intervalSeconds }] }`. The same shape covers a VPS's CPU%, a container's
+  restart count, a website's request latency, or an uptime check's `ok`/`0`
+  boolean - see the uptime convention in `docs/quickstart/README.md`.
+- Writes land in Postgres/TimescaleDB (`docs/adr/0004-postgres-timescaledb-over-append-blob.md`)
+  - a real hypertable with continuous aggregates and retention policies,
+    not a growing pile of blobs.
+- A viewer (`applications/viewer`) that reads it back: a public query API, a
+  React charts client on one shared time axis, and an OpenAPI documentation
+  site at `/docs` generated from the same zod schemas the API validates
+  with.
+- The original VPS collector (`applications/agent`) still runs as the
+  reference sender: CPU%, load average, honest RAM usage (not the classic
   `free`-double-counts-cache mistake), root disk usage, Docker's own disk
-  footprint (images/volumes/build-cache), network throughput on the box's
-  real uplink, per-container CPU/RAM-vs-limit/restarts/OOM status, and
-  per-hostname request counts/status codes/latency from Caddy's access log.
+  footprint, network throughput, per-container stats, and per-hostname
+  request counts/status codes/latency from Caddy's access log, reported to
+  the ingest endpoint once a minute.
 - No client IPs, no user agents, no request paths/query strings anywhere in
   the pipeline - see the delivery report's Privacy section.
-- Zero runtime dependencies in the collector: stdlib `http`/`fs`/`os` only,
-  including talking to the Docker Engine API and Azure's Blob REST API
-  directly over their own protocols. Nothing to `npm install` on the VPS.
-- Local queue with a bounded retry buffer if Azure is briefly unreachable -
-  minutes aren't lost, and the buffer can't grow without limit either.
-- A viewer that reads the day-blobs back: a public query API, a React
-  charts client on one shared time axis, an OpenAPI documentation site at
-  `/docs` generated from the same zod schemas the API validates with, and a
-  token-authenticated ingest endpoint for senders that have no blob SAS.
-- Both wire formats readable side by side: the viewer detects per blob line
-  whether it is a pre-cutover sample or a `MetricEnvelope[]`, so a chart
-  spanning the switch is continuous - see `docs/adr/0003-*.md`.
 
 ## Tech stack
 
@@ -47,28 +51,41 @@ TypeScript/Node, npm workspaces - matching every other project in
 `software-engineering/projects/web-apps/`.
 
 The **collector** is deployed as a systemd timer, not a container - see
-`organizational/deployment-runbook.md` for why (no image builds on the VPS,
+`organizational/agent-deployment-runbook.md` for why (no image builds on the VPS,
 and Node's own `apt` package is already there). It runs on Node 18.19,
 which is what Ubuntu 24.04 ships, so the root `engines` floor stays there.
+
+The **ingest** service is Express 4 + zod 4 on Node 22
+(`applications/ingest`) - the one write path, deployed as its own container
+on the VPS behind Caddy (`https://metrion-ingest.woofi-developments.at`; moved
+off Azure Container Apps on 2026-09-20, see `docs/adr/0008-*.md`) so a schema
+bug in it can never take the read side down.
 
 The **viewer** is Express 4 + zod 4 on Node 22, with a React 19 / Vite /
 Recharts client, built into one image and hosted on Azure Container Apps at
 `minReplicas: 0`. The server serves the client's assets itself: one image,
 one origin, no CORS in production and one thing to deploy.
 
+Both apps and the collector share `packages/db` (raw `pg`, hand-written
+`.sql` migrations - hypertables and continuous aggregates aren't
+expressible in an ORM's schema DSL) and `packages/shared` (the
+`MetricEnvelope` wire format).
+
 ## Project structure
 
 ```
 applications/
-├── agent/         the minute-by-minute collector - this project
-└── viewer/        the Azure Container App that reads the data back:
-                    read API, /docs, ingest endpoint, and client/ (React
-                    charts)
+├── agent/         the minute-by-minute VPS collector - the reference sender
+├── ingest/        the one write path: POST /api/v1/ingest, API-key auth
+└── viewer/        the read side: query API, /docs, client/ (React charts)
 packages/
-└── shared/        MetricEnvelope - the wire format both sides agree on
-docs/adr/          architecture decisions (storage type, one metrics source,
-                    the generic envelope)
-organizational/    the deployment runbook
+├── db/            Postgres/TimescaleDB schema, migrations, connection pool
+└── shared/        MetricEnvelope - the wire format every app agrees on
+docs/
+├── adr/           architecture decisions (storage type, one metrics source,
+│                  the generic envelope, tenancy, uptime-as-metrics)
+└── quickstart/    send your first metric in any language, no SDK
+organizational/    deployment runbooks
 .github/workflows/ lint, format, typecheck, build and test on every push
 ```
 
@@ -77,11 +94,37 @@ organizational/    the deployment runbook
 ```bash
 npm install
 npm run typecheck
-npm test          # every workspace: agent, viewer, client
+npm test          # every workspace: agent, ingest, viewer, client
 npm run lint && npm run format:check
 ```
 
-Run the collector locally without a real Azure SAS token:
+Bring up Postgres/TimescaleDB and run the migrations:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+npm run build --workspace @metrion/db
+npm run migrate --workspace @metrion/db
+```
+
+Run the ingest service - see `docs/quickstart/` for a first metric in any
+language:
+
+```bash
+cd applications/ingest
+cp .env.example .env
+npm start   # http://127.0.0.1:8090
+```
+
+Run the viewer:
+
+```bash
+cd applications/viewer
+cp .env.example .env
+npm start   # http://127.0.0.1:8080
+npm --workspace @metrion/viewer-client run dev   # the client, on Vite
+```
+
+Run the collector locally without a real Metrion API key:
 
 ```bash
 cd applications/agent
@@ -89,30 +132,21 @@ cp .env.example .env   # then set DRY_RUN=true
 node --env-file=.env dist/main.js
 ```
 
-Run the viewer. `INGEST_TOKEN` is required - it refuses to start without
-one, because booting without it would expose an unauthenticated write path:
-
-```bash
-cd applications/viewer
-cp .env.example .env
-INGEST_TOKEN=$(openssl rand -hex 32) npm start   # http://127.0.0.1:8080
-npm --workspace @metrion/viewer-client run dev   # the client, on Vite
-```
-
-Or build the whole thing as the single image that is actually deployed.
-Note it builds from the repository root, because npm workspaces need the
-root manifest and lockfile:
+Or build the viewer as the single image that is actually deployed. Note it
+builds from the repository root, because npm workspaces need the root
+manifest and lockfile:
 
 ```bash
 docker build -f applications/viewer/Dockerfile -t metrion-viewer .
-docker run --rm -p 8080:8080 -e INGEST_TOKEN=dummy metrion-viewer
+docker run --rm -p 8080:8080 metrion-viewer
 ```
 
 ## Security
 
-The VPS-side SAS token is scoped to exactly one container, with
-add+create permissions only (no read/list/delete) - never the storage
-account key. See `SECURITY.md` and the delivery report's Secrets section.
+Every write to `/api/v1/ingest` is authenticated with a per-project API key
+(`mtr_<prefix>_<secret>`); the secret is only ever checked against a hash,
+never stored or logged in the clear. See `SECURITY.md` and
+`docs/adr/0005-api-key-determines-tenancy.md`.
 
 ## Legal
 

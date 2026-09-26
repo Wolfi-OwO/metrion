@@ -13,6 +13,9 @@ at all. The ingest service fills in `resource` from the project's own
 sender that only ever reports for one project never has to know or send its
 own name.
 
+Every request needs `Authorization: Bearer mtr_<prefix>_<secret>` - `API_KEY`
+below is that token, key prefix and secret together.
+
 ## The script
 
 ```bash
