@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { pino } from 'pino';
 import { pinoHttp } from 'pino-http';
 import { config } from './config/index.js';
+import { canonicalHost } from './middlewares/canonical-host.js';
 import { errorHandler, notFound } from './middlewares/error.js';
 import { sameOrigin } from './middlewares/same-origin.js';
 import {
@@ -51,6 +52,12 @@ app.set('trust proxy', 1);
 // request path at all. Do not switch this back to `extended` without a
 // parameter that genuinely needs nesting.
 app.set('query parser', 'simple');
+
+// Before everything else, including auth: a request on the old default
+// hostname must never reach `/auth/*` and set a `__Host-` cookie there that
+// can never survive the redirect back from the provider. See
+// `middlewares/canonical-host.ts`.
+app.use(canonicalHost);
 
 app.use(helmet());
 
