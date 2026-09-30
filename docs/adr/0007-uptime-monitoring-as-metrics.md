@@ -200,4 +200,19 @@ without Metrion special-casing whoever showed up first. This belongs in the
 ingest quickstart docs (issue #10, already amended in a prior round to
 carry this exact convention) rather than living only in this ADR and this
 codebase's own agent.
+
+### 2026-09-30: uptime monitoring turned out to be the forcing function for the threshold/evaluator work
+
+Everything that made `applications/evaluator` worth finishing in this round
+- the duplicate-writer bug (Task 6), the false-alarm-prone default
+threshold values (Task 7, `applications/evaluator/tests/uptime-alerting.test.ts`),
+production values actually matching what was proven (Task 8,
+`organizational/uptime-alerting.md`), and the first real dry-run deployment
+(Task 9) - was uptime, not any of the container-resource metrics this ADR's
+envelope was originally designed to carry. `uptime.ok`'s 0/1 shape made the
+false-alarm mechanism (a window mean with too few samples) both easy to get
+wrong and easy to prove correct once tested; CPU/memory thresholds, already
+seeded and unaffected by any of this round's tasks, never surfaced the same
+problem because their bounds aren't derived from an average of a boolean
+series.
 </content>
