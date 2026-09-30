@@ -167,12 +167,7 @@ export default function DashboardRoute({
 
           {failed && (
             <div className={SECTION}>
-              <ErrorState
-                error={projects.error!}
-                onRetry={projects.reload}
-                what="groups"
-                framed
-              />
+              <ErrorState error={projects.error!} onRetry={projects.reload} what="groups" framed />
             </div>
           )}
 

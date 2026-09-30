@@ -17,9 +17,7 @@ export default function NotFoundRoute() {
         <p className="text-display font-semibold tracking-tight text-line-strong">404</p>
         <div className="mt-4 max-w-prose">
           <Heading level="h1">There is nothing at this address</Heading>
-          <Body>
-            It may have moved, or the link was mistyped. Your groups are one click away.
-          </Body>
+          <Body>It may have moved, or the link was mistyped. Your groups are one click away.</Body>
           <Link to="/" className={buttonClassName('primary', 'default', 'mt-6')}>
             Back to your groups
           </Link>

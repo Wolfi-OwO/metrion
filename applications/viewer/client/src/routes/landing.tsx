@@ -241,8 +241,8 @@ export default function LandingRoute() {
               </h2>
               <p className="mt-2 max-w-prose text-body text-ink-2">
                 One authenticated POST per minute per host. No agent lock-in: anything that can run
-                curl can report. Sign in, create a group, then mint a key from its Settings tab -
-                it is shown once.
+                curl can report. Sign in, create a group, then mint a key from its Settings tab - it
+                is shown once.
               </p>
             </div>
             <CodeSnippet />

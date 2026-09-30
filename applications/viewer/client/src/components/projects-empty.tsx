@@ -78,9 +78,9 @@ export function ProjectsEmpty({ onCreate, creating }: { onCreate: () => void; cr
             Create your first group
           </h2>
           <p className="mt-2 max-w-prose text-body text-ink-2">
-            A group is one environment you want to watch. It owns the API keys and the
-            applications behind them: a collector on your server posts metrics with a key, and the
-            group turns them into health, thresholds and charts.
+            A group is one environment you want to watch. It owns the API keys and the applications
+            behind them: a collector on your server posts metrics with a key, and the group turns
+            them into health, thresholds and charts.
           </p>
           {!creating && (
             <Button className="mt-6" variant="primary" onClick={onCreate}>
