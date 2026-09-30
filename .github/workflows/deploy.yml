@@ -47,8 +47,14 @@ jobs:
   # allowlisting them on the VPS firewall isn't workable (see the runbook's
   # own note on why the Container Apps side needed a tunnel for the same
   # reason).
+  # `branches: [main]` above matches the triggering CI run's head-branch
+  # NAME, not its repo. ci.yml also runs on pull_request, so once this repo
+  # is public a fork PR from a branch literally named `main` whose CI
+  # passes would satisfy that filter and start this job. Require the CI run
+  # to have been a push (not a pull_request) on this repo's own `main`,
+  # never a fork's.
   migrate:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
 
     steps:
@@ -90,7 +96,7 @@ jobs:
 
   deploy:
     needs: migrate
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
 
     strategy:
