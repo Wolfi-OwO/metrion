@@ -248,12 +248,27 @@ const ROWS = [
     note: 'window-mean p95_of_means=2.7, p99_of_means=6.8 (7-day, 300s buckets)',
   },
 
-  // --- uptime.ok: maps the codebase's existing severityFor convention
-  // (operational<0.5% down, minor 0.5-5%, major 5-20%, critical>20% down)
-  // onto a window mean. 0.995 = 0.5% down (minor), 0.80 = 20% down
-  // (critical). window_seconds=900, not 300: at ~1 sample/min that's ~15
-  // samples, so a single failed check reads ~0.933 (a warning, correctly),
-  // not misread as worse from too few samples.
+  // --- uptime.ok: tuned and proven by
+  // applications/evaluator/tests/uptime-alerting.test.ts, not derived from
+  // the severityFor convention this originally copied. That convention's
+  // 0.995 warning bound FAILS the issue's own requirement: at the real
+  // measured cadence (Task 6, organizational/uptime-sources.md, 1
+  // sample/minute per key) a window_seconds=900 window holds 15 samples, so
+  // one single failed check among otherwise-passing ones reads
+  // avg=14/15=0.9333 - already below 0.995, so a single flap would have
+  // sent a false warning email every time. The GitHub issue's own suggested
+  // 300s/0.99 has the identical problem at 5 samples (one flap = 0.8,
+  // still below 0.99).
+  //
+  // warning=0.9 keeps a single flap (0.9333) inside 'ok'. critical=0.8 and
+  // consecutive_breaches=2 (the thresholds table's own schema default,
+  // unchanged) together collapse a growing outage's warning-then-critical
+  // ramp into exactly one committed transition (hysteresis commits on
+  // whatever the candidate is once two consecutive cycles differ from the
+  // stored state, not once per distinct candidate value) and recovery's
+  // critical-then-warning-then-ok ramp into exactly one recovery
+  // transition - both proven in the test file above, not just asserted
+  // here.
   ...[
     'netviz',
     'ml-visualizer',
@@ -267,11 +282,11 @@ const ROWS = [
     sub: null,
     metric: 'uptime.ok',
     direction: 'below',
-    warning: 0.995,
+    warning: 0.9,
     critical: 0.8,
     window: 900,
     enabled: true,
-    note: 'severityFor convention: 0.995=0.5% down (minor), 0.80=20% down (critical); window_seconds=900 so one failed check != worse than warning',
+    note: 'proven by applications/evaluator/tests/uptime-alerting.test.ts at the real 1/minute cadence: warning=0.9 keeps one flapped check (avg 0.9333) in ok; critical=0.8 + consecutive_breaches=2 (schema default) give exactly one email for a sustained outage and exactly one recovery email',
   })),
 
   // --- uptime.latency: re-derived from window-mean percentiles, same
