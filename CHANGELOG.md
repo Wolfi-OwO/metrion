@@ -1,5 +1,52 @@
 # Changelog
 
+## v0.3.0 - 2026-09-30
+
+Platform release: root, agent, ingest, evaluator, shared and db packages go to
+0.3.0; the viewer and its client go to 0.5.0 (next minor of their own line).
+
+- Uptime history is permanent (ADR 0009): ingest writes every uptime point to
+  `uptime_samples` as well as `metrics` in one transaction, a database job
+  rebuilds daily and incident rollups every 10 minutes, and a scratch-database
+  test proves dropping metrics chunks cannot erase that history.
+- Ingest serves a public uptime range endpoint with bucketing, incidents and
+  an LRU cache.
+- Breaking: the public uptime endpoints only list applications opted in via
+  `public_status_visible` (migration 0016, default off); the portfolio's seven
+  real monitors are opted in, and the viewer's application PATCH can toggle it.
+- Ingest caps each API key at 10,000 permanent uptime rows per hour and answers
+  429 beyond that; `scripts/purge-uptime.mjs` is the superuser-only delete path.
+  Resource registration is one query instead of one insert per resource.
+- The uptime rollup's incident lookback is floored at 30 days and its functions
+  pin `search_path` and no longer grant EXECUTE to `PUBLIC`.
+- Portfolio uptime history was backfilled from Mongo: once into the permanent
+  store (script deleted after the run) and 90 days into the metrics hypertable
+  (issue #27), keyed by each monitor's live `metrionKey` and clamped to each
+  resource's live-write start so nothing is duplicated.
+- Alerting: production thresholds are seeded for Applications Server 01, and
+  the `uptime.ok` warning bound moved from 0.995 to 0.9 so a single flapped
+  check stays silent while a real outage sends exactly one email.
+- Breaking for agent installs: the VPS agent POSTs to Metrion's ingest endpoint
+  instead of the deleted Azure append blob and no longer needs the `AZURE_*`
+  settings.
+- Viewer: the dashboard was rebuilt around an overview band, per-group health
+  and activity, a filter and a first-run state, backed by a new owner-scoped
+  projects summary endpoint; the status screen, metric strips and API key
+  screen were reworked; a saved light theme, Rethink Sans and Chivo Mono type,
+  44px phone controls and a pinned footer with a Legal menu landed.
+- Viewer copy: the dashboard's "Project" grouping is now "Group", and the scope
+  picker's "Whole server" is now "Whole host".
+- The viewer redirects its old default Azure hostname to
+  `metrion.woofi-developments.at` before an OAuth login starts, since the
+  host-only login cookie could never complete across hosts.
+- Deploy only runs for a CI push on this repository's own `main`, closing the
+  path where a fork PR branch named `main` could start a deploy.
+- Privacy Policy and Terms of Use gained the uptime-history storage, retention
+  and erasure terms, and their locality was corrected to Fürnitz.
+- The VPS uptime checker was retired; the Azure Function is the single writer
+  for netviz, nutrilens and portfolio uptime. The README was rewritten around
+  the ingest write path with per-language quickstarts.
+
 ## v0.2.0 - 2026-09-20
 
 Platform release: root, agent, ingest, evaluator, shared and db packages go to

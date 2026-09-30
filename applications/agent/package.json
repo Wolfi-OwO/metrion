@@ -1,6 +1,6 @@
 {
   "name": "@metrion/agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Runs once a minute (systemd timer), reads CPU/RAM/disk/network/container/Caddy-request metrics off the box, and POSTs one envelope array to Metrion's ingest endpoint. Zero runtime dependencies on purpose - stdlib fs/os and global fetch only - so there is nothing to `npm install` on the VPS.",
   "type": "module",
