@@ -224,7 +224,7 @@ export default function LandingRoute() {
               <div className="mt-8 max-w-lg">
                 <SignInButtons />
                 <p className="mt-4 text-label text-ink-3">
-                  Signing in creates your account. Then: a project, an API key, one curl.
+                  Signing in creates your account. Then: a group, an API key, one curl.
                 </p>
               </div>
             </div>
@@ -241,7 +241,7 @@ export default function LandingRoute() {
               </h2>
               <p className="mt-2 max-w-prose text-body text-ink-2">
                 One authenticated POST per minute per host. No agent lock-in: anything that can run
-                curl can report. Sign in, create a project, then mint a key from its Settings tab -
+                curl can report. Sign in, create a group, then mint a key from its Settings tab -
                 it is shown once.
               </p>
             </div>

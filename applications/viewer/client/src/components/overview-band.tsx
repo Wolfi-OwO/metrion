@@ -103,7 +103,7 @@ export function OverviewBand({
               {verdict.headline}
             </h2>
             <p className="truncate text-label text-ink-3">
-              {plural(totals.projects, 'project')} · {plural(totals.applications, 'application')}
+              {plural(totals.projects, 'group')} · {plural(totals.applications, 'application')}
             </p>
           </div>
         </div>
@@ -162,7 +162,7 @@ export function OverviewBand({
  * box (absolute, so it adds no height): the copy is honest about the 5-15 s
  * wait, and the counter keeps it obviously alive when reduced motion stops the
  * sweep. The status element is always mounted so a screen reader hears the
- * change from "Loading projects" to the wake notice.
+ * change from "Loading groups" to the wake notice.
  */
 export function OverviewBandSkeleton({ waking, seconds }: { waking: boolean; seconds: number }) {
   return (
@@ -223,7 +223,7 @@ export function OverviewBandSkeleton({ waking, seconds }: { waking: boolean; sec
             </div>
           </>
         ) : (
-          'Loading projects'
+          'Loading groups'
         )}
       </div>
     </BandFrame>

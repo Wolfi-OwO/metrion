@@ -50,7 +50,7 @@ export function StatusEventsPanel({
         return (
           <li key={event.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
             <span className="min-w-0 text-body font-medium text-ink">
-              {app ? (app.displayName ?? app.key) : 'Project-wide'}
+              {app ? (app.displayName ?? app.key) : 'Group-wide'}
             </span>
             <span className="font-mono text-meta text-ink-3">{event.metricName}</span>
             <span className="flex items-center gap-2">

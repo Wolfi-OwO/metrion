@@ -144,7 +144,7 @@ function ThresholdEditor({
             onChange={(event) => setApplicationId(event.target.value)}
             className={CONTROL_CLASS}
           >
-            <option value="">Whole project (every application)</option>
+            <option value="">Whole group (every application)</option>
             {applications.map((app) => (
               <option key={app.id} value={app.id}>
                 {app.displayName ?? app.key}
@@ -161,7 +161,7 @@ function ThresholdEditor({
               ? (applications.find((app) => app.id === existing.applicationId)?.displayName ??
                 applications.find((app) => app.id === existing.applicationId)?.key ??
                 existing.applicationId)
-              : 'the whole project'}
+              : 'the whole group'}
           </span>
           . Which application a threshold covers cannot be changed after it is created - delete and
           re-create it under a different one if that is what is needed.
@@ -358,7 +358,7 @@ function ThresholdRow({
     ? (applications.find((app) => app.id === threshold.applicationId)?.displayName ??
       applications.find((app) => app.id === threshold.applicationId)?.key ??
       threshold.applicationId)
-    : 'Whole project';
+    : 'Whole group';
 
   const bound = (value: number | null) => (value === null ? 'unset' : value);
 

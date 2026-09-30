@@ -47,12 +47,12 @@ function RowEcho() {
 
 const STEPS = [
   {
-    title: 'Create a project',
+    title: 'Create a group',
     body: 'One per environment: production, staging, a home lab.',
   },
   {
     title: 'Create an API key',
-    body: 'On the project’s Settings tab. The full key is shown once, so copy it then.',
+    body: 'On the group’s Settings tab. The full key is shown once, so copy it then.',
   },
   {
     title: 'Post a metric',
@@ -75,16 +75,16 @@ export function ProjectsEmpty({ onCreate, creating }: { onCreate: () => void; cr
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
         <div className="order-last p-6 lg:order-first lg:p-8">
           <h2 id="first-run-title" className="text-page font-semibold tracking-tight text-ink">
-            Create your first project
+            Create your first group
           </h2>
           <p className="mt-2 max-w-prose text-body text-ink-2">
-            A project is one environment you want to watch. It owns the API keys and the
+            A group is one environment you want to watch. It owns the API keys and the
             applications behind them: a collector on your server posts metrics with a key, and the
-            project turns them into health, thresholds and charts.
+            group turns them into health, thresholds and charts.
           </p>
           {!creating && (
             <Button className="mt-6" variant="primary" onClick={onCreate}>
-              New project
+              New group
             </Button>
           )}
         </div>

@@ -18,10 +18,10 @@ export default function NotFoundRoute() {
         <div className="mt-4 max-w-prose">
           <Heading level="h1">There is nothing at this address</Heading>
           <Body>
-            It may have moved, or the link was mistyped. Your projects are one click away.
+            It may have moved, or the link was mistyped. Your groups are one click away.
           </Body>
           <Link to="/" className={buttonClassName('primary', 'default', 'mt-6')}>
-            Back to your projects
+            Back to your groups
           </Link>
         </div>
       </main>

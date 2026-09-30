@@ -54,7 +54,7 @@ function CreateProjectForm({
         onCreated();
       })
       .catch((cause: unknown) => {
-        setSubmitError(cause instanceof ApiError ? cause.message : 'Could not create the project.');
+        setSubmitError(cause instanceof ApiError ? cause.message : 'Could not create the group.');
       })
       .finally(() => setSubmitting(false));
   };
@@ -66,7 +66,7 @@ function CreateProjectForm({
     >
       <Field
         id="project-name"
-        label="Project name"
+        label="Group name"
         type="text"
         value={name}
         onChange={(event) => setName(event.target.value)}
@@ -75,7 +75,7 @@ function CreateProjectForm({
         inputClassName="w-full sm:w-72"
       />
       <Button type="submit" loading={submitting}>
-        {submitting ? 'Creating…' : 'Create project'}
+        {submitting ? 'Creating…' : 'Create group'}
       </Button>
       <Button variant="quiet" onClick={onCancel}>
         Cancel
@@ -145,11 +145,11 @@ export default function DashboardRoute({
       <main className="flex-1">
         <div className="enter page py-8">
           <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-3 md:min-h-9">
-            <h1 className="mr-auto text-page font-semibold tracking-tight text-ink">Projects</h1>
+            <h1 className="mr-auto text-page font-semibold tracking-tight text-ink">Groups</h1>
             {filterable && <ProjectFilter inputRef={filterRef} query={query} onChange={setQuery} />}
             {showNew && (
               <Button variant="primary" onClick={() => setShowForm(true)}>
-                New project
+                New group
               </Button>
             )}
           </div>
@@ -170,7 +170,7 @@ export default function DashboardRoute({
               <ErrorState
                 error={projects.error!}
                 onRetry={projects.reload}
-                what="projects"
+                what="groups"
                 framed
               />
             </div>
@@ -245,7 +245,7 @@ function Loaded({
             className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-surface border border-dashed border-line-strong px-4 py-2"
           >
             <p className="text-label text-ink-2">
-              Health and activity could not be loaded, so they are left out. Every project is still
+              Health and activity could not be loaded, so they are left out. Every group is still
               listed.
             </p>
             <Button variant="quiet" onClick={onRetrySummary}>
@@ -258,7 +258,7 @@ function Loaded({
       {/* Announced, not shown: the list itself is the visible result. */}
       {query.trim() !== '' && (
         <p role="status" className="sr-only">
-          {shown.length} of {projects.length} projects match
+          {shown.length} of {projects.length} groups match
         </p>
       )}
 
@@ -268,10 +268,10 @@ function Loaded({
         ) : (
           <div className="rounded-surface border border-dashed border-line-strong px-6 py-8">
             <p className="text-heading font-semibold tracking-tight text-ink">
-              No project matches “{query.trim()}”
+              No group matches “{query.trim()}”
             </p>
             <p className="mt-1 text-body text-ink-2">
-              Filtering looks at names and slugs. All {projects.length} projects are still there.
+              Filtering looks at names and slugs. All {projects.length} groups are still there.
             </p>
             <Button className="mt-4" onClick={onClearQuery}>
               Clear filter
@@ -295,14 +295,14 @@ function ProjectFilter({
   return (
     <div className="relative order-last w-full sm:order-none sm:w-72">
       <label htmlFor="project-filter" className="sr-only">
-        Filter projects by name or slug
+        Filter groups by name or slug
       </label>
       <input
         id="project-filter"
         ref={inputRef}
         type="search"
         value={query}
-        placeholder="Filter projects"
+        placeholder="Filter groups"
         autoComplete="off"
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {

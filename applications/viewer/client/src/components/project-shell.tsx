@@ -52,13 +52,13 @@ export function ProjectHeader({
             to="/"
             className="inline-flex min-h-11 items-center transition-colors duration-(--duration-fast) hover:text-ink md:min-h-0"
           >
-            Projects
+            Groups
           </Link>
           <span aria-hidden="true">/</span>
           <span className="truncate text-ink">{projectName ?? '…'}</span>
         </nav>
       </AccountBar>
-      <nav aria-label="Project sections" className="page flex gap-x-6">
+      <nav aria-label="Group sections" className="page flex gap-x-6">
         {TABS.map((tab) => (
           <NavLink
             key={tab.label}
@@ -145,11 +145,11 @@ export function ProjectShell({
         {header}
         <main className="flex-1">
           <Panel>
-            <Heading>Project not found</Heading>
+            <Heading>Group not found</Heading>
             <Body>
               It may have been removed, or it belongs to a different account.{' '}
               <Link to="/" className="text-accent hover:underline">
-                Back to your projects
+                Back to your groups
               </Link>
               .
             </Body>

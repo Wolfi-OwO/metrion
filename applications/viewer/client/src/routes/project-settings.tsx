@@ -309,7 +309,7 @@ export default function ProjectSettingsRoute() {
             {!keysError && !keysLoading && keys.length === 0 && !justCreated && (
               <div className="rounded-surface border border-dashed border-line-strong px-6 py-8">
                 <h3 className="text-heading font-semibold tracking-tight text-ink">
-                  No keys for this project yet
+                  No keys for this group yet
                 </h3>
                 <p className="mt-2 max-w-prose text-body text-ink-2">
                   A collector needs one to send metrics here. The key is shown once, right after you

@@ -26,7 +26,7 @@ export function ListHeader() {
       aria-hidden="true"
       className={`hidden items-center gap-x-6 border-b border-line px-6 py-2 xl:grid ${COLUMNS}`}
     >
-      <span className={cell}>Project</span>
+      <span className={cell}>Group</span>
       <span className={cell}>Health</span>
       <span className={cell}>Applications</span>
       <span className={cell}>Last 24 h</span>
@@ -154,7 +154,7 @@ export function ProjectList({
     <>
       <div className={LIST}>
         <ListHeader />
-        <ul aria-label="Projects" className="divide-y divide-line">
+        <ul aria-label="Groups" className="divide-y divide-line">
           {rows.map((row) => (
             <ProjectRow key={row.project.id} row={row} now={now} />
           ))}

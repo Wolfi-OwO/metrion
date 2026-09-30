@@ -96,7 +96,7 @@ function EdgeEditor({
     <div className="mt-4 border-t border-line pt-4">
       {candidates.length === 0 ? (
         <p className="text-label text-ink-2">
-          No other applications in this project to depend on yet.
+          No other applications in this group to depend on yet.
         </p>
       ) : (
         <fieldset className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
