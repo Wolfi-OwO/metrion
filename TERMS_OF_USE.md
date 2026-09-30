@@ -3,7 +3,7 @@
 **metrion — server supervision platform**
 Effective: 2026-09-22
 
-Operator: Phillip Kofler, Villach, Kärnten, Österreich — see `IMPRESSUM.md`.
+Operator: Phillip Kofler, Fürnitz, Kärnten, Österreich — see `IMPRESSUM.md`.
 
 ---
 
