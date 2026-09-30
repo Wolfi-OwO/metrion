@@ -1,0 +1,16 @@
+-- 0010 granted metrion_app only SELECT, INSERT on status_events - enough
+-- for the viewer's read path and the evaluator's own commit-a-transition
+-- insert (evaluate.ts's upsertStatus), but not for the two other things the
+-- evaluator does to this table: mailer.ts's sendDigests marks a sent event
+-- `UPDATE status_events SET notified = true WHERE id = $1`, and
+-- evaluate.ts's pruneOldStatusEvents does
+-- `DELETE FROM status_events WHERE at < now() - interval ...` once per
+-- cycle. Both were missing grants, confirmed live on Task 9's first real
+-- deployment attempt: the evaluator (connecting as metrion_app, the same
+-- role the viewer already uses, per organizational/secrets-registry.md)
+-- ran a real cycle against production and got
+-- `permission denied for table status_events` (SQLSTATE 42501) on the
+-- prune step - no thresholds had fired in that test run, so the UPDATE
+-- path wasn't hit in the same run, but it reads the identical grant and
+-- would 42501 too.
+GRANT UPDATE, DELETE ON status_events TO metrion_app;
