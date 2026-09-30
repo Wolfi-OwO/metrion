@@ -124,8 +124,12 @@ export function ResourcePicker({
             className={SELECT_CLASS}
           >
             {/* The whole machine: the host-level envelope, which is what the
-                collector writes with no sub-resource at all. */}
-            <option value="">Whole server</option>
+                collector writes with no sub-resource at all. Named "host", not
+                "server", to match the `host` ScopeIcon this option already uses
+                and to avoid repeating "server" right under the Server picker -
+                and definitely not "container": containers are a sibling group
+                (`Apps`) below, not this option. */}
+            <option value="">Whole host</option>
 
             {grouped.map((group) => (
               <optgroup key={group.prefix} label={group.label}>
