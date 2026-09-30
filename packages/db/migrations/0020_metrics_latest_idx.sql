@@ -1,0 +1,30 @@
+-- `public-status-service.ts#queryLatestSamples` picks the newest `uptime.ok`/
+-- `uptime.latency` row per (resource, name) with no time bound (comment there:
+-- "metrics' own 90-day retention policy already bounds how far back 'newest'
+-- can reach"). That assumption held while `metrics` only carried a few weeks
+-- of live data. The 2026-09-30 uptime backfill (issue #27) populated the full
+-- 90-day retention window for project 86b02c8c-4357-4655-9835-1897787cdd9a
+-- (~1.6M rows), and `metrics_series_idx` (project_id, resource, sub_resource,
+-- name, time DESC) can't serve that query efficiently: the unconstrained
+-- `sub_resource` column sits between `resource` and `name`, so Postgres
+-- cannot bound the scan to "newest per group" and instead has to fetch and
+-- sort every matching row across the whole retention window.
+--
+-- Measured live (EXPLAIN ANALYZE, the real query, the real 1.6M-row project):
+-- 9.68s execution time, ~755k rows merged and sorted - right at the edge of
+-- ingest's 10s statement_timeout (applications/ingest/src/lib/db.ts), which
+-- is exactly what turned into the intermittent "UPTIME 500" that failed the
+-- 2026-09-30 deploy gate for metrion-ingest.
+--
+-- This index drops `sub_resource` so (project_id, resource, name) alone
+-- leads straight into `time DESC`, letting the rewritten query in
+-- `queryLatestSamples` (one `ORDER BY time DESC LIMIT 1` per resource/name via
+-- LATERAL) use an index-backed backward scan per group instead of a full
+-- retention-window sort. `metrics_series_idx` stays: it is what
+-- `viewer/src/services/metrics-service.ts` filters on with an explicit
+-- `sub_resource IS NOT DISTINCT FROM $n`, which this index does not serve.
+--
+-- Plain CREATE INDEX, not CONCURRENTLY: migrate.ts wraps every migration file
+-- in one transaction (CONCURRENTLY cannot run inside one), matching every
+-- other index this project has ever added, starting with 0003 itself.
+CREATE INDEX metrics_latest_idx ON metrics (project_id, resource, name, time DESC);

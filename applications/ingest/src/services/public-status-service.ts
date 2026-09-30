@@ -197,16 +197,37 @@ interface LatestSampleRow {
  * (`packages/db/migrations/0004_rollups_and_retention.sql`) already bounds
  * how far back "newest" can reach, so a second cap here would only add a
  * second place for that number to drift from the real one.
+ *
+ * One `ORDER BY time DESC LIMIT 1` per (resource, name) via `LATERAL`, not a
+ * single `DISTINCT ON (resource, name) ... ORDER BY resource, name, time
+ * DESC` scan - the latter can only use `metrics_series_idx` (project_id,
+ * resource, sub_resource, name, time DESC) as a filter, not a per-group
+ * bound, because the unconstrained `sub_resource` column sits between
+ * `resource` and `name`; with the full 90-day retention window actually
+ * populated (2026-09-30 uptime backfill, issue #27) that scanned ~755k rows
+ * and took 9.68s on production, over ingest's 10s statement_timeout
+ * (`lib/db.ts`) often enough to fail this exact query with "UPTIME 500" on
+ * the metrion-ingest deploy gate. `metrics_latest_idx` (project_id, resource,
+ * name, time DESC - 0020) turns each LATERAL subquery below into an
+ * index-backed backward scan bounded by `LIMIT 1`, independent of how much
+ * history a resource has. `keys` never contains user input as SQL (bind
+ * parameter, `unnest`), and stays the same small, server-side list it always
+ * was - this is a plan change, not a behavior change: still no sub_resource
+ * filter, so the row picked per group is identical to `DISTINCT ON`'s.
  */
 async function queryLatestSamples(
   projectId: string,
   keys: readonly string[],
 ): Promise<Map<string, { latencyMs: number | null; lastSampleAt: string | null }>> {
   const { rows } = await getPool().query<LatestSampleRow>(
-    `SELECT DISTINCT ON (resource, name) resource, name, value, time
-       FROM metrics
-      WHERE project_id = $1 AND resource = ANY($2) AND name = ANY($3)
-      ORDER BY resource, name, time DESC`,
+    `SELECT k.resource, n.name, latest.value, latest.time
+       FROM unnest($2::text[]) AS k(resource)
+       CROSS JOIN unnest($3::text[]) AS n(name)
+       CROSS JOIN LATERAL (
+         SELECT value, time FROM metrics
+          WHERE project_id = $1 AND resource = k.resource AND name = n.name
+          ORDER BY time DESC LIMIT 1
+       ) AS latest`,
     [projectId, keys, [UPTIME_OK_NAME, UPTIME_LATENCY_NAME]],
   );
 
