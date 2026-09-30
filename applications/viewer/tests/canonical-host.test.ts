@@ -43,7 +43,10 @@ test('a request on the old azurecontainerapps.io host redirects 308 to the canon
     redirect: 'manual',
   });
   assert.equal(response.status, 308);
-  assert.equal(response.headers.get('location'), 'https://metrion.woofi-developments.at/auth/github');
+  assert.equal(
+    response.headers.get('location'),
+    'https://metrion.woofi-developments.at/auth/github',
+  );
 });
 
 test('a request already on the canonical host is not redirected by this middleware', async () => {

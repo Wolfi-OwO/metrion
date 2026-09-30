@@ -60,16 +60,16 @@ mongoexport --uri "$ATLAS_URI" --collection monitorchecks --out checks.ndjson
 **Measured, not derived** (the planning estimate of ~10k rows/day / ~900k
 total was a derived guess; these replace it):
 
-| Measurement | Value |
-|---|---|
-| `db.monitorchecks.countDocuments()`, before export | 503,564 |
-| `db.monitorchecks.countDocuments()`, immediately after export | 503,571 |
-| `db.monitorchecks.countDocuments()`, after the whole procedure | 503,655 |
-| `db.monitors.countDocuments()` | 7 (unchanged throughout) |
-| `wc -l checks.ndjson` | 503,564 |
-| `wc -l monitors.ndjson` | 7 |
-| min `at` | 2026-07-11T18:30:00.333Z |
-| max `at` | 2026-09-30T17:45:01.487Z |
+| Measurement                                                    | Value                    |
+| -------------------------------------------------------------- | ------------------------ |
+| `db.monitorchecks.countDocuments()`, before export             | 503,564                  |
+| `db.monitorchecks.countDocuments()`, immediately after export  | 503,571                  |
+| `db.monitorchecks.countDocuments()`, after the whole procedure | 503,655                  |
+| `db.monitors.countDocuments()`                                 | 7 (unchanged throughout) |
+| `wc -l checks.ndjson`                                          | 503,564                  |
+| `wc -l monitors.ndjson`                                        | 7                        |
+| min `at`                                                       | 2026-07-11T18:30:00.333Z |
+| max `at`                                                       | 2026-09-30T17:45:01.487Z |
 
 The count grew by 7 between the "before" and "immediately after" measurement
 and kept growing afterward (503,571 → 503,655 over the following ~15
@@ -152,15 +152,15 @@ which produced `live-cutoffs.json` (not committed — it is a measurement
 taken at run time, not a script input that should exist before the live
 system started writing):
 
-| resource | first live sample (exclusive upper bound) |
-|---|---|
-| `ml-visualizer` | 2026-09-14T12:09:41.000Z |
-| `ml-visualizer-preview` | 2026-09-22T14:17:04.651Z |
-| `netviz` | 2026-09-14T12:09:41.000Z |
-| `nutrilens` | 2026-09-14T12:09:41.000Z |
-| `portfolio` | 2026-09-14T12:09:41.000Z |
-| `preussen` | 2026-09-22T14:17:04.328Z |
-| `status-page` | 2026-09-22T14:17:04.229Z |
+| resource                | first live sample (exclusive upper bound) |
+| ----------------------- | ----------------------------------------- |
+| `ml-visualizer`         | 2026-09-14T12:09:41.000Z                  |
+| `ml-visualizer-preview` | 2026-09-22T14:17:04.651Z                  |
+| `netviz`                | 2026-09-14T12:09:41.000Z                  |
+| `nutrilens`             | 2026-09-14T12:09:41.000Z                  |
+| `portfolio`             | 2026-09-14T12:09:41.000Z                  |
+| `preussen`              | 2026-09-22T14:17:04.328Z                  |
+| `status-page`           | 2026-09-22T14:17:04.229Z                  |
 
 Recreate it any time with the query above; `transform.mjs` and `load.sh`
 both take its path as an argument and fail rather than guess if a resource
@@ -266,13 +266,13 @@ automatically after `COPY`, over the exact loaded range.
 
 **1. Counts line up.**
 
-| | |
-|---|---|
-| `wc -l checks.ndjson` | 503,564 |
-| `db.monitorchecks.countDocuments()` (before export) | 503,564 |
-| transform `rows_read` | 503,564 |
-| transform `points_written` | 570,590 |
-| `COPY` reported row count | `COPY 570590` |
+|                                                     |               |
+| --------------------------------------------------- | ------------- |
+| `wc -l checks.ndjson`                               | 503,564       |
+| `db.monitorchecks.countDocuments()` (before export) | 503,564       |
+| transform `rows_read`                               | 503,564       |
+| transform `points_written`                          | 570,590       |
+| `COPY` reported row count                           | `COPY 570590` |
 
 `503564 = 0 clamped (age) + 128611 clamped (live overlap) + 82 skipped
 (unknown monitor) + 0 skipped (no metrionKey) + 0 skipped (no cutoff) +
@@ -283,13 +283,13 @@ reported. No unexplained delta.
 latency point** (picked pseudo-randomly from the checks that actually landed
 in Postgres; `_id`s are the Mongo `ObjectId`s):
 
-| Mongo `_id` | resource | `at` (UTC) | Mongo `ok`/`latencyMs`/`runningStatus` | Postgres rows found |
-|---|---|---|---|---|
-| `6aa744f4dbb9942015207d3a` | ml-visualizer | 2026-09-14T00:51:00.428Z | `true` / `422` / `ScaledToZero` (ARM) | `uptime.ok=1` only — **no `uptime.latency` row**, as required |
-| `6a61d3605e5c819d0b09b439` | ml-visualizer-preview | 2026-07-23T08:40:00.524Z | `true` / `515` / `null` (HTTP) | `uptime.ok=1` **and** `uptime.latency=515` |
-| `6a55e80df825f6d4c9c39bd6` | netviz | 2026-07-14T07:41:01.532Z | `true` / `1529` / `Running` (ARM) | `uptime.ok=1` only |
-| `6a7c0461d26bd6a5572c6937` | netviz | 2026-08-12T05:28:01.288Z | `true` / `1279` / `ScaledToZero` (ARM) | `uptime.ok=1` only |
-| `6a6d6658e765d471cfc0fc0d` | netviz | 2026-08-01T03:22:00.970Z | `true` / `963` / `ScaledToZero` (ARM) | `uptime.ok=1` only |
+| Mongo `_id`                | resource              | `at` (UTC)               | Mongo `ok`/`latencyMs`/`runningStatus` | Postgres rows found                                           |
+| -------------------------- | --------------------- | ------------------------ | -------------------------------------- | ------------------------------------------------------------- |
+| `6aa744f4dbb9942015207d3a` | ml-visualizer         | 2026-09-14T00:51:00.428Z | `true` / `422` / `ScaledToZero` (ARM)  | `uptime.ok=1` only — **no `uptime.latency` row**, as required |
+| `6a61d3605e5c819d0b09b439` | ml-visualizer-preview | 2026-07-23T08:40:00.524Z | `true` / `515` / `null` (HTTP)         | `uptime.ok=1` **and** `uptime.latency=515`                    |
+| `6a55e80df825f6d4c9c39bd6` | netviz                | 2026-07-14T07:41:01.532Z | `true` / `1529` / `Running` (ARM)      | `uptime.ok=1` only                                            |
+| `6a7c0461d26bd6a5572c6937` | netviz                | 2026-08-12T05:28:01.288Z | `true` / `1279` / `ScaledToZero` (ARM) | `uptime.ok=1` only                                            |
+| `6a6d6658e765d471cfc0fc0d` | netviz                | 2026-08-01T03:22:00.970Z | `true` / `963` / `ScaledToZero` (ARM)  | `uptime.ok=1` only                                            |
 
 Every value, timestamp and resource matched; every `sub_resource` was
 `NULL`; every ARM-mode row (non-null `runningStatus`) produced `uptime.ok`
@@ -302,10 +302,10 @@ that actually proves the mapping.** `status-checker.js`'s `uptimePct` is
 the identical `$match`/`$group` shape, for `netviz`, over two fixed 24h/1h
 windows:
 
-| Window | Postgres `avg(uptime.ok) * 100` | Mongo, `status-checker.js`'s own formula | Samples |
-|---|---|---|---|
-| 2026-08-15T00:00–2026-08-16T00:00Z (quiet day) | 100.0000% | 100.0000% | 1,440 / 1,440 |
-| 2026-09-08T13:00–14:00Z (the documented outage window, `checkMonitors.js`'s own comment) | 58.3333% | 58.3333% | 35 / 60 |
+| Window                                                                                   | Postgres `avg(uptime.ok) * 100` | Mongo, `status-checker.js`'s own formula | Samples       |
+| ---------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------- | ------------- |
+| 2026-08-15T00:00–2026-08-16T00:00Z (quiet day)                                           | 100.0000%                       | 100.0000%                                | 1,440 / 1,440 |
+| 2026-09-08T13:00–14:00Z (the documented outage window, `checkMonitors.js`'s own comment) | 58.3333%                        | 58.3333%                                 | 35 / 60       |
 
 Both agree exactly, including on the outage window (35/60 up both sides) —
 the mapping is correct.
@@ -318,15 +318,15 @@ n=103`, …
 
 ## Acceptance criteria
 
-| Criterion | Result |
-|---|---|
-| `monitors.ndjson`/`checks.ndjson` exist locally, Atlas provably unmodified | PASS — counts above |
-| Transform's summary accounts for every exported row as written/clamped/skipped | PASS — accounting above, no unexplained delta |
-| `COPY` loads into project `86b02c8c-4357-4655-9835-1897787cdd9a` only | PASS |
-| A second run of `load.sh` aborts without writing | PASS — per-resource guard; see Stage (L) |
-| Five spot-checked documents match, including one ARM-mode row with no latency point | PASS — table above |
-| 24h `avg(uptime.ok)*100` agrees with `status-checker.js`'s figure, both recorded | PASS — both windows, table above |
-| `metrics_hourly` returns non-empty buckets for the backfilled range | PASS — 6,898 buckets |
+| Criterion                                                                           | Result                                        |
+| ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| `monitors.ndjson`/`checks.ndjson` exist locally, Atlas provably unmodified          | PASS — counts above                           |
+| Transform's summary accounts for every exported row as written/clamped/skipped      | PASS — accounting above, no unexplained delta |
+| `COPY` loads into project `86b02c8c-4357-4655-9835-1897787cdd9a` only               | PASS                                          |
+| A second run of `load.sh` aborts without writing                                    | PASS — per-resource guard; see Stage (L)      |
+| Five spot-checked documents match, including one ARM-mode row with no latency point | PASS — table above                            |
+| 24h `avg(uptime.ok)*100` agrees with `status-checker.js`'s figure, both recorded    | PASS — both windows, table above              |
+| `metrics_hourly` returns non-empty buckets for the backfilled range                 | PASS — 6,898 buckets                          |
 
 ## Files
 

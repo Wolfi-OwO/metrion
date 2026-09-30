@@ -113,7 +113,11 @@ test('uptime.ok alerting: one flapped check sends no email; a sustained outage s
     // while it remains ongoing (the issue's "exactly one while ongoing").
     events = await cycle(0); // 15/15 failed, avg=0
     assert.equal(events.length, 0, 'a sustained outage must not re-commit or re-notify');
-    assert.equal(sendMail.mock.calls.length, 1, 'still exactly one email while the outage continues');
+    assert.equal(
+      sendMail.mock.calls.length,
+      1,
+      'still exactly one email while the outage continues',
+    );
 
     events = await cycle(0);
     assert.equal(events.length, 0);
@@ -132,11 +136,19 @@ test('uptime.ok alerting: one flapped check sends no email; a sustained outage s
     assert.equal(events.length, 1, 'recovery commits exactly once, straight from critical to ok');
     assert.equal(events[0]!.fromState, 'critical');
     assert.equal(events[0]!.toState, 'ok');
-    assert.equal(sendMail.mock.calls.length, 2, 'exactly one recovery email, not one per state passed through');
+    assert.equal(
+      sendMail.mock.calls.length,
+      2,
+      'exactly one recovery email, not one per state passed through',
+    );
 
     events = await cycle(15); // fully recovered
     assert.equal(events.length, 0, 'a clean window after recovery must not re-notify');
-    assert.equal(sendMail.mock.calls.length, 2, 'final count: one outage email, one recovery email');
+    assert.equal(
+      sendMail.mock.calls.length,
+      2,
+      'final count: one outage email, one recovery email',
+    );
   } finally {
     await pool.query(
       `DELETE FROM metrics WHERE project_id = $1 AND resource = 'netviz' AND name = 'uptime.ok'`,

@@ -204,6 +204,7 @@ codebase's own agent.
 ### 2026-09-30: uptime monitoring turned out to be the forcing function for the threshold/evaluator work
 
 Everything that made `applications/evaluator` worth finishing in this round
+
 - the duplicate-writer bug (Task 6), the false-alarm-prone default
 threshold values (Task 7, `applications/evaluator/tests/uptime-alerting.test.ts`),
 production values actually matching what was proven (Task 8,

@@ -48,14 +48,14 @@ import { createInterface } from 'node:readline';
 
 const [, , monitorsPath, checksPath, projectId, cutoffsPath] = process.argv;
 if (!monitorsPath || !checksPath || !projectId || !cutoffsPath) {
-    console.error(
-        'usage: node transform.mjs <monitors.ndjson> <checks.ndjson> <project_id> <live-cutoffs.json> > points.tsv',
-    );
-    process.exit(1);
+  console.error(
+    'usage: node transform.mjs <monitors.ndjson> <checks.ndjson> <project_id> <live-cutoffs.json> > points.tsv',
+  );
+  process.exit(1);
 }
 if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) {
-    console.error(`project_id does not look like a UUID, refusing to guess: ${projectId}`);
-    process.exit(1);
+  console.error(`project_id does not look like a UUID, refusing to guess: ${projectId}`);
+  process.exit(1);
 }
 
 // resource (metrionKey) -> ISO timestamp of that resource's first live
@@ -64,10 +64,10 @@ if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proj
 // not derived. A resource with no entry has no known live-write boundary,
 // so it's skipped rather than risking an overlap (see skippedNoCutoff).
 const cutoffs = new Map(
-    Object.entries(JSON.parse(await readFile(cutoffsPath, 'utf8'))).map(([resource, iso]) => [
-        resource,
-        Date.parse(iso),
-    ]),
+  Object.entries(JSON.parse(await readFile(cutoffsPath, 'utf8'))).map(([resource, iso]) => [
+    resource,
+    Date.parse(iso),
+  ]),
 );
 
 // Anything older than this would be dropped by the retention policy on its
@@ -83,9 +83,9 @@ const clampCutoff = Date.now() - NINETY_DAYS_MS;
 // database and not in the seed).
 const monitors = new Map(); // oid string -> { name, metrionKey }
 for (const line of (await readFile(monitorsPath, 'utf8')).split('\n')) {
-    if (!line.trim()) continue;
-    const doc = JSON.parse(line);
-    monitors.set(doc._id.$oid, { name: doc.name, metrionKey: doc.metrionKey ?? null });
+  if (!line.trim()) continue;
+  const doc = JSON.parse(line);
+  monitors.set(doc._id.$oid, { name: doc.name, metrionKey: doc.metrionKey ?? null });
 }
 
 let read = 0;
@@ -100,77 +100,81 @@ const warnedUnknown = new Set();
 const warnedNoCutoff = new Set();
 
 function writeRow(time, resource, name, value, unit) {
-    // resource/name/unit are all closed vocabularies here (metrionKey values,
-    // literal metric names, literal units) — none can contain a tab/newline,
-    // so no TSV escaping is needed beyond the fixed `\N` null marker below.
-    process.stdout.write([time, projectId, resource, '\\N', name, value, unit, 60].join('\t') + '\n');
+  // resource/name/unit are all closed vocabularies here (metrionKey values,
+  // literal metric names, literal units) — none can contain a tab/newline,
+  // so no TSV escaping is needed beyond the fixed `\N` null marker below.
+  process.stdout.write([time, projectId, resource, '\\N', name, value, unit, 60].join('\t') + '\n');
 }
 
 const rl = createInterface({ input: createReadStream(checksPath, 'utf8'), crlfDelay: Infinity });
 for await (const line of rl) {
-    if (!line.trim()) continue;
-    read += 1;
-    const doc = JSON.parse(line);
-    const monitorId = doc.monitor?.$oid;
-    const monitor = monitorId ? monitors.get(monitorId) : undefined;
+  if (!line.trim()) continue;
+  read += 1;
+  const doc = JSON.parse(line);
+  const monitorId = doc.monitor?.$oid;
+  const monitor = monitorId ? monitors.get(monitorId) : undefined;
 
-    if (!monitor) {
-        skippedMissingMonitor += 1;
-        if (monitorId && !warnedUnknown.has(monitorId)) {
-            warnedUnknown.add(monitorId);
-            console.error(`skip: check(s) reference unknown monitor ${monitorId} (no matching monitor document)`);
-        }
-        continue;
+  if (!monitor) {
+    skippedMissingMonitor += 1;
+    if (monitorId && !warnedUnknown.has(monitorId)) {
+      warnedUnknown.add(monitorId);
+      console.error(
+        `skip: check(s) reference unknown monitor ${monitorId} (no matching monitor document)`,
+      );
     }
-    if (!monitor.metrionKey) {
-        skippedNoKey += 1;
-        continue;
-    }
+    continue;
+  }
+  if (!monitor.metrionKey) {
+    skippedNoKey += 1;
+    continue;
+  }
 
-    const at = Number(doc.at); // mongoexport renders the Number field as a JSON double, e.g. 1.783794600333E+12
-    if (at < clampCutoff) {
-        clamped += 1;
-        continue;
-    }
+  const at = Number(doc.at); // mongoexport renders the Number field as a JSON double, e.g. 1.783794600333E+12
+  if (at < clampCutoff) {
+    clamped += 1;
+    continue;
+  }
 
-    const resource = monitor.metrionKey;
-    const liveCutoff = cutoffs.get(resource);
-    if (liveCutoff === undefined) {
-        skippedNoCutoff += 1;
-        if (!warnedNoCutoff.has(resource)) {
-            warnedNoCutoff.add(resource);
-            console.error(`skip: resource "${resource}" has no entry in the live-cutoffs file, refusing to guess its overlap boundary`);
-        }
-        continue;
+  const resource = monitor.metrionKey;
+  const liveCutoff = cutoffs.get(resource);
+  if (liveCutoff === undefined) {
+    skippedNoCutoff += 1;
+    if (!warnedNoCutoff.has(resource)) {
+      warnedNoCutoff.add(resource);
+      console.error(
+        `skip: resource "${resource}" has no entry in the live-cutoffs file, refusing to guess its overlap boundary`,
+      );
     }
-    if (at >= liveCutoff) {
-        clampedLiveOverlap += 1;
-        continue;
-    }
+    continue;
+  }
+  if (at >= liveCutoff) {
+    clampedLiveOverlap += 1;
+    continue;
+  }
 
-    const time = new Date(at).toISOString();
-    pairs.add(resource);
+  const time = new Date(at).toISOString();
+  pairs.add(resource);
 
-    writeRow(time, resource, 'uptime.ok', doc.ok ? 1 : 0, 'boolean');
+  writeRow(time, resource, 'uptime.ok', doc.ok ? 1 : 0, 'boolean');
+  written += 1;
+
+  // Only a plain HTTP probe measures the monitored app's own latency — an
+  // ARM check's latencyMs is the control-plane round trip (ADR 0007 §4).
+  if (doc.runningStatus == null) {
+    writeRow(time, resource, 'uptime.latency', Number(doc.latencyMs), 'ms');
     written += 1;
-
-    // Only a plain HTTP probe measures the monitored app's own latency — an
-    // ARM check's latencyMs is the control-plane round trip (ADR 0007 §4).
-    if (doc.runningStatus == null) {
-        writeRow(time, resource, 'uptime.latency', Number(doc.latencyMs), 'ms');
-        written += 1;
-    }
+  }
 }
 
 console.error(
-    `transform: rows_read=${read} clamped_older_than_90d=${clamped} clamped_live_overlap=${clampedLiveOverlap} ` +
-        `skipped_missing_monitor=${skippedMissingMonitor} skipped_no_metrionKey=${skippedNoKey} ` +
-        `skipped_no_cutoff=${skippedNoCutoff} points_written=${written}`,
+  `transform: rows_read=${read} clamped_older_than_90d=${clamped} clamped_live_overlap=${clampedLiveOverlap} ` +
+    `skipped_missing_monitor=${skippedMissingMonitor} skipped_no_metrionKey=${skippedNoKey} ` +
+    `skipped_no_cutoff=${skippedNoCutoff} points_written=${written}`,
 );
 console.error(
-    `transform: (resource, sub_resource) pairs produced — eyeball against monitors.ndjson's metrionKey values: ` +
-        [...pairs]
-            .sort()
-            .map((r) => `(${r}, null)`)
-            .join(', '),
+  `transform: (resource, sub_resource) pairs produced — eyeball against monitors.ndjson's metrionKey values: ` +
+    [...pairs]
+      .sort()
+      .map((r) => `(${r}, null)`)
+      .join(', '),
 );
