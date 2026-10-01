@@ -10,11 +10,9 @@ process.env.EVALUATOR_DRY_RUN = 'true';
 
 const { config } = await import('../dist/config/index.js');
 
-test('dailyEmailCap default (no EVALUATOR_DAILY_EMAIL_CAP set) does not meaningfully cap daily notifications', () => {
-  // Not 50 - the old default that silently dropped notifications on
-  // 2026-10-01 during an unrelated flapping-metric incident.
-  assert.notEqual(config.quota.dailyEmailCap, 50);
-  // Large enough that `Math.max(0, dailyEmailCap - dailyCount)` in
-  // `mailer.ts` never bottoms out for any realistic daily count.
-  assert.ok(config.quota.dailyEmailCap > 1_000_000);
+test('dailyEmailCap default (no EVALUATOR_DAILY_EMAIL_CAP set) is 75', () => {
+  // Raised from the original 50 - which silently dropped notifications on
+  // 2026-10-01 during an unrelated flapping-metric incident - but kept as a
+  // real, finite ceiling rather than made unlimited.
+  assert.equal(config.quota.dailyEmailCap, 75);
 });
