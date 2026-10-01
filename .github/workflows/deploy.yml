@@ -120,9 +120,9 @@ jobs:
 
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # The version in package.json is the image tag, so a deployed revision
       # can be traced back to a released version rather than to a commit sha
@@ -164,10 +164,15 @@ jobs:
       - name: Deploy revision
         if: matrix.target == 'azure'
         run: |
+          # -o none: nothing downstream reads this step's output (the next
+          # step polls revision list separately) and the default JSON
+          # output prints the full topology - secret names, env var names,
+          # sidecar config, customDomainVerificationId - into the log.
           az containerapp update -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
             --container-name "${{ matrix.app }}" \
             --image "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}" \
-            --revision-suffix "${{ steps.version.outputs.suffix }}"
+            --revision-suffix "${{ steps.version.outputs.suffix }}" \
+            -o none
 
       # `az containerapp update` returns while the previous revision is
       # still serving, so a check run immediately after it can pass against
