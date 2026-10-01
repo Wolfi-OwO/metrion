@@ -195,35 +195,74 @@ const ROWS = [
     note: '80/95% of measured constant limit 512 MiB',
   },
 
-  // --- container.cpu: re-derived from window-mean percentiles (the
-  // evaluator's own aggregateWindow does avg(value) over window_seconds,
-  // not raw-sample percentiles), per the query in Task A2. Measured
-  // against production, 7-day window, 300s buckets, 2026-09-26:
-  //   fuwwy-platform  p95_of_means=3.8   p99_of_means=7.6   max_mean=24.9
-  //   netviz          p95_of_means=10.4  p99_of_means=16.0  max_mean=25.6
-  //   nutrilens       p95_of_means=9.8   p99_of_means=17.1  max_mean=42.1
-  //   portfolio       p95_of_means=2.7   p99_of_means=6.8   max_mean=32.6
+  // --- container.cpu: re-anchored to each container's real CPU limit, not
+  // the p95/p99-of-normal-load bounds this block used to seed. The metric
+  // itself is % of ONE host core (`docker stats`' own CPU% formula,
+  // applications/agent/src/collectors/docker-containers.ts:45) - it has no
+  // relation to a container's configured `cpus:` limit, which was the
+  // actual bug behind the flapping (179 `container.cpu` alert events across
+  // fuwwy-platform/netviz/nutrilens/portfolio in ~33h). warning/critical
+  // below are 50%/80% of each container's limit, expressed as %-of-one-core
+  // (e.g. a 0.3-core limit -> warning 15, critical 24). window is 900s
+  // (15 samples at 1/minute), not the old 300s/5-sample window - the same
+  // precedent set by uptime.ok (see that block above): a 5-sample window
+  // lets a single-minute burst dominate the mean.
+  //
+  // Limits are read from each app's real compose file, not derived:
+  //   nutrilens  ~/.../nutrilens/docker-compose.prod.yml:
+  //              nutrilens-blue/-green=0.3, nutrilens-ai=1.0, nutrilens-db=0.5
+  //   portfolio  ~/.../portfolio-webpage/application/docker-compose.prod.yaml:
+  //              portfolio-web-blue/-green=0.5, caddy=0.25, azurite=0.25
+  //   netviz     ~/.../network-visualizer/application/docker-compose.prod.yml: 0.3
+  //   fuwwy-platform's monitored containers are NOT in this repo - they run
+  //   on the VPS as preussen-bot-prod / preussen-dashboard-blue/green-1,
+  //   /opt/preussen/docker-compose.prod.yml, each cpus: 0.5
+  //
+  // Why the old p95-of-normal bounds flapped: measured against production,
+  // preussen-bot-prod (fuwwy-platform's real container) sat at or above its
+  // old warning line (3.8) for 12.75% of all minutes, and 82-92% of the old
+  // breach-minutes across all four apps were driven by a single sample, not
+  // a sustained load change - the old window was too short and the bound
+  // too close to normal variance for `consecutive_breaches` to filter
+  // either out.
+  //
+  // 7-day replay of real samples against these new bounds: 0 minutes
+  // reached >=80% of the limit, and only 13 minutes reached >=50% (mostly
+  // isolated single minutes, so consecutive_breaches=2 absorbs them without
+  // committing a state change).
+  //
+  // ponytail: these rows have no automatic link to the compose files' own
+  // `cpus:` values - if a container's limit ever changes, these warning/
+  // critical numbers must be re-derived and re-seeded by hand.
+  //
+  // fuwwy-platform and netviz are single-container apps (one limit each,
+  // 0.5 and 0.3 cores) so their project-wide (sub_resource IS NULL) rows
+  // stay enabled, just re-pointed at the new bounds. nutrilens and
+  // portfolio each run multiple containers at DIFFERENT limits, so a single
+  // project-wide bound can't represent all of them - their old project-wide
+  // rows are disabled (not deleted: a human may want the history) and
+  // replaced by one row per sub_resource below.
   {
     app: 'fuwwy-platform',
     sub: null,
     metric: 'container.cpu',
     direction: 'above',
-    warning: 3.8,
-    critical: 7.6,
-    window: 300,
+    warning: 25,
+    critical: 40,
+    window: 900,
     enabled: true,
-    note: 'window-mean p95_of_means=3.8, p99_of_means=7.6 (7-day, 300s buckets)',
+    note: '50/80% of measured cpus: limit 0.5 (preussen-bot-prod / preussen-dashboard-blue-1/green-1, /opt/preussen/docker-compose.prod.yml)',
   },
   {
     app: 'netviz',
     sub: null,
     metric: 'container.cpu',
     direction: 'above',
-    warning: 10.4,
-    critical: 16.0,
-    window: 300,
+    warning: 15,
+    critical: 24,
+    window: 900,
     enabled: true,
-    note: 'window-mean p95_of_means=10.4, p99_of_means=16.0 (7-day, 300s buckets)',
+    note: '50/80% of measured cpus: limit 0.3 (network-visualizer/application/docker-compose.prod.yml)',
   },
   {
     app: 'nutrilens',
@@ -232,9 +271,9 @@ const ROWS = [
     direction: 'above',
     warning: 9.8,
     critical: 17.1,
-    window: 300,
-    enabled: true,
-    note: 'window-mean p95_of_means=9.8, p99_of_means=17.1 (7-day, 300s buckets)',
+    window: 900,
+    enabled: false,
+    note: "superseded by per-container rows below: limits differ (1.0/0.5/0.3 cores)",
   },
   {
     app: 'portfolio',
@@ -243,9 +282,97 @@ const ROWS = [
     direction: 'above',
     warning: 2.7,
     critical: 6.8,
-    window: 300,
+    window: 900,
+    enabled: false,
+    note: "superseded by per-container rows below: limits differ (0.5/0.25 cores)",
+  },
+  {
+    app: 'nutrilens',
+    sub: 'container:nutrilens-nutrilens-ai-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 50,
+    critical: 80,
+    window: 900,
     enabled: true,
-    note: 'window-mean p95_of_means=2.7, p99_of_means=6.8 (7-day, 300s buckets)',
+    note: '50/80% of measured cpus: limit 1.0 (nutrilens/docker-compose.prod.yml)',
+  },
+  {
+    app: 'nutrilens',
+    sub: 'container:nutrilens-nutrilens-blue-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 15,
+    critical: 24,
+    window: 900,
+    enabled: true,
+    note: '50/80% of measured cpus: limit 0.3 (nutrilens/docker-compose.prod.yml)',
+  },
+  {
+    app: 'nutrilens',
+    sub: 'container:nutrilens-nutrilens-green-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 15,
+    critical: 24,
+    window: 900,
+    enabled: true,
+    note: '50/80% of measured cpus: limit 0.3 (nutrilens/docker-compose.prod.yml)',
+  },
+  {
+    app: 'nutrilens',
+    sub: 'container:nutrilens-nutrilens-db-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 25,
+    critical: 40,
+    window: 900,
+    enabled: true,
+    note: '50/80% of measured cpus: limit 0.5 (nutrilens/docker-compose.prod.yml)',
+  },
+  {
+    app: 'portfolio',
+    sub: 'container:portfolio-web-blue-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 25,
+    critical: 40,
+    window: 900,
+    enabled: true,
+    note: '50/80% of measured cpus: limit 0.5 (portfolio-webpage/application/docker-compose.prod.yaml)',
+  },
+  {
+    app: 'portfolio',
+    sub: 'container:portfolio-web-green-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 25,
+    critical: 40,
+    window: 900,
+    enabled: true,
+    note: '50/80% of measured cpus: limit 0.5 (portfolio-webpage/application/docker-compose.prod.yaml)',
+  },
+  {
+    app: 'portfolio',
+    sub: 'container:portfolio-caddy-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 12.5,
+    critical: 20,
+    window: 900,
+    enabled: true,
+    note: '50/80% of measured cpus: limit 0.25 (portfolio-webpage/application/docker-compose.prod.yaml)',
+  },
+  {
+    app: 'portfolio',
+    sub: 'container:portfolio-azurite-1',
+    metric: 'container.cpu',
+    direction: 'above',
+    warning: 12.5,
+    critical: 20,
+    window: 900,
+    enabled: true,
+    note: '50/80% of measured cpus: limit 0.25 (portfolio-webpage/application/docker-compose.prod.yaml)',
   },
 
   // --- uptime.ok: tuned and proven by
