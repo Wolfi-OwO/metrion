@@ -159,12 +159,17 @@ async function seedUptimeSample(
   );
 }
 
+function applicationUrl(projectId: string, applicationId: string): string {
+  return `${baseUrl}/api/v1/projects/${projectId}/applications/${applicationId}`;
+}
+
 function putDependencies(
   cookie: string,
+  projectId: string,
   applicationId: string,
   dependsOn: string[],
 ): Promise<Response> {
-  return fetch(`${baseUrl}/api/v1/applications/${applicationId}/dependencies`, {
+  return fetch(`${applicationUrl(projectId, applicationId)}/dependencies`, {
     method: 'PUT',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ dependsOn }),
@@ -266,14 +271,14 @@ test('PATCH /applications/:id renames displayName; key is immutable and rejected
   const project = await createProject(cookie, `${marker} Patch Project`);
   const app1 = await mustCreateApplication(cookie, project.id, 'patch-app', 'Old Name');
 
-  const rejected = await fetch(`${baseUrl}/api/v1/applications/${app1.id}`, {
+  const rejected = await fetch(applicationUrl(project.id, app1.id), {
     method: 'PATCH',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ key: 'renamed-app', displayName: 'New Name' }),
   });
   assert.equal(rejected.status, 400, '`key` must not be an accepted field on PATCH');
 
-  const accepted = await fetch(`${baseUrl}/api/v1/applications/${app1.id}`, {
+  const accepted = await fetch(applicationUrl(project.id, app1.id), {
     method: 'PATCH',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ displayName: 'New Name' }),
@@ -294,7 +299,7 @@ test('PATCH /applications/:id toggles publicStatusVisible (finding 2), defaults 
     'a newly created application defaults to not publicly visible',
   );
 
-  const empty = await fetch(`${baseUrl}/api/v1/applications/${app1.id}`, {
+  const empty = await fetch(applicationUrl(project.id, app1.id), {
     method: 'PATCH',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({}),
@@ -305,7 +310,7 @@ test('PATCH /applications/:id toggles publicStatusVisible (finding 2), defaults 
     'a PATCH naming neither field must be rejected, not a silent no-op',
   );
 
-  const toggled = await fetch(`${baseUrl}/api/v1/applications/${app1.id}`, {
+  const toggled = await fetch(applicationUrl(project.id, app1.id), {
     method: 'PATCH',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ publicStatusVisible: true }),
@@ -332,7 +337,7 @@ test('DELETE /applications/:id cascades dependencies and thresholds, and states 
     'Dependency',
   );
 
-  const putResponse = await putDependencies(cookie, dependent.id, [dependency.id]);
+  const putResponse = await putDependencies(cookie, project.id, dependent.id, [dependency.id]);
   assert.equal(putResponse.status, 200);
 
   const thresholdResponse = await fetch(`${baseUrl}/api/v1/projects/${project.id}/thresholds`, {
@@ -348,7 +353,7 @@ test('DELETE /applications/:id cascades dependencies and thresholds, and states 
   });
   assert.equal(thresholdResponse.status, 201);
 
-  const deleteResponse = await fetch(`${baseUrl}/api/v1/applications/${dependency.id}`, {
+  const deleteResponse = await fetch(applicationUrl(project.id, dependency.id), {
     method: 'DELETE',
     headers: { cookie },
   });
@@ -376,11 +381,11 @@ test('GET/PUT dependencies: replaces the set, both directions read back correctl
   const checkout = await mustCreateApplication(cookie, project.id, 'dep-checkout', 'Checkout');
   const payments = await mustCreateApplication(cookie, project.id, 'dep-payments', 'Payments');
 
-  const putResponse = await putDependencies(cookie, checkout.id, [payments.id]);
+  const putResponse = await putDependencies(cookie, project.id, checkout.id, [payments.id]);
   assert.equal(putResponse.status, 200);
 
   const checkoutDeps = (await (
-    await fetch(`${baseUrl}/api/v1/applications/${checkout.id}/dependencies`, {
+    await fetch(`${applicationUrl(project.id, checkout.id)}/dependencies`, {
       headers: { cookie },
     })
   ).json()) as { dependsOn: string[]; dependents: string[] };
@@ -388,7 +393,7 @@ test('GET/PUT dependencies: replaces the set, both directions read back correctl
   assert.deepEqual(checkoutDeps.dependents, []);
 
   const paymentsDeps = (await (
-    await fetch(`${baseUrl}/api/v1/applications/${payments.id}/dependencies`, {
+    await fetch(`${applicationUrl(project.id, payments.id)}/dependencies`, {
       headers: { cookie },
     })
   ).json()) as { dependsOn: string[]; dependents: string[] };
@@ -396,10 +401,10 @@ test('GET/PUT dependencies: replaces the set, both directions read back correctl
   assert.deepEqual(paymentsDeps.dependents, [checkout.id]);
 
   // Replacing with an empty set clears it - a replace-the-set endpoint, not add/remove.
-  const clearResponse = await putDependencies(cookie, checkout.id, []);
+  const clearResponse = await putDependencies(cookie, project.id, checkout.id, []);
   assert.equal(clearResponse.status, 200);
   const cleared = (await (
-    await fetch(`${baseUrl}/api/v1/applications/${checkout.id}/dependencies`, {
+    await fetch(`${applicationUrl(project.id, checkout.id)}/dependencies`, {
       headers: { cookie },
     })
   ).json()) as { dependsOn: string[] };
@@ -413,10 +418,10 @@ test('PUT dependencies creating a cycle is rejected with 409 naming the path, an
   const b = await mustCreateApplication(cookie, project.id, 'cycle-b', 'B');
   const c = await mustCreateApplication(cookie, project.id, 'cycle-c', 'C');
 
-  assert.equal((await putDependencies(cookie, a.id, [b.id])).status, 200);
-  assert.equal((await putDependencies(cookie, b.id, [c.id])).status, 200);
+  assert.equal((await putDependencies(cookie, project.id, a.id, [b.id])).status, 200);
+  assert.equal((await putDependencies(cookie, project.id, b.id, [c.id])).status, 200);
 
-  const cycleResponse = await putDependencies(cookie, c.id, [a.id]);
+  const cycleResponse = await putDependencies(cookie, project.id, c.id, [a.id]);
   assert.equal(cycleResponse.status, 409);
   const cycleBody = (await cycleResponse.json()) as { message: string };
   assert.match(cycleBody.message, /cycle-c/);
@@ -424,7 +429,7 @@ test('PUT dependencies creating a cycle is rejected with 409 naming the path, an
   assert.match(cycleBody.message, /cycle-b/);
 
   const cDeps = (await (
-    await fetch(`${baseUrl}/api/v1/applications/${c.id}/dependencies`, { headers: { cookie } })
+    await fetch(`${applicationUrl(project.id, c.id)}/dependencies`, { headers: { cookie } })
   ).json()) as { dependsOn: string[] };
   assert.deepEqual(
     cDeps.dependsOn,
@@ -472,34 +477,80 @@ test("applications, dependencies and status for another user's project are 404, 
   });
   assert.equal(listResponse.status, 404);
 
-  const patchResponse = await fetch(`${baseUrl}/api/v1/applications/${application.id}`, {
+  const patchResponse = await fetch(applicationUrl(project.id, application.id), {
     method: 'PATCH',
     headers: { cookie: otherCookie, 'content-type': 'application/json' },
     body: JSON.stringify({ displayName: 'Hijacked' }),
   });
   assert.equal(patchResponse.status, 404);
 
-  const deleteResponse = await fetch(`${baseUrl}/api/v1/applications/${application.id}`, {
+  const deleteResponse = await fetch(applicationUrl(project.id, application.id), {
     method: 'DELETE',
     headers: { cookie: otherCookie },
   });
   assert.equal(deleteResponse.status, 404);
 
-  const depsResponse = await fetch(
-    `${baseUrl}/api/v1/applications/${application.id}/dependencies`,
-    {
-      headers: { cookie: otherCookie },
-    },
-  );
+  const depsResponse = await fetch(`${applicationUrl(project.id, application.id)}/dependencies`, {
+    headers: { cookie: otherCookie },
+  });
   assert.equal(depsResponse.status, 404);
 
-  const putDepsResponse = await putDependencies(otherCookie, application.id, []);
+  const putDepsResponse = await putDependencies(otherCookie, project.id, application.id, []);
   assert.equal(putDepsResponse.status, 404);
 
   const statusResponse = await fetch(`${baseUrl}/api/v1/projects/${project.id}/status`, {
     headers: { cookie: otherCookie },
   });
   assert.equal(statusResponse.status, 404);
+});
+
+test("an application from a different project the same user owns 404s through the other project's URL", async () => {
+  // The IDOR this nesting has to close: before the routes were nested under
+  // `/projects/:id/applications/:applicationId`, the handlers scoped only on
+  // `project_id = ANY(req.projectIds)` - any project the caller owns - so an
+  // application id from project B worked against a URL naming project A, as
+  // long as the caller owned both. Each handler now additionally requires
+  // `project_id = $projectId` (the URL's own project, not just "one of
+  // mine"), so this must 404, never succeed and never 403.
+  const cookie = await signInAs(`${marker}-m`, `${marker}-m@example.test`);
+  const projectA = await createProject(cookie, `${marker} Cross Project A`);
+  const projectB = await createProject(cookie, `${marker} Cross Project B`);
+  const appInA = await mustCreateApplication(cookie, projectA.id, 'cross-a-app', 'In A');
+  const appInB = await mustCreateApplication(cookie, projectB.id, 'cross-b-app', 'In B');
+
+  const patchResponse = await fetch(applicationUrl(projectA.id, appInB.id), {
+    method: 'PATCH',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ displayName: 'Hijacked' }),
+  });
+  assert.equal(patchResponse.status, 404);
+
+  const deleteResponse = await fetch(applicationUrl(projectA.id, appInB.id), {
+    method: 'DELETE',
+    headers: { cookie },
+  });
+  assert.equal(deleteResponse.status, 404);
+
+  const depsResponse = await fetch(`${applicationUrl(projectA.id, appInB.id)}/dependencies`, {
+    headers: { cookie },
+  });
+  assert.equal(depsResponse.status, 404);
+
+  const putDepsResponse = await putDependencies(cookie, projectA.id, appInB.id, []);
+  assert.equal(putDepsResponse.status, 404);
+
+  // Sanity: the same application id, through its own project's URL, works.
+  const ownResponse = await fetch(`${applicationUrl(projectB.id, appInB.id)}/dependencies`, {
+    headers: { cookie },
+  });
+  assert.equal(ownResponse.status, 200);
+
+  // And `appInA` stays reachable through its own project, proving the 404
+  // above is about the mismatch, not a general breakage of project A.
+  const otherStillWorks = await fetch(`${applicationUrl(projectA.id, appInA.id)}/dependencies`, {
+    headers: { cookie },
+  });
+  assert.equal(otherStillWorks.status, 200);
 });
 
 test('POST /projects/:id/keys accepts an optional applicationId and states the binding', async () => {

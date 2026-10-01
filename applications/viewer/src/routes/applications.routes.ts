@@ -12,7 +12,12 @@ import {
 import { asyncHandler } from '../middlewares/error.js';
 import { resolveProjectIds } from '../middlewares/project-scope.js';
 import { requireSession } from '../middlewares/require-session.js';
-import { uuidIdParams, validateBody, validateQuery } from '../middlewares/validate.js';
+import {
+  uuidIdParams,
+  uuidProjectApplicationParams,
+  validateBody,
+  validateQuery,
+} from '../middlewares/validate.js';
 import {
   createApplicationSchema,
   replaceDependenciesSchema,
@@ -51,8 +56,8 @@ applicationsRouter.post(
 );
 
 applicationsRouter.patch(
-  '/api/v1/applications/:id',
-  uuidIdParams,
+  '/api/v1/projects/:id/applications/:applicationId',
+  uuidProjectApplicationParams,
   ...requireProjectScope,
   express.json({ limit: '256kb' }),
   validateBody(updateApplicationSchema),
@@ -60,22 +65,22 @@ applicationsRouter.patch(
 );
 
 applicationsRouter.delete(
-  '/api/v1/applications/:id',
-  uuidIdParams,
+  '/api/v1/projects/:id/applications/:applicationId',
+  uuidProjectApplicationParams,
   ...requireProjectScope,
   asyncHandler(deleteApplication),
 );
 
 applicationsRouter.get(
-  '/api/v1/applications/:id/dependencies',
-  uuidIdParams,
+  '/api/v1/projects/:id/applications/:applicationId/dependencies',
+  uuidProjectApplicationParams,
   ...requireProjectScope,
   asyncHandler(getDependencies),
 );
 
 applicationsRouter.put(
-  '/api/v1/applications/:id/dependencies',
-  uuidIdParams,
+  '/api/v1/projects/:id/applications/:applicationId/dependencies',
+  uuidProjectApplicationParams,
   ...requireProjectScope,
   express.json({ limit: '256kb' }),
   validateBody(replaceDependenciesSchema),

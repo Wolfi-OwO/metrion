@@ -51,12 +51,14 @@ function appLabel(app: { key: string; displayName: string | null }): string {
 }
 
 function EdgeEditor({
+  projectId,
   application,
   applications,
   current,
   onSaved,
   onCancel,
 }: {
+  projectId: string;
   application: ApplicationStatus;
   applications: readonly ApplicationStatus[];
   current: string[];
@@ -84,7 +86,7 @@ function EdgeEditor({
     setError(null);
     setCyclePath(null);
     const controller = new AbortController();
-    replaceDependencies(application.id, [...selected], controller.signal)
+    replaceDependencies(projectId, application.id, [...selected], controller.signal)
       .then((result) => onSaved(result.dependsOn))
       .catch((cause: unknown) => {
         if (cause instanceof ApiError && cause.status === 409) {
@@ -316,9 +318,11 @@ function NameList({
 }
 
 export function DependencyGraph({
+  projectId,
   applications,
   onChanged,
 }: {
+  projectId: string;
   applications: readonly ApplicationStatus[];
   onChanged: () => void;
 }) {
@@ -326,7 +330,7 @@ export function DependencyGraph({
   const loader = useLoader(
     `dependencies/${ids.join(',')}`,
     async (signal) => {
-      const results = await Promise.all(ids.map((id) => fetchDependencies(id, signal)));
+      const results = await Promise.all(ids.map((id) => fetchDependencies(projectId, id, signal)));
       const byApp = new Map<string, string[]>();
       ids.forEach((id, index) => byApp.set(id, results[index]!.dependsOn));
       return byApp;
@@ -560,6 +564,7 @@ export function DependencyGraph({
             </div>
             {editing ? (
               <EdgeEditor
+                projectId={projectId}
                 application={selected}
                 applications={applications}
                 current={dependsOn}

@@ -36,10 +36,10 @@ after(async () => {
 const ROUTES: readonly [string, string][] = [
   ['GET', '/api/v1/projects/:id/applications'],
   ['POST', '/api/v1/projects/:id/applications'],
-  ['PATCH', '/api/v1/applications/:id'],
-  ['DELETE', '/api/v1/applications/:id'],
-  ['GET', '/api/v1/applications/:id/dependencies'],
-  ['PUT', '/api/v1/applications/:id/dependencies'],
+  ['PATCH', '/api/v1/projects/:id/applications/:applicationId'],
+  ['DELETE', '/api/v1/projects/:id/applications/:applicationId'],
+  ['GET', '/api/v1/projects/:id/applications/:applicationId/dependencies'],
+  ['PUT', '/api/v1/projects/:id/applications/:applicationId/dependencies'],
   ['GET', '/api/v1/projects/:id/status'],
   ['GET', '/api/v1/projects/:id/status/events'],
   ['GET', '/api/v1/projects/:id/thresholds'],
@@ -51,10 +51,25 @@ const ROUTES: readonly [string, string][] = [
   ['DELETE', '/api/v1/keys/:id'],
 ];
 
+// A valid uuid, standing in for whichever path param a given test isn't the
+// one deliberately malformed - so a two-param route still isolates which
+// segment the validator is rejecting on.
+const VALID_UUID = '00000000-0000-0000-0000-000000000000';
+
 for (const [method, template] of ROUTES) {
   test(`${method} ${template} answers 400 for a malformed id`, async () => {
-    const response = await fetch(`${baseUrl}${template.replace(':id', 'not-a-uuid')}`, { method });
+    const path = template.replace(':id', 'not-a-uuid').replace(':applicationId', VALID_UUID);
+    const response = await fetch(`${baseUrl}${path}`, { method });
     assert.equal(response.status, 400);
     assert.equal(((await response.json()) as { error: string }).error, 'ValidationError');
   });
+
+  if (template.includes(':applicationId')) {
+    test(`${method} ${template} answers 400 for a malformed applicationId`, async () => {
+      const path = template.replace(':id', VALID_UUID).replace(':applicationId', 'not-a-uuid');
+      const response = await fetch(`${baseUrl}${path}`, { method });
+      assert.equal(response.status, 400);
+      assert.equal(((await response.json()) as { error: string }).error, 'ValidationError');
+    });
+  }
 }

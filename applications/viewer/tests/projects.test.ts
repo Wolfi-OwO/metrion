@@ -457,7 +457,7 @@ test('GET /api/v1/projects/summary: empty project, folded status, activity and l
   await createApp(cookie, busyId, 'batch');
   // web depends on db, db is critical -> web's EFFECTIVE status is critical
   // too, although it has no threshold of its own.
-  const put = await fetch(`${baseUrl}/api/v1/applications/${web}/dependencies`, {
+  const put = await fetch(`${baseUrl}/api/v1/projects/${busyId}/applications/${web}/dependencies`, {
     method: 'PUT',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ dependsOn: [dep] }),

@@ -415,12 +415,12 @@ test('GET /status computes effectiveStatus/causedBy from a failing transitive de
 
   // checkout -> payments -> database, so database's failure must reach
   // checkout even though checkout does not depend on it directly.
-  await fetch(`${baseUrl}/api/v1/applications/${checkout.id}/dependencies`, {
+  await fetch(`${baseUrl}/api/v1/projects/${project.id}/applications/${checkout.id}/dependencies`, {
     method: 'PUT',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ dependsOn: [payments.id] }),
   });
-  await fetch(`${baseUrl}/api/v1/applications/${payments.id}/dependencies`, {
+  await fetch(`${baseUrl}/api/v1/projects/${project.id}/applications/${payments.id}/dependencies`, {
     method: 'PUT',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({ dependsOn: [database.id] }),

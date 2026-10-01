@@ -336,7 +336,11 @@ function ProjectStatusPanel({ project }: { project: Project }) {
             Effective status folds in everything an application depends on, so an outage shows up
             downstream of its cause.
           </p>
-          <DependencyGraph applications={applications} onChanged={status.reload} />
+          <DependencyGraph
+            projectId={project.id}
+            applications={applications}
+            onChanged={status.reload}
+          />
         </section>
 
         <section className="mt-12" aria-labelledby="applications-heading">

@@ -81,9 +81,10 @@ export async function createApplication(req: Request, res: Response): Promise<vo
  * current value rather than this handler having to fetch the row first.
  */
 export async function updateApplication(req: Request, res: Response): Promise<void> {
-  const applicationId = req.params.id!;
+  const projectId = req.params.id!;
+  const applicationId = req.params.applicationId!;
   const body = req.body as UpdateApplicationBody;
-  const projectIds = req.projectIds ?? [];
+  scopeProjectIds(req, projectId);
 
   const { rows } = await getPool().query<{
     id: string;
@@ -95,9 +96,9 @@ export async function updateApplication(req: Request, res: Response): Promise<vo
     `UPDATE applications
         SET display_name = COALESCE($1, display_name),
             public_status_visible = COALESCE($2, public_status_visible)
-      WHERE id = $3 AND project_id = ANY($4)
+      WHERE id = $3 AND project_id = $4
       RETURNING id, key, display_name, public_status_visible, created_at`,
-    [body.displayName ?? null, body.publicStatusVisible ?? null, applicationId, projectIds],
+    [body.displayName ?? null, body.publicStatusVisible ?? null, applicationId, projectId],
   );
   if (rows.length === 0) throw new NotFoundError('Application not found.');
 
@@ -117,12 +118,13 @@ export async function updateApplication(req: Request, res: Response): Promise<vo
  * application's `key` are untouched (there is no foreign key from `metrics`
  * to `applications` at all), which is why the response says so explicitly. */
 export async function deleteApplication(req: Request, res: Response): Promise<void> {
-  const applicationId = req.params.id!;
-  const projectIds = req.projectIds ?? [];
+  const projectId = req.params.id!;
+  const applicationId = req.params.applicationId!;
+  scopeProjectIds(req, projectId);
 
   const { rows } = await getPool().query<{ id: string }>(
-    'DELETE FROM applications WHERE id = $1 AND project_id = ANY($2) RETURNING id',
-    [applicationId, projectIds],
+    'DELETE FROM applications WHERE id = $1 AND project_id = $2 RETURNING id',
+    [applicationId, projectId],
   );
   if (rows.length === 0) throw new NotFoundError('Application not found.');
 
@@ -136,12 +138,13 @@ export async function deleteApplication(req: Request, res: Response): Promise<vo
 }
 
 export async function getDependencies(req: Request, res: Response): Promise<void> {
-  const applicationId = req.params.id!;
-  const projectIds = req.projectIds ?? [];
+  const projectId = req.params.id!;
+  const applicationId = req.params.applicationId!;
+  scopeProjectIds(req, projectId);
 
   const { rows: ownedRows } = await getPool().query<{ id: string }>(
-    'SELECT id FROM applications WHERE id = $1 AND project_id = ANY($2)',
-    [applicationId, projectIds],
+    'SELECT id FROM applications WHERE id = $1 AND project_id = $2',
+    [applicationId, projectId],
   );
   if (ownedRows.length === 0) throw new NotFoundError('Application not found.');
 
@@ -220,20 +223,20 @@ async function findCyclePath(
  * exactly what it was before the request on every rejected write.
  */
 export async function replaceDependencies(req: Request, res: Response): Promise<void> {
-  const applicationId = req.params.id!;
+  const projectId = req.params.id!;
+  const applicationId = req.params.applicationId!;
   const body = req.body as ReplaceDependenciesBody;
-  const projectIds = req.projectIds ?? [];
+  scopeProjectIds(req, projectId);
 
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
 
     const { rows: appRows } = await client.query<{ project_id: string }>(
-      'SELECT project_id FROM applications WHERE id = $1 AND project_id = ANY($2)',
-      [applicationId, projectIds],
+      'SELECT project_id FROM applications WHERE id = $1 AND project_id = $2',
+      [applicationId, projectId],
     );
     if (appRows.length === 0) throw new NotFoundError('Application not found.');
-    const projectId = appRows[0]!.project_id;
 
     await client.query('DELETE FROM application_dependencies WHERE dependent_id = $1', [
       applicationId,

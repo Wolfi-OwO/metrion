@@ -392,11 +392,12 @@ export interface DependencyEdges {
 }
 
 export function fetchDependencies(
+  projectId: string,
   applicationId: string,
   signal: AbortSignal,
 ): Promise<DependencyEdges> {
   return getJson<DependencyEdges>(
-    `/api/v1/applications/${encodeURIComponent(applicationId)}/dependencies`,
+    `/api/v1/projects/${encodeURIComponent(projectId)}/applications/${encodeURIComponent(applicationId)}/dependencies`,
     new URLSearchParams(),
     signal,
   );
@@ -409,12 +410,13 @@ export function fetchDependencies(
  * separate from this module because it parses `ApiError#message`, not a
  * response body field the API documents as structured. */
 export function replaceDependencies(
+  projectId: string,
   applicationId: string,
   dependsOn: readonly string[],
   signal: AbortSignal,
 ): Promise<{ dependsOn: string[] }> {
   return sendJson<{ dependsOn: string[] }>(
-    `/api/v1/applications/${encodeURIComponent(applicationId)}/dependencies`,
+    `/api/v1/projects/${encodeURIComponent(projectId)}/applications/${encodeURIComponent(applicationId)}/dependencies`,
     'PUT',
     { dependsOn },
     signal,

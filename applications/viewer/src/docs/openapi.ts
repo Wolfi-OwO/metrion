@@ -129,6 +129,17 @@ const applicationIdPathParameter = {
   schema: { type: 'string', format: 'uuid' },
 };
 
+/** The application-id segment of a route nested under both a project and one
+ * of its applications - paired with `projectIdPathParameter` (still `id`,
+ * the project) rather than reusing `applicationIdPathParameter` above, which
+ * names its own segment `id` too. */
+const nestedApplicationIdPathParameter = {
+  name: 'applicationId',
+  in: 'path',
+  required: true,
+  schema: { type: 'string', format: 'uuid' },
+};
+
 const rangeParameters = [
   {
     name: 'from',
@@ -457,11 +468,11 @@ export function buildOpenApiDocument(): object {
           },
         },
       },
-      '/api/v1/applications/{id}': {
+      '/api/v1/projects/{id}/applications/{applicationId}': {
         patch: {
           tags: ['applications'],
           summary: "Renames an application's display name. `key` is immutable.",
-          parameters: [applicationIdPathParameter],
+          parameters: [projectIdPathParameter, nestedApplicationIdPathParameter],
           requestBody: {
             required: true,
             content: {
@@ -489,7 +500,7 @@ export function buildOpenApiDocument(): object {
           summary: 'Deletes an application, cascading its dependency edges, thresholds and status.',
           description:
             'Historical `metrics` rows recorded under this application are NOT deleted - the response states this.',
-          parameters: [applicationIdPathParameter],
+          parameters: [projectIdPathParameter, nestedApplicationIdPathParameter],
           responses: {
             '200': {
               description: 'Deleted.',
@@ -511,11 +522,11 @@ export function buildOpenApiDocument(): object {
           },
         },
       },
-      '/api/v1/applications/{id}/dependencies': {
+      '/api/v1/projects/{id}/applications/{applicationId}/dependencies': {
         get: {
           tags: ['applications'],
           summary: 'What this application depends on, and what depends on it.',
-          parameters: [applicationIdPathParameter],
+          parameters: [projectIdPathParameter, nestedApplicationIdPathParameter],
           responses: {
             '200': {
               description: 'The edges.',
@@ -541,7 +552,7 @@ export function buildOpenApiDocument(): object {
           description:
             'A recursive CTE inside the same transaction rejects a cycle with 409, naming the offending path ' +
             '(`checkout-api -> payments-service -> checkout-api`); the edge set is unchanged after a rejected write.',
-          parameters: [applicationIdPathParameter],
+          parameters: [projectIdPathParameter, nestedApplicationIdPathParameter],
           requestBody: {
             required: true,
             content: {

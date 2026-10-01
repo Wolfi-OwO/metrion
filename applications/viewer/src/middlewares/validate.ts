@@ -102,3 +102,10 @@ export function validateParams<T>(schema: ZodType<T>) {
 
 /** Every `:id` route in this app is a uuid. */
 export const uuidIdParams = validateParams(z.object({ id: z.uuid() }));
+
+/** A route nested under both a project and one of its applications - `:id` is
+ * the project (matching every sibling route's convention), `:applicationId`
+ * the application within it. */
+export const uuidProjectApplicationParams = validateParams(
+  z.object({ id: z.uuid(), applicationId: z.uuid() }),
+);
