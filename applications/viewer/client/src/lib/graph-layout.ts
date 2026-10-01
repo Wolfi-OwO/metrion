@@ -44,7 +44,14 @@ export interface GraphLayout {
 }
 
 export const NODE_WIDTH = 168;
-export const NODE_HEIGHT = 52;
+// Measured, not guessed: a node showing all 3 lines (name/text-body 22px
+// line-height, status/text-label 20px, lastCheck/text-meta 20px, read from
+// src/styles/index.css) plus the button's own py-2 padding (16px) and
+// border (2px) comes to 62 + 16 + 2 = 80px. 52px only ever fit the 2-line
+// case (name + status); the 025d90f lastCheck line overflowed it by 28px,
+// more than the 16px ROW_GAP between nodes, which is what stacked the
+// application column in the reported screenshot.
+export const NODE_HEIGHT = 80;
 const COLUMN_GAP = 64;
 const ROW_GAP = 16;
 /** Height of the slot a long edge reserves in a column it crosses. */
