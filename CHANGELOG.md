@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.5.0 - 2026-10-01
+
+Platform release: root, agent, ingest, evaluator, shared and db packages go to
+0.5.0; the viewer and its client go to 0.7.0 (next minor of their own line).
+
+- The evaluator's daily per-project email-notification cap default is a real
+  ceiling again: 75, up from the original 50, which was too tight and had
+  caused false flapping over-sends; the previous release had left it at
+  effectively unlimited until this value replaced that placeholder.
+- `uptime.ok` alerting now detects in one evaluator cycle instead of two: the
+  averaging window dropped from 900s to 300s, the critical bound tightened to
+  0.7, the separate warning step was dropped, and the consecutive-breach
+  requirement fell to 1. A repeated real outage test confirms the effect:
+  detection dropped from roughly 3 minutes to roughly 2, recovery from
+  roughly 15 minutes to roughly 4.5 - the remaining floor is the averaging
+  math itself (crossing the bound still needs 2 failed checks, regardless of
+  breach count), not an implementation limit.
+- A new `lastCheck` field exposes each application's single newest raw check,
+  independent of the averaged/alerting threshold state, and now surfaces in
+  the UI as a secondary "Up/Down · Ns ago" line on dependency-graph nodes,
+  the selected-application panel and the status screen's application rows -
+  deliberately subordinate to the real status badge (it never borrows
+  OK/Warning/Critical wording), so a real outage is visible well before the
+  averaged threshold confirms it. Fixed a dependency-graph layout bug this
+  line introduced, where nodes overlapped the node below them because the
+  layout engine's reserved node height hadn't been updated for the extra
+  line; re-measured from the real rendered CSS rather than guessed.
+- The dependency graph's connector lines got a real design pass: stroke width
+  and arrowhead size now scale with severity, the "outage travelling along
+  this edge" indicator actually animates instead of sitting static, and
+  hover/selection now dims unrelated nodes to match the edges, which
+  previously dimmed alone; the graph canvas's padding was also matched to
+  its sibling panel.
+
 ## v0.4.0 - 2026-10-01
 
 Platform release: root, agent, ingest, evaluator, shared and db packages go to
