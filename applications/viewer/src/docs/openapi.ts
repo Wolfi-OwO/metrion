@@ -102,6 +102,16 @@ const applicationStatusSchema = {
         },
       },
     },
+    lastCheck: {
+      type: 'object',
+      nullable: true,
+      description:
+        "The newest single `uptime.ok` check, not averaged - independent of `status`/`effectiveStatus`, which reflect the evaluator's thresholded alerting state. `null` when the application has never had an `uptime.ok` sample.",
+      properties: {
+        ok: { type: 'boolean' },
+        at: { type: 'string', format: 'date-time' },
+      },
+    },
   },
 };
 

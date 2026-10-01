@@ -43,6 +43,11 @@ export interface ApplicationStatus {
   readonly effectiveStatus: Status;
   readonly causedBy: { readonly id: string; readonly key: string } | null;
   readonly thresholds: ThresholdStatusEntry[];
+  /** The single newest raw `uptime.ok` sample, independent of `status` -
+   * which is the averaged/thresholded evaluator state. `null` when the
+   * application has never had an `uptime.ok` sample (e.g. a host like
+   * `vmi3556446` that only ever reports `cpu.*`/`memory.*`). */
+  readonly lastCheck: { readonly ok: boolean; readonly at: string } | null;
 }
 
 interface ApplicationRow {
@@ -65,6 +70,12 @@ interface ThresholdStatusRow {
 interface DependencyRow {
   root_id: string;
   dep_id: string;
+}
+
+interface LastCheckRow {
+  application_id: string;
+  value: number;
+  at: Date;
 }
 
 /**
@@ -114,6 +125,30 @@ export async function getApplicationStatuses(
        JOIN threshold_status ts ON ts.threshold_id = t.id
       WHERE a.project_id = ANY($1)`,
     [projectIds],
+  );
+
+  // Newest raw `uptime.ok` sample per application, served by `metrics_latest_idx`
+  // (project_id, resource, name, time DESC) - the same index 0020 added for
+  // `queryLatestSamples`' identical "latest per group" shape. `CROSS JOIN
+  // LATERAL` rather than `LEFT JOIN LATERAL`: an application with no
+  // `uptime.ok` row simply produces no row here, which is exactly `null` once
+  // mapped below - no need to carry a row of nulls through.
+  const { rows: lastCheckRows } = await pool.query<LastCheckRow>(
+    `SELECT a.id AS application_id, latest.value, latest.time AS at
+       FROM applications a
+       CROSS JOIN LATERAL (
+         SELECT value, time FROM metrics m
+          WHERE m.project_id = a.project_id AND m.resource = a.key AND m.name = 'uptime.ok'
+          ORDER BY time DESC LIMIT 1
+       ) latest
+      WHERE a.project_id = ANY($1)`,
+    [projectIds],
+  );
+  const lastCheckByApp = new Map(
+    lastCheckRows.map((row) => [
+      row.application_id,
+      { ok: row.value > 0, at: row.at.toISOString() },
+    ]),
   );
 
   const { rows: depRows } = await pool.query<DependencyRow>(
@@ -179,6 +214,7 @@ export async function getApplicationStatuses(
       effectiveStatus,
       causedBy,
       thresholds: thresholdsByApp.get(app.id) ?? [],
+      lastCheck: lastCheckByApp.get(app.id) ?? null,
     };
   });
 }

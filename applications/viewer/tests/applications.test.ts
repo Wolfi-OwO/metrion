@@ -142,6 +142,23 @@ async function mustCreateApplication(
   return JSON.parse(text) as ApplicationBody;
 }
 
+/** Directly seeds a raw `uptime.ok` sample, same shape the agent writes -
+ * `status-service.ts#getApplicationStatuses`' `lastCheck` reads this table
+ * straight, independent of the evaluator-written `threshold_status` the
+ * averaged `status`/`effectiveStatus` fields come from. */
+async function seedUptimeSample(
+  projectId: string,
+  resource: string,
+  value: number,
+  time: Date,
+): Promise<void> {
+  await fixturePool.query(
+    `INSERT INTO metrics (time, project_id, resource, sub_resource, name, value, unit, interval_seconds)
+     VALUES ($1, $2, $3, NULL, 'uptime.ok', $4, 'boolean', 60)`,
+    [time.toISOString(), projectId, resource, value],
+  );
+}
+
 function putDependencies(
   cookie: string,
   applicationId: string,
@@ -536,4 +553,90 @@ test('POST /projects/:id/keys with an applicationId from another project is 404'
     body: JSON.stringify({ applicationId: otherApplication.id }),
   });
   assert.equal(response.status, 404);
+});
+
+test('GET /status.lastCheck: newest raw uptime.ok sample wins, null with no samples, independent of the averaged status', async () => {
+  const cookie = await signInAs(`${marker}-lc`, `${marker}-lc@example.test`);
+  const project = await createProject(cookie, `${marker} Last Check Project`);
+
+  const checked = await mustCreateApplication(cookie, project.id, 'lastcheck-checked', 'Checked');
+  const silent = await mustCreateApplication(cookie, project.id, 'lastcheck-silent', 'Silent');
+  const flapping = await mustCreateApplication(
+    cookie,
+    project.id,
+    'lastcheck-flapping',
+    'Flapping',
+  );
+
+  const now = Date.now();
+  // Inserted out of chronological order on purpose - `lastCheck` must come
+  // from `ORDER BY time DESC`, not insertion order.
+  await seedUptimeSample(project.id, 'lastcheck-checked', 1, new Date(now - 60_000));
+  await seedUptimeSample(project.id, 'lastcheck-checked', 0, new Date(now));
+  await seedUptimeSample(project.id, 'lastcheck-checked', 1, new Date(now - 120_000));
+
+  // `flapping`'s newest raw sample is down, but its evaluator-averaged
+  // threshold is still seeded `ok` - `lastCheck` must disagree with `status`
+  // here, proving the two are computed independently.
+  const thresholdResponse = await fetch(`${baseUrl}/api/v1/projects/${project.id}/thresholds`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      applicationId: flapping.id,
+      metricName: 'uptime.ok',
+      direction: 'below',
+      warningValue: 1,
+      criticalValue: 0,
+    }),
+  });
+  const thresholdText = await thresholdResponse.text();
+  assert.equal(thresholdResponse.status, 201, thresholdText);
+  const threshold = JSON.parse(thresholdText) as { id: string };
+  await fixturePool.query(
+    `INSERT INTO threshold_status (threshold_id, sub_resource_key, state, reason, value, since)
+     VALUES ($1, '', 'ok', 'threshold', 1, now())`,
+    [threshold.id],
+  );
+  await seedUptimeSample(project.id, 'lastcheck-flapping', 0, new Date(now));
+
+  const response = await fetch(`${baseUrl}/api/v1/projects/${project.id}/status`, {
+    headers: { cookie },
+  });
+  assert.equal(response.status, 200);
+  const body = (await response.json()) as {
+    applications: {
+      id: string;
+      status: string;
+      lastCheck: { ok: boolean; at: string } | null;
+    }[];
+  };
+  const byId = new Map(body.applications.map((a) => [a.id, a]));
+
+  const checkedStatus = byId.get(checked.id)!;
+  assert.ok(checkedStatus.lastCheck, 'must be populated once any uptime.ok sample exists');
+  assert.equal(
+    checkedStatus.lastCheck!.ok,
+    false,
+    'must reflect the newest sample (ok=0), not the oldest or an average',
+  );
+  assert.equal(checkedStatus.lastCheck!.at, new Date(now).toISOString());
+
+  const silentStatus = byId.get(silent.id)!;
+  assert.equal(
+    silentStatus.lastCheck,
+    null,
+    'no uptime.ok sample at all must answer null, not throw',
+  );
+
+  const flappingStatus = byId.get(flapping.id)!;
+  assert.equal(
+    flappingStatus.status,
+    'ok',
+    'the averaged threshold state is untouched by lastCheck',
+  );
+  assert.equal(
+    flappingStatus.lastCheck!.ok,
+    false,
+    'lastCheck reads the raw sample directly, independent of the averaged status above',
+  );
 });
