@@ -35,6 +35,7 @@ test('summariseApplications names the root cause and counts what it drags down',
     effectiveStatus,
     causedBy,
     thresholds: [],
+    lastCheck: null,
   });
   const summary = summariseApplications([
     app('postgres', 'critical', 'critical', null),
@@ -58,6 +59,7 @@ test('summariseApplications on a healthy project says so', () => {
       effectiveStatus: 'ok',
       causedBy: null,
       thresholds: [],
+      lastCheck: null,
     },
   ]);
   assert.equal(summary.headline, '1 application healthy');

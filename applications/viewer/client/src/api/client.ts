@@ -315,7 +315,9 @@ export interface ThresholdStatusEntry {
 }
 
 /** `causedBy` is `null` when `effectiveStatus` is explained entirely by this
- * application's own thresholds - see `status-service.ts#getApplicationStatuses`. */
+ * application's own thresholds - see `status-service.ts#getApplicationStatuses`.
+ * `lastCheck` is the newest raw `uptime.ok` sample, independent of the
+ * averaged threshold `status` above it - `null` with no samples yet. */
 export interface ApplicationStatus {
   readonly id: string;
   readonly key: string;
@@ -324,6 +326,7 @@ export interface ApplicationStatus {
   readonly effectiveStatus: Status;
   readonly causedBy: { readonly id: string; readonly key: string } | null;
   readonly thresholds: ThresholdStatusEntry[];
+  readonly lastCheck: { readonly ok: boolean; readonly at: string } | null;
 }
 
 export function fetchProjectStatus(

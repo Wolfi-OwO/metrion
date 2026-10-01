@@ -375,27 +375,48 @@ const ROWS = [
     note: '50/80% of measured cpus: limit 0.25 (portfolio-webpage/application/docker-compose.prod.yaml)',
   },
 
-  // --- uptime.ok: tuned and proven by
-  // applications/evaluator/tests/uptime-alerting.test.ts, not derived from
-  // the severityFor convention this originally copied. That convention's
-  // 0.995 warning bound FAILS the issue's own requirement: at the real
-  // measured cadence (Task 6, organizational/uptime-sources.md, 1
-  // sample/minute per key) a window_seconds=900 window holds 15 samples, so
-  // one single failed check among otherwise-passing ones reads
-  // avg=14/15=0.9333 - already below 0.995, so a single flap would have
-  // sent a false warning email every time. The GitHub issue's own suggested
-  // 300s/0.99 has the identical problem at 5 samples (one flap = 0.8,
-  // still below 0.99).
+  // --- uptime.ok: faster detection (2026-10-01), superseding the
+  // 900/0.9/0.8/2 values this block seeded previously (that history and its
+  // full reasoning now live in organizational/uptime-alerting.md, "why
+  // 0.9/0.8, not the originally-seeded 0.995/0.8" plus the dated update
+  // below it - re-read both before changing these numbers again).
+  // Production was moved by packages/db/migrations/0021_uptime_ok_faster_
+  // detection.sql, not by re-running this script (ON CONFLICT DO NOTHING
+  // never UPDATEs); this block exists so a FRESH database (CI, a new
+  // environment) seeds directly at the current values instead of the old
+  // ones plus a migration to walk it forward.
   //
-  // warning=0.9 keeps a single flap (0.9333) inside 'ok'. critical=0.8 and
-  // consecutive_breaches=2 (the thresholds table's own schema default,
-  // unchanged) together collapse a growing outage's warning-then-critical
-  // ramp into exactly one committed transition (hysteresis commits on
-  // whatever the candidate is once two consecutive cycles differ from the
-  // stored state, not once per distinct candidate value) and recovery's
-  // critical-then-warning-then-ok ramp into exactly one recovery
-  // transition - both proven in the test file above, not just asserted
-  // here.
+  // User-accepted trade-off: consecutive_breaches dropped from 2 to 1, so a
+  // growing outage now commits 'critical' on the FIRST cycle its candidate
+  // differs from the stored state, not the second - detection in one ~5min
+  // window instead of two ~15min ones. The cost: a 2-failure blip (e.g. a
+  // container restart that fails exactly 2 consecutive checks before
+  // returning) now alerts immediately, with no second-cycle confirmation
+  // to absorb it. Accepted deliberately, not an oversight.
+  //
+  // warning=null removes the intermediate 'warning' state entirely
+  // (evaluate.ts's candidateState: a null bound never matches, so
+  // direction='below' with only critical_value set reads only 'ok' or
+  // 'critical') - with consecutive_breaches=1 there is no second cycle left
+  // for a warning step to occupy anyway.
+  //
+  // critical=0.7 and window=300 (down from 0.8/900) hold the same "one flap
+  // stays silent, two flaps alert" property this metric has always needed,
+  // re-derived for the new window size and re-checked across the sample-
+  // count jitter a 300s window actually sees at the measured 1/minute
+  // cadence (nominally 5 samples/window, but a cycle running slightly off
+  // the collector's schedule can see 4 or 6): one failed check gives
+  // avg=(N-1)/N = 0.75/0.8/0.8333 at N=4/5/6 - all >= 0.7, stays 'ok'; two
+  // failed checks give avg=0.5/0.6/0.6667 at N=4/5/6 - all < 0.7, goes
+  // 'critical' regardless of exact alignment. Recovery is the same test run
+  // backward: the first cycle whose window again averages >= 0.7 commits
+  // straight to 'ok'.
+  //
+  // applications/evaluator/tests/uptime-alerting.test.ts proves this at the
+  // new values, including the 4/5/6-sample boundary case above - it does
+  // NOT prove a 2-failure blip never happens in production, only that these
+  // thresholds alert immediately when it does, which is the trade the user
+  // accepted.
   ...[
     'netviz',
     'ml-visualizer',
@@ -409,11 +430,12 @@ const ROWS = [
     sub: null,
     metric: 'uptime.ok',
     direction: 'below',
-    warning: 0.9,
-    critical: 0.8,
-    window: 900,
+    warning: null,
+    critical: 0.7,
+    window: 300,
+    breaches: 1,
     enabled: true,
-    note: 'proven by applications/evaluator/tests/uptime-alerting.test.ts at the real 1/minute cadence: warning=0.9 keeps one flapped check (avg 0.9333) in ok; critical=0.8 + consecutive_breaches=2 (schema default) give exactly one email for a sustained outage and exactly one recovery email',
+    note: 'faster detection (2026-10-01, user-accepted trade-off): proven by applications/evaluator/tests/uptime-alerting.test.ts at the real 1/minute cadence across 4/5/6-sample window jitter - critical=0.7 + consecutive_breaches=1 commit in one cycle; warning=null drops the intermediate state. See organizational/uptime-alerting.md for the full history.',
   })),
 
   // --- uptime.latency: re-derived from window-mean percentiles, same
@@ -522,7 +544,7 @@ async function main() {
       console.log(
         `  ${row.app} (${appId}) ${row.sub ?? '(all sub_resources)'} ${row.metric} ` +
           `${row.direction} warning=${row.warning} critical=${row.critical} ` +
-          `window=${row.window}s enabled=${row.enabled}\n    ${row.note}`,
+          `window=${row.window}s breaches=${row.breaches ?? 2} enabled=${row.enabled}\n    ${row.note}`,
       );
     }
 
@@ -539,8 +561,8 @@ async function main() {
         const { rowCount } = await client.query(
           `INSERT INTO thresholds
              (project_id, application_id, sub_resource, metric_name, direction,
-              warning_value, critical_value, window_seconds, enabled)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+              warning_value, critical_value, window_seconds, consecutive_breaches, enabled)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            ON CONFLICT DO NOTHING`,
           [
             PROJECT_ID,
@@ -551,6 +573,7 @@ async function main() {
             row.warning,
             row.critical,
             row.window,
+            row.breaches ?? 2,
             row.enabled,
           ],
         );
