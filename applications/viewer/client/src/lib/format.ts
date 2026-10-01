@@ -21,7 +21,8 @@ function binary(bytes: number): { value: number; suffix: string } {
   return { value: sign * value, suffix: BINARY_STEPS[step] ?? 'B' };
 }
 
-function trim(value: number, decimals: number): string {
+/** Rounds to `decimals` places without padding - `trim(0.5, 3)` is "0.5", not "0.500". */
+export function trim(value: number, decimals: number): string {
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,

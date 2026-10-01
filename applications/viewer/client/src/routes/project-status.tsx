@@ -17,6 +17,7 @@ import { StatusEventsPanel } from '../components/status-events.tsx';
 import { Button, ErrorState, LoadingState } from '../components/states.tsx';
 import { ThresholdPanel } from '../components/threshold-panel.tsx';
 import { formatRelative, lastCheckLabel } from '../lib/dashboard.ts';
+import { trim } from '../lib/format.ts';
 import { summariseApplications } from '../lib/status.ts';
 import { applicationKeyError, applicationNameError } from '../lib/validate.ts';
 import type { AuthState } from '../lib/use-auth.ts';
@@ -178,7 +179,9 @@ function ApplicationRow({ app, now }: { app: ApplicationStatus; now: number }) {
                   }`}
                 />
                 {t.metricName}
-                <span className="text-ink-2">{t.value ?? 'no data'}</span>
+                <span className="text-ink-2">
+                  {t.value === null ? 'no data' : trim(t.value, 3)}
+                </span>
               </li>
             ))}
           </ul>
