@@ -2,7 +2,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 .env
-.env.local
+.env.*
+!.env.example
 *.log
 
 # Local queue/state dirs used when running the collector against a real
