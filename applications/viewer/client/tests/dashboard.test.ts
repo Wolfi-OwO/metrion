@@ -34,7 +34,7 @@ const summary = (
   activity24h: Array<number>(24).fill(0),
 });
 
-test('rows sort worst status first, then the most recent data', () => {
+test('rows sort worst status first, then by name within a rank', () => {
   const projects = [
     project('a', 'Alpha'),
     project('b', 'Beta'),
@@ -49,8 +49,27 @@ test('rows sort worst status first, then the most recent data', () => {
   ]);
   assert.deepEqual(
     sortRows(rows).map((r) => r.project.id),
-    ['c', 'd', 'b', 'a'],
+    ['c', 'd', 'a', 'b'],
   );
+});
+
+test('two same-status rows keep their order when lastSampleAt swaps on refresh', () => {
+  const projects = [project('a', 'Alpha'), project('b', 'Beta')];
+  const before = sortRows(
+    buildRows(projects, [
+      summary('a', 'ok', '2026-09-20T10:00:00Z'),
+      summary('b', 'ok', '2026-09-20T09:00:00Z'),
+    ]),
+  ).map((r) => r.project.id);
+  // A minute later the poll lands for b first, so b's sample is now the newer
+  // one - the exact value that used to decide the order.
+  const after = sortRows(
+    buildRows(projects, [
+      summary('a', 'ok', '2026-09-20T10:00:00Z'),
+      summary('b', 'ok', '2026-09-20T10:01:00Z'),
+    ]),
+  ).map((r) => r.project.id);
+  assert.deepEqual(before, after);
 });
 
 test('a project with no summary or no samples sorts last within its rank and never throws', () => {

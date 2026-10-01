@@ -16,10 +16,12 @@ import { StatusBadge } from '../components/status-badge.tsx';
 import { StatusEventsPanel } from '../components/status-events.tsx';
 import { Button, ErrorState, LoadingState } from '../components/states.tsx';
 import { ThresholdPanel } from '../components/threshold-panel.tsx';
+import { formatRelative } from '../lib/dashboard.ts';
 import { summariseApplications } from '../lib/status.ts';
 import { applicationKeyError, applicationNameError } from '../lib/validate.ts';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useLoader } from '../lib/use-loader.ts';
+import { useNow } from '../lib/use-now.ts';
 import { useProject } from '../lib/use-projects.ts';
 import { useRefreshTick } from '../lib/use-refresh-tick.ts';
 
@@ -228,6 +230,11 @@ function ProjectStatusPanel({ project }: { project: Project }) {
     if (refreshTick > 0) status.reload();
   }, [refreshTick, status.reload]);
 
+  // Ticks the freshness label every second without touching the network -
+  // separate from `refreshTick`, which only fires once a minute and drives
+  // the actual reload.
+  const now = useNow();
+
   return <main className="enter flex-1">{renderBody()}</main>;
 
   function renderBody() {
@@ -265,7 +272,12 @@ function ProjectStatusPanel({ project }: { project: Project }) {
     return (
       <div className="page py-8">
         <h1 className="text-page font-semibold tracking-tight text-ink">Status</h1>
-        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-body text-ink-2">
+        {/* `aria-live` here, not on the age label below: a screen reader should
+            hear "3 critical" become "all healthy", never a tick every second. */}
+        <p
+          aria-live="polite"
+          className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-body text-ink-2"
+        >
           <StatusBadge status={summary.worst} />
           <span>
             {allHealthy ? (
@@ -278,6 +290,17 @@ function ProjectStatusPanel({ project }: { project: Project }) {
             )}
           </span>
         </p>
+        {status.updatedAt !== null && (
+          <p
+            className={`mt-1 font-mono text-meta ${
+              status.refreshError ? 'text-text-caution' : 'text-ink-3'
+            }`}
+          >
+            {status.refreshError
+              ? `Couldn't refresh · showing data from ${formatRelative(now - status.updatedAt)}`
+              : `Updated ${formatRelative(now - status.updatedAt)}`}
+          </p>
+        )}
         <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2">
           <Count status="critical" value={summary.counts.critical} />
           <Count status="warning" value={summary.counts.warning} />

@@ -34,17 +34,28 @@ function sampleTime(row: DashboardRow): number {
   return at ? Date.parse(at) : -Infinity;
 }
 
+function hasSample(row: DashboardRow): number {
+  return sampleTime(row) === -Infinity ? 0 : 1;
+}
+
 /**
- * Worst status first, then most recent data, then newest project, then name so
- * the order is total and does not jump between renders. Without a summary every
- * row ranks equal and this falls through to newest first, the order the API
- * already returned.
+ * Worst status first, then whether there is a sample at all, then newest
+ * project, then name so the order is total and does not jump between renders.
+ * Without a summary every row ranks equal and this falls through to newest
+ * first, the order the API already returned.
+ *
+ * The exact `lastSampleAt` used to be the next tie-breaker, but the background
+ * auto-refresh (60 s) moves that value for every live project on every poll,
+ * so two same-status rows would swap places under the cursor each minute even
+ * though nothing about them actually changed. Only presence of a sample is
+ * compared now - a real status change still re-sorts, because that is rank,
+ * not this tie-break.
  */
 export function sortRows(rows: readonly DashboardRow[]): DashboardRow[] {
   return [...rows].sort(
     (a, b) =>
       rowRank(b) - rowRank(a) ||
-      sampleTime(b) - sampleTime(a) ||
+      hasSample(b) - hasSample(a) ||
       Date.parse(b.project.createdAt) - Date.parse(a.project.createdAt) ||
       a.project.name.localeCompare(b.project.name),
   );
