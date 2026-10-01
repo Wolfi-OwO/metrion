@@ -255,9 +255,12 @@ export interface SeriesQuery {
  *
  * `name` is repeated rather than joined: sub-resource and metric names are
  * free-form, so any delimiter would eventually appear inside a name. The
- * server reads the day-blobs once and answers for all of them - it used to
- * take a single name, which meant one 18 MB cross-region download per metric
- * and a five-minute page for a host with 36 of them.
+ * server runs one parameterised query against the `metrics`/`metrics_hourly`
+ * hypertable, matching every name in a single `name = ANY($n)` clause, and
+ * answers for all of them in one round trip - it used to take a single name
+ * against the append-blob store (ADR 0001, since replaced by ADR 0004), which
+ * meant one 18 MB cross-region download per metric per call and a
+ * five-minute page for a host with 36 of them.
  */
 export function fetchSeries(query: SeriesQuery, signal: AbortSignal): Promise<SeriesBatch> {
   const params = new URLSearchParams({

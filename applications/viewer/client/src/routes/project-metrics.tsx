@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import type { Project } from '../api/client.ts';
 import { fetchResources } from '../api/client.ts';
@@ -13,7 +13,9 @@ import { groupByUnit } from '../lib/groups.ts';
 import { chooseStepSeconds, RANGE_PRESETS, rangeFor } from '../lib/range.ts';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useLoader } from '../lib/use-loader.ts';
+import { useNow } from '../lib/use-now.ts';
 import { useProject } from '../lib/use-projects.ts';
+import { useRefreshTick } from '../lib/use-refresh-tick.ts';
 import { useSeries } from '../lib/use-series.ts';
 
 /**
@@ -53,14 +55,23 @@ function ProjectMetricsPanel({
   // Bumping `now` is what "Refresh" does: a new window end means a new range,
   // a new request key, and a reload of everything downstream. One trigger.
   const [now, setNow] = useState(() => new Date());
+  // A ticking clock, separate from `now` above: `now` only moves on a
+  // refresh, so the "last sample Ns ago" label and the live dot it gates used
+  // to freeze between refreshes - the dot stayed lit well past the 2-minute
+  // mark it claims to track. This clock is for reading age, never for the
+  // range.
+  const clock = useNow();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   const range = useMemo(() => rangeFor(preset, now), [preset, now]);
   const stepSeconds = useMemo(() => chooseStepSeconds(range), [range]);
-  const rangeKey = `${range.from.toISOString()}/${range.to.toISOString()}/${project.id}`;
+  // Keyed on preset + project, not on `range`: `range` moves every refresh
+  // (it is derived from `now`), and a key that moved on every refresh would
+  // make every background poll look like a real change and reset to loading.
+  const resourcesKey = `${preset.id}/${project.id}`;
 
-  const resources = useLoader(rangeKey, (signal) =>
+  const resources = useLoader(resourcesKey, (signal) =>
     fetchResources(range.from, range.to, signal, project.id),
   );
 
@@ -127,7 +138,19 @@ function ProjectMetricsPanel({
   const refresh = () => {
     setNow(new Date());
     setAttempt((value) => value + 1);
+    resources.reload();
   };
+
+  // One timer for the whole screen, same shape as the status and dashboard
+  // routes: a new window end every minute, which is what `refresh()` already
+  // does for the manual button.
+  const refreshTick = useRefreshTick();
+  // `refresh` is a fresh closure every render, not memoized - deliberately
+  // left out of the dependency list, since including it would refire this
+  // effect on every render instead of once per tick.
+  useEffect(() => {
+    if (refreshTick > 0) refresh();
+  }, [refreshTick]);
 
   return (
     <>
@@ -158,10 +181,10 @@ function ProjectMetricsPanel({
                       two minutes old: the collector writes one a minute, so
                       this is what "still arriving" looks like. It stops
                       the moment data goes stale, and under reduced motion. */}
-                  {now.getTime() - newestSample < 120_000 && (
+                  {clock - newestSample < 120_000 && (
                     <span aria-hidden="true" className="live-dot" />
                   )}
-                  last sample {formatAge(now.getTime() - newestSample)}
+                  last sample {formatAge(clock - newestSample)}
                 </span>
               )}
               <Button variant="quiet" onClick={refresh}>
@@ -271,7 +294,7 @@ function ProjectMetricsPanel({
               </p>
             </details>
             {(series.phase === 'loading' || series.phase === 'waking') && (
-              <p className="mt-2 text-ink-2">Reading the day-blobs for this window.</p>
+              <p className="mt-2 text-ink-2">Loading this window.</p>
             )}
             {skippedLines > 0 && (
               <p className="mt-2 text-text-caution">

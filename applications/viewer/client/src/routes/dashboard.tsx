@@ -16,6 +16,7 @@ import {
 } from '../lib/dashboard.ts';
 import { useNow } from '../lib/use-now.ts';
 import { useProjects, useProjectsSummary } from '../lib/use-projects.ts';
+import { useRefreshTick } from '../lib/use-refresh-tick.ts';
 import { projectNameError } from '../lib/validate.ts';
 import type { ProjectSummary } from '../lib/summary.ts';
 
@@ -104,6 +105,14 @@ export default function DashboardRoute({
   const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState('');
   const filterRef = useRef<HTMLInputElement>(null);
+
+  // Health only - the project list changes on user action (create a group),
+  // which already reloads it, so polling it too would just repeat the same
+  // request.
+  const refreshTick = useRefreshTick();
+  useEffect(() => {
+    if (refreshTick > 0) summary.reload();
+  }, [refreshTick, summary.reload]);
 
   const list = projects.data ?? [];
   const projectsBusy = projects.phase === 'loading' || projects.phase === 'waking';

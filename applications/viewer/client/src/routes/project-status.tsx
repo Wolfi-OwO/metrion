@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import {
   ApiError,
@@ -21,6 +21,7 @@ import { applicationKeyError, applicationNameError } from '../lib/validate.ts';
 import type { AuthState } from '../lib/use-auth.ts';
 import { useLoader } from '../lib/use-loader.ts';
 import { useProject } from '../lib/use-projects.ts';
+import { useRefreshTick } from '../lib/use-refresh-tick.ts';
 
 /**
  * `/projects/:projectId/status` - the screen `GET /projects/:id/status`
@@ -219,6 +220,14 @@ function ProjectStatusPanel({ project }: { project: Project }) {
   const [registering, setRegistering] = useState(false);
   const applications = status.data ?? [];
 
+  // The page's only timer - `StatusEventsPanel` below reads the same tick
+  // rather than running a second `setInterval`, so the two panels' background
+  // refreshes land together instead of drifting apart.
+  const refreshTick = useRefreshTick();
+  useEffect(() => {
+    if (refreshTick > 0) status.reload();
+  }, [refreshTick, status.reload]);
+
   return <main className="enter flex-1">{renderBody()}</main>;
 
   function renderBody() {
@@ -333,7 +342,11 @@ function ProjectStatusPanel({ project }: { project: Project }) {
         </Disclosure>
 
         <Disclosure title="Recent transitions">
-          <StatusEventsPanel projectId={project.id} applications={applications} />
+          <StatusEventsPanel
+            projectId={project.id}
+            applications={applications}
+            refreshTick={refreshTick}
+          />
         </Disclosure>
       </div>
     );

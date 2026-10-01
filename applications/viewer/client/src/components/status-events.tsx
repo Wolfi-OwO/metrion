@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { fetchStatusEvents, type ApplicationStatus, type Status } from '../api/client.ts';
 import { formatTimestamp } from '../lib/format.ts';
 import { useLoader } from '../lib/use-loader.ts';
@@ -14,13 +15,20 @@ function asStatus(value: string): Status {
 export function StatusEventsPanel({
   projectId,
   applications,
+  refreshTick,
 }: {
   projectId: string;
   applications: readonly ApplicationStatus[];
+  /** The page's shared tick (`ProjectStatusPanel`'s `useRefreshTick()`) - this
+   * panel reloads off it rather than running a second timer of its own. */
+  refreshTick: number;
 }) {
   const loader = useLoader(`status-events/${projectId}`, (signal) =>
     fetchStatusEvents(projectId, signal),
   );
+  useEffect(() => {
+    if (refreshTick > 0) loader.reload();
+  }, [refreshTick, loader.reload]);
   const appById = new Map(applications.map((app) => [app.id, app]));
 
   if (loader.phase === 'error' && loader.error) {
