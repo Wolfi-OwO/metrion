@@ -168,9 +168,12 @@ undelivered alert is worse than no alert at all if the alert's existence is
 being relied on.
 
 The managed option is **already free at this volume** - the evaluator's own
-`EVALUATOR_DAILY_EMAIL_CAP` defaults to 50 emails/project/day
-(`applications/evaluator/.env.example:26`), well inside a free transactional
-tier - so there was nothing to trade off in the first place; this was not a
+`EVALUATOR_DAILY_EMAIL_CAP` is an opt-in per-project ceiling, unset (and
+effectively unlimited) by default as of 2026-10-01 after a real cap of 50
+silently dropped notifications during an unrelated flapping-metric incident;
+see `applications/evaluator/.env.example` and `src/config/index.ts`. A
+project that opts into a cap stays well inside a free transactional tier - so
+there was nothing to trade off in the first place; this was not a
 cost-vs-quality call.
 
 The chosen provider is **Brevo** (`smtp-relay.brevo.com`,

@@ -41,8 +41,17 @@ export const config = {
   alertFrom: requireEnvUnlessDryRun('ALERT_FROM'),
 
   quota: {
-    /** Hard cap on `status_events.notified` rows per project per UTC calendar day. */
-    dailyEmailCap: Number(process.env.EVALUATOR_DAILY_EMAIL_CAP) || 50,
+    /**
+     * Hard cap on `status_events.notified` rows per project per UTC calendar
+     * day, enforced in `mailer.ts`'s `sendDigests`. Unset by default -
+     * `Number.MAX_SAFE_INTEGER` so a project's daily count never reaches it
+     * in practice, rather than deleting the enforcement path. Hit a real
+     * cap of 50 on 2026-10-01 during an unrelated `container.cpu` flapping
+     * incident; nothing about normal usage should be silently dropped by a
+     * default nobody chose. Set `EVALUATOR_DAILY_EMAIL_CAP` to a real
+     * number to opt back into a cap.
+     */
+    dailyEmailCap: Number(process.env.EVALUATOR_DAILY_EMAIL_CAP) || Number.MAX_SAFE_INTEGER,
     /** Re-notify cooldown per (threshold, sub_resource, state), minutes. */
     cooldownMinutes: Number(process.env.EVALUATOR_COOLDOWN_MINUTES) || 60,
   },
