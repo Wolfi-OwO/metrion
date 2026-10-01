@@ -429,6 +429,26 @@ input:focus-visible + span {
   }
 }
 
+/* The dependency graph's outage edges: dashes travel from the unhealthy
+   dependency toward whatever depends on it, the same direction the edge's
+   own arrowhead already points, so the line shows causality moving instead
+   of sitting next to a legend that promises motion a static stroke never
+   had. `stroke-dasharray` on the path is "4 4" (8px total); the offset
+   animates exactly one period so the loop has no visible seam. Healthy
+   edges never get this class - nothing is travelling along a dependency
+   that isn't carrying an outage. */
+@keyframes edge-flow {
+  from {
+    stroke-dashoffset: 8;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.edge-flow {
+  animation: edge-flow 2.4s var(--ease-instrument) infinite;
+}
+
 /* Skeleton placeholder: the tone of a --color-raised surface with a soft light
    band drifting across it. Duration is the base token times six (1.44s) so it
    stays on the same scale as every other timing here; the curve is the one

@@ -35,10 +35,15 @@ import { Button } from './states.tsx';
  *    structure; editing lives in the detail panel below, not inside a node;
  *  - an edge is neutral grey unless an outage travels along it (both ends are
  *    unhealthy), in which case it takes the colour of the dependency it comes
- *    from - so the blast radius of a root cause is the coloured part;
- *  - hovering or selecting an application dims every edge that is not its own;
+ *    from, thickens, and its dashes animate toward the dependent end - so the
+ *    blast radius of a root cause is the coloured, moving part, matching the
+ *    legend's own words rather than sitting next to them as a static line;
+ *  - hovering or selecting an application dims every edge, and every other
+ *    node not directly connected to it, so the canvas reads as one spotlight
+ *    rather than lines dimming next to nodes that stay full-strength;
  *  - applications with no edges are not drawn on the canvas at all - a wall of
- *    unconnected boxes is noise - and are listed underneath instead.
+ *    unconnected boxes is noise - and are listed underneath instead, outside
+ *    the spotlight (an isolated node has no path to be "connected to").
  */
 
 function appLabel(app: { key: string; displayName: string | null }): string {
@@ -177,9 +182,18 @@ const EDGE_COLOUR: Record<Status, string> = {
   critical: 'var(--color-status-critical)',
 };
 
+// Thickness is a fourth, redundant channel on top of colour, the arrowhead
+// and the legend word - never the only one. The default marker is 6px square
+// at `strokeWidth` 1 (SVG markers scale with the path's own stroke width by
+// default), so these three steps read as ~7.5 / 10.5 / 13.5px arrowheads: a
+// visible escalation without either end looking out of place next to an
+// 80px-tall node.
+const EDGE_WIDTH: Record<Status, number> = { ok: 1.25, warning: 1.75, critical: 2.25 };
+
 function GraphNode({
   app,
   selected,
+  dimmed = false,
   dependsOn,
   onSelect,
   onHover,
@@ -188,6 +202,10 @@ function GraphNode({
 }: {
   app: ApplicationStatus;
   selected: boolean;
+  /** Outside the hovered/selected node's own connections - not disabled, just
+   * not what the eye should be reading right now. Only ever set for canvas
+   * nodes; the isolated grid below has no edges to be "connected" through. */
+  dimmed?: boolean;
   dependsOn: string[];
   onSelect: () => void;
   onHover?: (hovering: boolean) => void;
@@ -212,13 +230,21 @@ function GraphNode({
       aria-label={`${appLabel(app)}, ${STATUS_WORD[app.effectiveStatus]}. ${
         dependsOn.length > 0 ? `Depends on ${dependsOn.join(', ')}.` : 'Depends on nothing.'
       }${raw ? ` Last check: ${raw}.` : ''}`}
-      style={style}
-      className={`group relative flex min-h-11 flex-col justify-center overflow-hidden rounded-control border bg-surface py-2 pr-3 pl-4 text-left transition-colors md:min-h-0 ${
+      style={{
+        ...style,
+        opacity: dimmed ? 0.5 : 1,
+        // Opacity rides its own transition, separate from the Tailwind
+        // `transition-colors` utility below: the inline `transition`
+        // property is a single CSS declaration, so folding opacity into it
+        // here would silently drop the class's border/background easing.
+        transition: 'opacity var(--duration-fast) var(--ease-instrument)',
+      }}
+      className={`group relative flex min-h-11 flex-col justify-center overflow-hidden rounded-control border py-2 pr-3 pl-4 text-left transition-colors md:min-h-0 ${
         selected
-          ? 'border-accent'
+          ? 'border-accent bg-accent/8'
           : isRoot
-            ? 'border-status-critical/60 hover:border-status-critical'
-            : 'border-line-strong hover:border-control'
+            ? 'border-status-critical/60 bg-surface hover:border-status-critical'
+            : 'border-line-strong bg-surface hover:border-control'
       }`}
     >
       <span
@@ -347,6 +373,15 @@ export function DependencyGraph({
   const selectedId = picked ?? rootCause?.id ?? null;
   const selected = selectedId ? appById.get(selectedId) : undefined;
   const focusId = hovered ?? selectedId;
+  // Every node directly on an edge touching the focus - the spotlight's
+  // reach matches exactly what the dimmed edges above already exclude.
+  const neighborIds = focusId
+    ? new Set(
+        edges
+          .filter((edge) => edge.source === focusId || edge.target === focusId)
+          .flatMap((edge) => [edge.source, edge.target]),
+      )
+    : null;
 
   const dependsOn = selected ? edgesFor(selected.id).filter((id) => known.has(id)) : [];
   const dependents = selected
@@ -367,7 +402,7 @@ export function DependencyGraph({
   return (
     <div>
       {layout.nodes.length > 0 ? (
-        <div className="overflow-x-auto rounded-surface border border-line bg-surface p-4">
+        <div className="overflow-x-auto rounded-surface border border-line bg-surface p-4 md:p-6">
           <div className="relative mx-auto" style={{ width: layout.width, height: layout.height }}>
             <svg
               aria-hidden="true"
@@ -383,8 +418,8 @@ export function DependencyGraph({
                     viewBox="0 0 8 8"
                     refX="7"
                     refY="4"
-                    markerWidth="7"
-                    markerHeight="7"
+                    markerWidth="6"
+                    markerHeight="6"
                     orient="auto-start-reverse"
                   >
                     <path d="M0 0 L8 4 L0 8 Z" fill={EDGE_COLOUR[status]} />
@@ -406,7 +441,11 @@ export function DependencyGraph({
                     d={edgePath(edge.points)}
                     fill="none"
                     stroke={EDGE_COLOUR[carried]}
-                    strokeWidth={carried === 'ok' ? 1.25 : 2}
+                    strokeWidth={EDGE_WIDTH[carried]}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray={carried === 'ok' ? undefined : '4 4'}
+                    className={carried === 'ok' ? undefined : 'edge-flow'}
                     markerEnd={`url(#dependency-arrow-${carried})`}
                     style={{
                       opacity: focusId && !incident ? 0.2 : 1,
@@ -424,6 +463,7 @@ export function DependencyGraph({
                   key={node.id}
                   app={app}
                   selected={selectedId === node.id}
+                  dimmed={neighborIds !== null && node.id !== focusId && !neighborIds.has(node.id)}
                   dependsOn={depNames(node.id)}
                   onSelect={() => select(node.id)}
                   onHover={(on) => setHovered(on ? node.id : null)}
