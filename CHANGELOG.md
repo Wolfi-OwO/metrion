@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.4.0 - 2026-10-01
+
+Platform release: root, agent, ingest, evaluator, shared and db packages go to
+0.4.0; the viewer and its client go to 0.6.0 (next minor of their own line).
+
+- The status, dashboard and metrics screens now poll in the background, each
+  screen on its own independent interval rather than a shared clock, without
+  blanking the page, losing scroll position, open panels, typed form input or
+  chart hover state; the dependency graph re-renders from fresh data on every
+  refresh.
+- The status screen shows a "last updated Ns ago" indicator, with a caution
+  state when a background refresh fails; dashboard row order no longer
+  shuffles under the cursor on every refresh.
+- The status API gained a `lastCheck` field exposing each application's
+  single newest raw check, independent of the averaged/alerting threshold
+  state - foundation for an instant-status indicator, not yet wired into the
+  UI.
+- The evaluator's daily per-project email-notification cap default was raised
+  from 50 to effectively unlimited: it is a safety valve, not a real limit,
+  until real SMTP delivery is configured.
+- Breaking: `container.cpu` thresholds are re-anchored from the 95th/99th
+  percentile of normal load to 50%/80% of each container's actual configured
+  CPU limit, with a wider averaging window (900s, up from 300s) - fixes
+  false-positive flapping (179 events in ~33h) caused by bounds that were, by
+  construction, exceeded by around 5% of normal minutes.
+- A live end-to-end test confirmed the uptime-monitoring pipeline detects a
+  real outage, attributes root cause, alerts and recovers correctly; results
+  and real measured timings (for example ~3 minutes slower via the averaged
+  threshold than the raw first failed check) are recorded in
+  `organizational/uptime-alerting.md`.
+
 ## v0.3.0 - 2026-09-30
 
 Platform release: root, agent, ingest, evaluator, shared and db packages go to

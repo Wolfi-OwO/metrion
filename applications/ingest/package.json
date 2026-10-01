@@ -1,6 +1,6 @@
 {
   "name": "@metrion/ingest",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "One authenticated HTTP endpoint any application in any language can POST metrics to. Per-project API key auth resolves tenancy (docs/adr/0005-api-key-determines-tenancy.md); writes go straight to the TimescaleDB hypertable @metrion/db migrates (docs/adr/0004-postgres-timescaledb-over-append-blob.md). No SDK required.",
   "type": "module",
