@@ -31,11 +31,7 @@ const SUB_RESOURCE = 'container:nutrilens-nutrilens-blue-1';
  * only cares which rows are present at call time, not real wall-clock
  * spacing.
  */
-async function replaceSamples(
-  pool: Pool,
-  projectId: string,
-  values: number[],
-): Promise<void> {
+async function replaceSamples(pool: Pool, projectId: string, values: number[]): Promise<void> {
   await pool.query(
     `DELETE FROM metrics WHERE project_id = $1 AND resource = $2 AND sub_resource = $3 AND name = 'container.cpu'`,
     [projectId, RESOURCE, SUB_RESOURCE],
@@ -72,15 +68,17 @@ test('container.cpu alerting: new 50/80%-of-limit bounds hold normal load and co
     return events.filter((e) => e.thresholdId === thresholdId);
   };
 
-  // 14 samples at the measured p50 (1.6) plus one at the measured max
-  // single-minute overshoot (106.7): mean 8.6, well under warning (15).
-  const baseline = [...Array(14).fill(1.6), 106.7];
-  // 10 of the 15 one-minute samples pinned at the limit (30 = 100% of the
-  // 0.3-core quota, as %-of-one-host-core), the other 5 still the old
-  // baseline (1.6) - models the window filling as a sustained load starts.
-  const tenMinutesAtLimit = [...Array(10).fill(30), ...Array(5).fill(1.6)];
-  // Full 15-sample window pinned at the limit.
-  const fullWindowAtLimit = Array(15).fill(30);
+  // SAMPLE_COUNT - 1 samples at the measured p50 (1.6) plus one at the
+  // measured max single-minute overshoot (106.7): mean 8.6, well under
+  // warning (15).
+  const baseline = [...Array(SAMPLE_COUNT - 1).fill(1.6), 106.7];
+  // 10 of the SAMPLE_COUNT one-minute samples pinned at the limit (30 =
+  // 100% of the 0.3-core quota, as %-of-one-host-core), the rest still the
+  // old baseline (1.6) - models the window filling as a sustained load
+  // starts.
+  const tenMinutesAtLimit = [...Array(10).fill(30), ...Array(SAMPLE_COUNT - 10).fill(1.6)];
+  // Full SAMPLE_COUNT-sample window pinned at the limit.
+  const fullWindowAtLimit = Array(SAMPLE_COUNT).fill(30);
 
   try {
     // --- (a) normal load + one burst minute: never leaves 'ok', across 3 cycles. ---
