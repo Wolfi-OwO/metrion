@@ -16,7 +16,7 @@ import { StatusBadge } from '../components/status-badge.tsx';
 import { StatusEventsPanel } from '../components/status-events.tsx';
 import { Button, ErrorState, LoadingState } from '../components/states.tsx';
 import { ThresholdPanel } from '../components/threshold-panel.tsx';
-import { formatRelative } from '../lib/dashboard.ts';
+import { formatRelative, lastCheckLabel } from '../lib/dashboard.ts';
 import { summariseApplications } from '../lib/status.ts';
 import { applicationKeyError, applicationNameError } from '../lib/validate.ts';
 import type { AuthState } from '../lib/use-auth.ts';
@@ -115,8 +115,12 @@ function CreateApplicationForm({
   );
 }
 
-function ApplicationRow({ app }: { app: ApplicationStatus }) {
+function ApplicationRow({ app, now }: { app: ApplicationStatus; now: number }) {
   const tripped = app.thresholds.filter((t) => t.state !== 'ok');
+  // Raw and independent of the averaged threshold state above it - "Up"/
+  // "Down", never "OK"/"Critical", so it reads as a second data point rather
+  // than a second verdict.
+  const raw = lastCheckLabel(app.lastCheck, now);
   return (
     <li
       id={`app-${app.id}`}
@@ -126,7 +130,21 @@ function ApplicationRow({ app }: { app: ApplicationStatus }) {
         <p className="truncate text-body font-medium text-ink">{app.displayName ?? app.key}</p>
         <p className="truncate font-mono text-meta text-ink-3">{app.key}</p>
       </div>
-      <StatusBadge status={app.effectiveStatus} />
+      <div>
+        <StatusBadge status={app.effectiveStatus} />
+        {raw && (
+          <p
+            className="mt-1 whitespace-nowrap font-mono text-meta text-ink-3"
+            title={
+              app.lastCheck
+                ? `Last raw check: ${new Date(app.lastCheck.at).toLocaleString()}`
+                : undefined
+            }
+          >
+            {raw}
+          </p>
+        )}
+      </div>
       <div className="col-span-2 min-w-0 md:col-span-1">
         {app.causedBy ? (
           // The most useful line on the page, so it is full-size ink, not a
@@ -350,7 +368,7 @@ function ProjectStatusPanel({ project }: { project: Project }) {
           )}
           <ul className="mt-4 divide-y divide-line overflow-hidden rounded-surface border border-line bg-surface">
             {applications.map((app) => (
-              <ApplicationRow key={app.id} app={app} />
+              <ApplicationRow key={app.id} app={app} now={now} />
             ))}
           </ul>
         </section>

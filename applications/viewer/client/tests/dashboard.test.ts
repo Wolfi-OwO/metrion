@@ -6,6 +6,7 @@ import {
   filterRows,
   formatRelative,
   freshnessOf,
+  lastCheckLabel,
   sortRows,
   totalsOf,
   verdictOf,
@@ -165,6 +166,24 @@ test('relative time steps through seconds, minutes, hours and days', () => {
   assert.equal(formatRelative(3 * 3_600_000), '3 h ago');
   assert.equal(formatRelative(47 * 3_600_000), '47 h ago');
   assert.equal(formatRelative(72 * 3_600_000), '3 d ago');
+});
+
+test('last check label: up/down with age, stale past 3 minutes, null passes through', () => {
+  const now = Date.parse('2026-09-20T12:00:00Z');
+  assert.equal(
+    lastCheckLabel({ ok: true, at: new Date(now - 40_000).toISOString() }, now),
+    'Up · 40 s ago',
+  );
+  assert.equal(
+    lastCheckLabel({ ok: false, at: new Date(now - 90_000).toISOString() }, now),
+    'Down · 1 min ago',
+  );
+  assert.equal(
+    lastCheckLabel({ ok: true, at: new Date(now - 180_001).toISOString() }, now),
+    'No recent check',
+  );
+  assert.equal(lastCheckLabel(null, now), null);
+  assert.equal(lastCheckLabel({ ok: true, at: 'not a date' }, now), null);
 });
 
 test('filter matches name or slug case-insensitively', () => {

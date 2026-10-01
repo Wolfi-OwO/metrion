@@ -13,8 +13,10 @@ import {
   NODE_WIDTH,
   type LayoutEdge,
 } from '../lib/graph-layout.ts';
+import { lastCheckLabel } from '../lib/dashboard.ts';
 import { cyclePathFromMessage } from '../lib/status.ts';
 import { useLoader } from '../lib/use-loader.ts';
+import { useNow } from '../lib/use-now.ts';
 import { StatusBadge } from './status-badge.tsx';
 import { StatusIcon } from './icon.tsx';
 import { Button } from './states.tsx';
@@ -181,6 +183,7 @@ function GraphNode({
   dependsOn,
   onSelect,
   onHover,
+  now,
   style,
 }: {
   app: ApplicationStatus;
@@ -188,10 +191,15 @@ function GraphNode({
   dependsOn: string[];
   onSelect: () => void;
   onHover?: (hovering: boolean) => void;
+  now: number;
   style?: React.CSSProperties;
 }) {
   const unhealthy = app.effectiveStatus !== 'ok';
   const isRoot = unhealthy && app.causedBy === null;
+  // Raw, independent of the averaged/alerting state above it - deliberately
+  // smaller, muted and positioned under the real status so it reads as a
+  // second data point, never a second verdict.
+  const raw = lastCheckLabel(app.lastCheck, now);
   return (
     <button
       type="button"
@@ -203,7 +211,7 @@ function GraphNode({
       aria-pressed={selected}
       aria-label={`${appLabel(app)}, ${STATUS_WORD[app.effectiveStatus]}. ${
         dependsOn.length > 0 ? `Depends on ${dependsOn.join(', ')}.` : 'Depends on nothing.'
-      }`}
+      }${raw ? ` Last check: ${raw}.` : ''}`}
       style={style}
       className={`group relative flex min-h-11 flex-col justify-center overflow-hidden rounded-control border bg-surface py-2 pr-3 pl-4 text-left transition-colors md:min-h-0 ${
         selected
@@ -231,6 +239,7 @@ function GraphNode({
         {STATUS_WORD[app.effectiveStatus]}
         {isRoot && <span className="text-ink-3">· root cause</span>}
       </span>
+      {raw && <span className="truncate font-mono text-meta text-ink-3">{raw}</span>}
     </button>
   );
 }
@@ -302,6 +311,10 @@ export function DependencyGraph({
   const [hovered, setHovered] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [overrides, setOverrides] = useState<Map<string, string[]>>(new Map());
+  // One clock for every node's "Ns ago" - no per-node timer, and `status`
+  // already refreshes `applications` in the background, so this just ticks
+  // the label between those refreshes rather than fetching anything itself.
+  const now = useNow();
 
   const appById = new Map(applications.map((app) => [app.id, app]));
   const edgesFor = (id: string): string[] => overrides.get(id) ?? loader.data?.get(id) ?? [];
@@ -414,6 +427,7 @@ export function DependencyGraph({
                   dependsOn={depNames(node.id)}
                   onSelect={() => select(node.id)}
                   onHover={(on) => setHovered(on ? node.id : null)}
+                  now={now}
                   style={{
                     position: 'absolute',
                     left: node.x,
@@ -460,6 +474,7 @@ export function DependencyGraph({
                   selected={selectedId === id}
                   dependsOn={[]}
                   onSelect={() => select(id)}
+                  now={now}
                 />
               );
             })}
@@ -479,6 +494,14 @@ export function DependencyGraph({
               </h3>
               <StatusBadge status={selected.effectiveStatus} />
               <span className="font-mono text-meta text-ink-3">{selected.key}</span>
+              {selected.lastCheck && (
+                <span
+                  className="font-mono text-meta text-ink-3"
+                  title={`Last raw check: ${new Date(selected.lastCheck.at).toLocaleString()}`}
+                >
+                  {lastCheckLabel(selected.lastCheck, now)}
+                </span>
+              )}
             </div>
             {selected.causedBy && (
               <p className="mt-2 text-body text-ink-2">

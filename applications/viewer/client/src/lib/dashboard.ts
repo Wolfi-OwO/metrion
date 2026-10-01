@@ -152,6 +152,30 @@ export function formatRelative(ms: number): string {
   return `${Math.floor(hours / 24)} d ago`;
 }
 
+/**
+ * Collectors post `uptime.ok` every 60 s; a raw sample older than 3x that
+ * cadence is too old to still call current - one missed beat plus slack.
+ */
+export const LAST_CHECK_STALE_MS = 180_000;
+
+/**
+ * The single newest raw check, read straight off the collector and
+ * independent of the averaged/alerting threshold state. "Up"/"Down" rather
+ * than "ok"/"critical" on purpose - those words are `effectiveStatus`'s
+ * alone, so this can never read as a second copy of the real status badge.
+ * `null` for an application with no uptime metric at all (e.g. a host node).
+ */
+export function lastCheckLabel(
+  lastCheck: { readonly ok: boolean; readonly at: string } | null,
+  now: number,
+): string | null {
+  if (!lastCheck) return null;
+  const at = Date.parse(lastCheck.at);
+  if (Number.isNaN(at)) return null;
+  if (now - at > LAST_CHECK_STALE_MS) return 'No recent check';
+  return `${lastCheck.ok ? 'Up' : 'Down'} · ${formatRelative(now - at)}`;
+}
+
 /** Case-insensitive match on name or slug; an empty query keeps everything. */
 export function filterRows(rows: readonly DashboardRow[], query: string): DashboardRow[] {
   const q = query.trim().toLowerCase();
