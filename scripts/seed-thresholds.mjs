@@ -273,7 +273,7 @@ const ROWS = [
     critical: 17.1,
     window: 900,
     enabled: false,
-    note: "superseded by per-container rows below: limits differ (1.0/0.5/0.3 cores)",
+    note: 'superseded by per-container rows below: limits differ (1.0/0.5/0.3 cores)',
   },
   {
     app: 'portfolio',
@@ -284,7 +284,7 @@ const ROWS = [
     critical: 6.8,
     window: 900,
     enabled: false,
-    note: "superseded by per-container rows below: limits differ (0.5/0.25 cores)",
+    note: 'superseded by per-container rows below: limits differ (0.5/0.25 cores)',
   },
   {
     app: 'nutrilens',
