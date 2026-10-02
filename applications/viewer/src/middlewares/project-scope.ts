@@ -89,7 +89,7 @@ export async function resolveProjectIdsFromSession(req: Request): Promise<string
   if (!userId) return [];
 
   const { rows } = await getPool().query<{ id: string }>(
-    'SELECT id FROM projects WHERE owner_user_id = $1',
+    'SELECT id FROM projects WHERE owner_user_id = $1 AND NOT hidden',
     [userId],
   );
   return rows.map((row) => row.id);

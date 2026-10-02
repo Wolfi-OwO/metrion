@@ -555,3 +555,27 @@ test('/projects/summary is a literal route; a non-uuid :id route still answers 4
   const keys = await fetch(`${baseUrl}/api/v1/projects/summary/keys`, { headers: { cookie } });
   assert.equal(keys.status, 400);
 });
+
+test('a hidden project is absent from both list endpoints but still exists by id', async () => {
+  const cookie = await signInAs(`${marker}-hidden`, `${marker}-hidden@example.test`);
+  const visible = await createProjectFor(cookie, `${marker} Visible`);
+  const hidden = await createProjectFor(cookie, `${marker} Hidden`);
+  await fixturePool.query('UPDATE projects SET hidden = true WHERE id = $1', [hidden]);
+
+  const list = (await (
+    await fetch(`${baseUrl}/api/v1/projects`, { headers: { cookie } })
+  ).json()) as {
+    projects: { id: string }[];
+  };
+  assert.deepEqual(
+    list.projects.map((p) => p.id),
+    [visible],
+  );
+  assert.deepEqual(
+    (await getSummary(cookie)).map((s) => s.projectId),
+    [visible],
+  );
+
+  const { rows } = await fixturePool.query('SELECT 1 FROM projects WHERE id = $1', [hidden]);
+  assert.equal(rows.length, 1);
+});

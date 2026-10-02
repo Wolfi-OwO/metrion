@@ -71,7 +71,7 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
   const { rows } = await getPool().query(
     `SELECT id, name, slug, default_resource AS "defaultResource", created_at AS "createdAt"
        FROM projects
-      WHERE owner_user_id = $1
+      WHERE owner_user_id = $1 AND NOT hidden
       ORDER BY created_at`,
     [req.userId],
   );
