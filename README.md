@@ -54,6 +54,8 @@ The **collector** is deployed as a systemd timer, not a container - see
 `organizational/agent-deployment-runbook.md` for why (no image builds on the VPS,
 and Node's own `apt` package is already there). It runs on Node 18.19,
 which is what Ubuntu 24.04 ships, so the root `engines` floor stays there.
+Links into `organizational/` resolve only in the private repository, not in the
+public mirror.
 
 The **ingest** service is Express 4 + zod 4 on Node 22
 (`applications/ingest`) - the one write path, deployed as its own container
@@ -89,7 +91,7 @@ docs/
 ├── adr/           architecture decisions (storage type, one metrics source,
 │                  the generic envelope, tenancy, uptime-as-metrics)
 └── quickstart/    send your first metric in any language, no SDK
-organizational/    deployment runbooks
+organizational/    operator runbooks (private repo only, not in the public mirror)
 .github/workflows/ lint, format, typecheck, build and test on every push
 ```
 
@@ -162,9 +164,9 @@ is not that:
 
 - [`IMPRESSUM.md`](IMPRESSUM.md) - Offenlegung per § 5 ECG and § 25 MedienG.
 - [`PRIVACY.md`](PRIVACY.md) - what is stored and what deliberately is not,
-  with the file and line behind every claim. No cookies, no analytics, no
-  tracking, no third-party request from the browser - and therefore no
-  consent banner.
+  with the file and line behind every claim. Only two strictly necessary
+  cookies (sign-in session and OAuth state); no analytics, tracking or
+  third-party requests - and therefore no consent banner.
 - [`TERMS_OF_USE.md`](TERMS_OF_USE.md) - who may use the read API and the
   ingest endpoint, and what a token holder answers for.
 

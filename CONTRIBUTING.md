@@ -3,6 +3,10 @@
 Single-maintainer project (metrion); this document exists mainly so the rules
 are written down once instead of re-derived per change.
 
+## Contributions
+
+Contributions are accepted only if you grant the maintainer a perpetual, irrevocable licence to use and relicense them.
+
 ## Setup
 
 ```bash

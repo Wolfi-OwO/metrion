@@ -1,7 +1,7 @@
 # Terms of Use (Nutzungsbedingungen)
 
 **metrion — server supervision platform**
-Effective: 2026-09-22
+Effective: 2026-10-03
 
 Operator: Phillip Kofler, Fürnitz, Kärnten, Österreich — see `IMPRESSUM.md`.
 
@@ -9,31 +9,22 @@ Operator: Phillip Kofler, Fürnitz, Kärnten, Österreich — see `IMPRESSUM.md`
 
 ## 1. What this covers
 
-Four surfaces are reachable over the internet:
+- the **account-scoped read API** (`GET /api/v1/metrics`, `GET /api/v1/resources`, …), which returns
+  data only for projects of the signed-in account,
+- the **public uptime endpoints** (`GET /api/v1/public/projects/:id/uptime` and `/uptime/range`),
+  which return data only for projects and applications whose owner has opted in,
+- the **API documentation** at `/docs`, `/openapi.json`,
+- the **ingest endpoint** `POST /api/v1/ingest` (requires an API key issued to a signed-in account), and
+- **sign-in and project/key management**.
 
-- the **public read API** (`GET /api/v1/resources`, `GET /api/v1/metrics`),
-- the **API documentation site** at `/docs` and `/openapi.json`,
-- the **authenticated ingest endpoint**, `POST /api/v1/ingest`, and
-- **account sign-in and project/API-key management**
-  (`/auth/<provider>`, `GET /api/v1/me`, `/api/v1/projects`,
-  `/api/v1/keys/:id`).
+Creating a project and API keys requires signing in via Google, Microsoft or GitHub
+(see `PRIVACY.md` section 6). Reading the documentation and the public uptime endpoints needs no account.
 
-Using any of these means accepting these terms. Using the read API,
-documentation or ingest endpoint needs no account. Creating a project and
-issuing API keys needs signing in via Google, Microsoft or GitHub OAuth —
-see `PRIVACY.md` section 6 for that provider's own role.
+## 2. APIs
 
-## 2. The read API and documentation
-
-Public and unauthenticated on purpose: it serves aggregate resource usage of
-the operator's own machines. It is provided for reading, not as a data feed to
-resell or redistribute as your own. Automated polling is fine within the rate
-limits; working around them is not.
-
-A **global** rate limit applies to every route, every caller together — it is
-not per client, so a burst from one caller can exhaust it for everyone. Over
-the limit the answer is `429`. Liveness checks are exempt. Query ranges are
-capped at 31 days per request.
+The public uptime endpoints serve availability measurements of opted-in applications only. They are for
+reading, not for resale as your own data feed. A global rate limit applies to every route and all
+callers together; over the limit the answer is `429`. Working around limits is a breach of these terms.
 
 ## 3. The ingest endpoint
 
@@ -91,8 +82,7 @@ for any DSGVO Art 12(3) request (see `PRIVACY.md` section 7).
 
 ## 4. No warranty, no availability promise
 
-metrion is provided **as is**. It runs with `minReplicas: 0`, so the first request
-after an idle period wakes a container and is slow. There is no uptime
+metrion is provided **as is**. The viewer scales to zero when idle, so the first request after an idle period is slow. There is no uptime
 commitment, no support obligation, and maintenance may happen without notice.
 
 Metrics may be missing, delayed, duplicated at a minute boundary, or wrong.
@@ -101,19 +91,15 @@ capacity purchase, a billing claim. Liability is excluded to the extent
 permitted by Austrian law; liability for intent and gross negligence, and under
 mandatory statutory provisions, remains unaffected.
 
-**Threshold-alert delivery is best-effort only (planned feature, GitHub
-issues #20-#24).** Once shipped, the evaluator's minute-by-minute threshold
-poll and the resulting email are not covered by any monitoring or
-availability guarantee. An alert not firing, or firing late, is not a
-breach of any commitment under these terms — consistent with the rest of
-this section's no-uptime-promise position.
+**Threshold alerts are best-effort.** Alert evaluation runs minute by minute; email delivery is not yet
+active (dry-run). Once it is, an alert that is late, missing or duplicated is not a breach of these
+terms, consistent with the no-uptime-promise position above.
 
 ## 5. Intellectual property
 
-The source code is **proprietary** — see `LICENSE`. Public visibility of the
-repository grants no licence to use, copy, modify or distribute it. Metric data
-served by the public API describes the operator's own infrastructure and remains
-the operator's.
+The source code is published for inspection under the terms in `LICENSE` (all rights reserved).
+You keep all rights in the data you submit. You grant the operator a non-exclusive licence to store,
+process and — where you have opted in to public status — display it, solely to run the service.
 
 ## 6. Privacy
 
@@ -131,17 +117,21 @@ suspected abuse, or a legal or security reason. A user may close their own
 account at any time by writing to <koflerphillip@outlook.com>; closing an
 account triggers the deletion cascade described in `PRIVACY.md` section 7.
 
+Where a restriction is based on illegal content or on these terms, the operator tells the affected user
+the reason by email (Art 17 DSA). Illegal content can be reported to <koflerphillip@outlook.com>
+(Art 16 DSA); the same address is the DSA contact point (Arts 11-12).
+
 ## 8. Changes
 
-These terms may change. The effective date at the top marks the current version;
-continued use after a change is acceptance of it.
+Changes are announced by updating the effective date. If a change materially affects existing users, they
+are told by email beforehand. Continued use after a change is acceptance only for users who have been
+informed this way and may close their account instead.
 
 ## 9. Governing law
 
-Austrian law, excluding its conflict-of-law rules and the UN Convention on
-Contracts for the International Sale of Goods. Place of jurisdiction: Austria.
-Mandatory consumer protection provisions of a consumer's country of residence
-remain unaffected.
+Austrian law applies, excluding its conflict-of-law rules and the UN Convention on Contracts for the
+International Sale of Goods. For businesses, the place of jurisdiction is Austria. Mandatory consumer
+protection rules and consumer places of jurisdiction remain unaffected.
 
 ## 10. Contact
 
@@ -149,4 +139,4 @@ remain unaffected.
 
 ---
 
-Effective: 2026-09-22
+Effective: 2026-10-03

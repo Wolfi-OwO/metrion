@@ -1,15 +1,16 @@
 # Privacy Policy (Datenschutzerklärung)
 
 **metrion — server supervision platform**
-**Effective:** 2026-09-22
-**Last updated:** 2026-09-22
+**Effective:** 2026-10-03
+**Last updated:** 2026-10-03
 
 Controller: Phillip Kofler, Fürnitz, Kärnten, Österreich
 Contact: <koflerphillip@outlook.com>
 
-This is a description of what the software in this repository does, written
-against the code rather than against intent — every claim below names the file
-and line that implements it. It is not legal advice.
+This is a description of what the software in this repository does. Every claim
+about the code names the file and line that implements it; operational
+statements are made by the operator and are not independently verifiable from
+this repository. It is not legal advice.
 
 **Language.** This document is English because the application, its API
 documentation and the whole repository are English. If a German-language
@@ -21,7 +22,7 @@ the people it addresses — it has to be added, not translated on request. See
 
 ## 1. Scope
 
-metrion is a multi-tenant metrics platform: three server processes and one
+metrion is a multi-tenant metrics platform: four server processes and one
 browser client.
 
 - **agent** — runs on the operator's own VPS (Contabo) once a minute,
@@ -38,8 +39,13 @@ browser client.
   `docs/adr/0005-api-key-determines-tenancy.md`), and the opt-in public uptime
   endpoint described in section 6
   (`applications/ingest/src/routes/index.ts:57-85`).
-- **viewer** (`metrion-viewer`) — an Azure Container App (West Europe)
-  serving the account-scoped read API, the API documentation site at `/docs`,
+- **evaluator** — a service on the Contabo VPS that evaluates project
+  thresholds every minute (`applications/evaluator`); see "Alert email" in
+  section 6.
+- **viewer** (`metrion-viewer`) — an Azure Container App in Azure region West
+  Europe (Netherlands), served at `https://metrion.woofi-developments.at`
+  (the former `*.azurecontainerapps.io` hostname redirects there,
+  `applications/viewer/src/middlewares/canonical-host.ts`), serving the account-scoped read API, the API documentation site at `/docs`,
   OAuth sign-in and session management
   (`applications/viewer/src/routes/auth.routes.ts:13-16`), and per-account
   project/API-key management
@@ -49,12 +55,12 @@ browser client.
   a signed-in user, the account-scoped project/key endpoints.
 
 Storage: Postgres with the TimescaleDB extension, self-hosted on the
-operator's Contabo VPS (`organizational/agent-deployment-runbook.md:159-183`),
+operator's Contabo VPS (operator runbook, not published),
 replacing the Azure Blob Storage design of the now-superseded
 `docs/adr/0001-append-blob-over-table-storage.md` — see
 `docs/adr/0004-postgres-timescaledb-over-append-blob.md`. The old
 single-tenant blob-based deployment (`mona-viewer`/`mona-rg`) has since been
-fully decommissioned (`organizational/viewer-deployment-runbook.md`).
+fully decommissioned.
 
 Applicable law: DSGVO (Regulation (EU) 2016/679), the Austrian
 Datenschutzgesetz (DSG), § 165 TKG 2021 for anything stored on a visitor's
@@ -85,7 +91,7 @@ free-text field can smuggle anything but a numeric measurement into a row.
 `docs/adr/0009-permanent-uptime-history-and-range-api.md`). Every other
 metric name lands in `metrics` only.
 
-### Uptime history (new with this release)
+### Uptime history
 
 `uptime_samples` keeps every `uptime.*` point — the same shape as an
 ordinary metric row: `project_id`, `resource` (the application key),
@@ -97,6 +103,11 @@ from those raw rows every 10 minutes by a database job and hold the same
 kind of data at a coarser grain (a day's up/down counts and latency
 percentiles; a down run's start/end) — never anything not already derivable
 from `uptime_samples` itself (`packages/db/migrations/0015_uptime_rollup_job.sql`).
+On 2026-09-30 the operator imported 90 days of historical availability
+results (up/down and latency) for the operator's own sites from MongoDB Atlas,
+via a one-time export. These measurements concern the operator's own
+services, not visitors, and contain no personal data.
+
 Nothing about who is watching a status page is stored here, only what a
 monitor measured about the operator's own infrastructure — the same
 against-personal-data reasoning section 7 gives for `metrics` applies to
@@ -109,8 +120,7 @@ application that ingest auto-registers the first time a key sends a new
 `resource` name is never public by that fact alone — only one its owner has
 explicitly turned on appears on either public endpoint in section 6.
 
-**Erasure.** Unlike the previous edition of this document, this is no
-longer an open point: the operator can delete an account's or project's
+**Erasure.** The operator can delete an account's or project's
 uptime history using `scripts/purge-uptime.mjs`, run against the
 database-owner role. It deletes the matching `uptime_samples` and `metrics`
 (`uptime.*` only) rows for a given project/application/time window and
@@ -118,7 +128,7 @@ rebuilds `uptime_daily`/`uptime_incidents` for that window afterward. See
 section 7's deletion cascade for how this fits the rest of an erasure
 request.
 
-### Account data (new with this release)
+### Account data
 
 | Table        | Columns                                                                                  | Holds                                                                                                                                           |
 | ------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -129,9 +139,7 @@ request.
 | `sessions`   | `id`, `user_id`, `expires_at`                                                            | One row per active browser sign-in (`packages/db/migrations/0002_accounts.sql:43-47`).                                                          |
 
 `users.email` and the `identities` rows identify a natural person directly.
-This table is why section 7's earlier position — that this application
-processed nobody's personal data but the operator's own — no longer holds
-without qualification.
+These tables are why section 7 treats account data as personal data.
 
 ## 3. What is deliberately never stored
 
@@ -139,7 +147,9 @@ without qualification.
 The applications never store them: not in the database, not in an application
 log line, not in an API response, not in an error body. The reverse proxy in
 front of ingest has a transitional caveat for log lines written before
-2026-09-20, described under "Reverse-proxy layer" below. The application-side guarantee is enforced in four separate places rather than asserted once:
+2026-09-20, described under "Reverse-proxy layer" below.
+
+The application-side guarantee is enforced in four separate places rather than asserted once:
 
 - The Caddy access-log reader types the log line as `status`, `duration` and
   `request.host` only. `request.remote_ip`, `request.headers` and `request.uri`
@@ -223,16 +233,17 @@ identifier is recorded alongside it. Keeping it is what makes a 500 traceable
 to an endpoint at all. Section 7 explains why this does not make the log line
 personal data.
 
-The session cookie introduced in section 4 does not change any of this: it
+The session cookie described in section 4 does not change any of this: it
 carries an opaque session id, never an address, agent or request detail, and
 is covered on its own terms there.
 
 ## 4. Cookies, tracking and third-party requests
 
 - **Two cookies, both strictly necessary.** `__Host-mtr_session` — an opaque,
-  HMAC-signed session id, `HttpOnly`, `Secure`, `SameSite=Lax`, 30-day expiry
-  (`applications/viewer/src/auth/session.ts`). It exists solely to keep a
-  signed-in user signed in between requests to `GET /api/v1/me` and the
+  HMAC-signed session id, `HttpOnly`, `Secure`, `SameSite=Lax`. It is the login
+  cookie: a persistent cookie that expires 3 days after sign-in, with no
+  sliding renewal (`applications/viewer/src/auth/session.ts`,
+  `SESSION_TTL_MS`). It exists solely to keep a signed-in user signed in between requests to `GET /api/v1/me` and the
   project/key endpoints; nothing else reads or writes it. `__Host-mtr_oauth` —
   the random one-time OAuth `state` value, `HttpOnly`, `Secure`,
   `SameSite=Lax`, deleted when the sign-in completes and otherwise expiring
@@ -248,14 +259,13 @@ is covered on its own terms there.
 
 **Why no consent banner.** § 165 Abs 3 TKG 2021 exempts storage on a user's
 device from the prior-consent requirement where it is technically necessary
-to provide a service the user explicitly requested — here, staying signed in
-after choosing to sign in. Both cookies fit that exemption on its face: they
-carry no tracking identifier usable across sessions or sites, is not read
-by any third party, and does nothing if the user never signs in. On that
-basis no consent is sought and no banner is shown for this cookie. This is a
-narrower, reasoned claim than the file's previous "nothing is stored, so
-nothing to ask about" — replace this whole analysis, not just its
-conclusion, if the cookie's purpose or scope ever changes.
+to provide a service the user explicitly requested — here, signing in and
+staying signed in. Both cookies are technically necessary for that service.
+They carry no identifier usable across sessions or sites, are never read by a
+third party, and are set only when a user starts signing in. For visitors in
+Germany the same exemption is § 25 Abs 2 Nr 2 TDDDG. The login cookie is kept
+to 3 days so that it does not outlive the sign-in it serves by long. On that
+basis no consent is sought and no banner is shown.
 
 **Hard gate for anything added later.** Any future analytics snippet,
 CDN-hosted font, embedded video, or tracking pixel is _not_ covered by the
@@ -269,19 +279,25 @@ code ships. Shipping such a feature without that banner first is a direct
 ### Compute — Azure (viewer) and Contabo (ingest)
 
 Microsoft Azure Container Apps hosts `metrion-viewer` only, region West
-Europe (`organizational/viewer-deployment-runbook.md`). Microsoft's Data
+Europe (Netherlands). Microsoft's Data
 Protection Addendum is the Art 28 DSGVO processor agreement for the viewer.
 Azure no longer runs `metrion-ingest` (moved to the Contabo VPS on
 2026-09-20) and is not the processor for the account or metrics database. The
 ingest container image is pulled from Azure Container Registry; that image
 contains no personal data.
 
+The viewer's application log (method and route path only, no IP, user agent
+or query string) is collected by Azure Log Analytics in West Europe. Its
+retention period has not been verified and is therefore not stated here.
+Whether Azure's ingress layer separately records client IP addresses has not
+been verified either (see the open points).
+
 ### Database and ingest (Contabo)
 
 The account and metrics database — Postgres with the TimescaleDB extension —
 is self-hosted in Docker on the operator's own, already-existing Contabo VPS,
 not on managed Azure Postgres
-(`organizational/agent-deployment-runbook.md:159-183`). This was a
+(operator runbook, not published). This was a
 budget-driven decision: managed Postgres could not meet the project's cost
 ceiling.
 
@@ -318,16 +334,15 @@ ceiling.
   in memory) in addition to hosting the database. The same Art 28 open point
   applies. Let's Encrypt (the certificate authority) receives only the
   domain name `metrion-ingest.woofi-developments.at` and is not a processor
-  of personal data. No new third-country transfer arises: ingest traffic no
-  longer passes through Azure, and both remaining locations are in the EEA
-  (Azure West Europe: Netherlands/Ireland; Contabo Lauterbourg: France).
+  of personal data. Ingest traffic no longer passes through Azure, and both remaining locations are in the EEA
+  (Azure West Europe: Netherlands; Contabo Lauterbourg: France).
 
 ### Backups
 
 A nightly encrypted dump of the account tables (`users`, `identities`,
 `projects`, `api_keys`, `sessions` — never `metrics`) runs on the VPS,
 GPG-encrypted on-host with the _public_ half of a keypair whose private half
-is not on the box (`organizational/metrion-backups/nightly-account-dump.sh:1-30`).
+is not on the box (operator runbook, not published).
 
 **Offsite target: Backblaze B2, EU-Central region.** This is the operator's
 stated backup target, chosen specifically because it is EEA-located and
@@ -335,12 +350,17 @@ therefore requires no Chapter V transfer mechanism, consistent with the
 Contabo reasoning above. **As of this writing the offsite credential has not
 been provisioned** — `/opt/metrion/backup/offsite.env` does not exist, so
 the script fails loudly rather than silently succeeding
-(`organizational/metrion-backups/nightly-account-dump.sh:32-45`), and
+(operator runbook, not published), and
 backups are currently retained **on-host only**, not yet copied offsite.
 This is a real, if incomplete, fact, not a guess: do not describe Backblaze
-as a contracted or currently-operating offsite relationship. A weekly full
-dump of the metrics-only data (account/secret tables explicitly excluded)
-stays on-box only, 4-week rotation, unencrypted — it never leaves the host.
+as a contracted or currently-operating offsite relationship.
+
+A weekly dump of all tables except `users`, `identities`, `api_keys` and
+`sessions` stays on the VPS unencrypted for 4 weeks. It therefore still
+contains project names, the owning account's internal id, thresholds and
+measurements. The nightly encrypted account dump is kept 14 days on the VPS.
+Data erased on request therefore remains in these backups until they rotate
+out (at most 28 days). It is not restored for any other purpose.
 
 ### Retention periods
 
@@ -348,9 +368,11 @@ stays on-box only, 4-week rotation, unencrypted — it never leaves the host.
 | --------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Metrics (`metrics` hypertable)                                        | 90 days                             | TimescaleDB retention policy; chunks older than 90 days are dropped by the platform (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                                                                                                                                                                   |
 | Uptime history (`uptime_samples`, `uptime_daily`, `uptime_incidents`) | Indefinite while the project exists | Deliberately no TimescaleDB retention policy (`packages/db/migrations/0014_uptime_permanent_store.sql`) — a status page needs real history, not a rolling 90-day window. Deleted on an erasure request via `scripts/purge-uptime.mjs`, run by the operator against the database-owner role (see "Uptime history" above and section 7). |
-| Sessions (`sessions`)                                                 | 30-day TTL from creation            | Checked at read time — an expired `expires_at` is treated as no session (`applications/viewer/src/auth/session.ts:16-18`, `:107`). **No scheduled job deletes the row itself once it expires** — it becomes unusable but is not purged; this is an open point below, not a claimed 30-day deletion guarantee.                          |
+| Sessions (`sessions`)                                                 | 3-day TTL from creation             | Checked at read time — an expired `expires_at` is treated as no session (`applications/viewer/src/auth/session.ts`, `SESSION_TTL_MS`). **No scheduled job deletes the row itself once it expires** — it becomes unusable but is not purged; this is an open point below, not a claimed 3-day deletion guarantee.                       |
 | Accounts (`users`/`identities`/`projects`/`api_keys`)                 | Life of the account                 | Deleted on request via section 8's process, or by the operator closing an account by hand. No automatic expiry exists in the schema.                                                                                                                                                                                                   |
-| `status_events` (**planned, not yet built** — GitHub issues #20-#24)  | 180 days                            | Once shipped, enforced by a TimescaleDB retention policy on `status_events`, deleted 180 days after the event's own timestamp — the same mechanism already used for `metrics`' 90-day policy above (`packages/db/migrations/0004_rollups_and_retention.sql:40-43`).                                                                    |
+| `status_events`                                                       | 180 days from the event             | Deleted by a scheduled `DELETE` in the evaluator (`packages/db/migrations/0007_thresholds_and_status.sql:48-52`).                                                                                                                                                                                                                      |
+| Weekly full dump (VPS, unencrypted)                                   | 4 weeks                             | Rotation on the host; excludes `users`, `identities`, `api_keys`, `sessions`.                                                                                                                                                                                                                                                          |
+| Nightly account dump (VPS, GPG-encrypted)                             | 14 days                             | Rotation on the host.                                                                                                                                                                                                                                                                                                                  |
 
 - **On the VPS:** undelivered samples wait in a local queue capped at 1440
   lines — one day — plus small state files
@@ -376,33 +398,39 @@ stays on-box only, 4-week rotation, unencrypted — it never leaves the host.
   controllers, not Art 28 processors.** Signing in redirects to each
   provider's own OAuth flow (`applications/viewer/src/auth/providers.ts`);
   each provider processes the sign-in under its own privacy policy and its
-  own legal basis, independent of this application. metrion receives back
-  only the provider's stable subject id and, where offered, an email address
-  (`packages/db/migrations/0002_accounts.sql:12-20`). No Art 28 agreement
-  applies to this relationship because none of the three acts on metrion's
-  instructions — each determines its own purposes and means for its own
-  sign-in service.
-- **Planned: an outbound alert-email provider (not yet built — GitHub
-  issues #20-#24).** Once the threshold-alerting feature ships, a
-  standalone evaluator process will email the project owner on a threshold
-  breach via a managed transactional-email provider. The stated preference
-  is **Brevo** (France, EEA-based), with Mailjet as the named EEA
-  alternative and Azure Communication Services / Amazon SES as fallbacks.
-  **The preference for an EEA-based provider is stated for one reason: it
-  keeps this section's Chapter V position simple**, mirroring the Contabo
-  reasoning above — not price or feature set, since every commercial figure
-  for all four candidates is unverified and must not be quoted here as fact.
-  Whichever provider is finally chosen becomes a new Art 28 DSGVO processor,
-  named here with its own DPA/AVV reference, separate from and in addition
-  to Microsoft's and Contabo's. **The final choice decides whether this
-  section's Chapter V paragraph stays simple or reopens**: an EEA-based
-  provider (Brevo, or Mailjet) needs no transfer mechanism, the same as
-  Contabo; a US-based provider (Amazon SES, Resend, or Azure Communication
-  Services if provisioned outside the EU) reopens the Chapter V analysis and
-  needs its own transfer-mechanism statement — Standard Contractual Clauses
-  plus a transfer impact assessment, or confirmed EU-US Data Privacy
-  Framework certification for that specific provider — checked and recorded
-  once the choice is final, not assumed in advance.
+  own legal basis, independent of this application. metrion stores only the
+  provider's stable subject id and an email address (details below). No
+  Art 28 agreement applies to this relationship because none of the three
+  acts on metrion's instructions — each determines its own purposes and
+  means for its own sign-in service.
+
+  Signing in sends the user to the chosen provider and the viewer calls the
+  provider's endpoints (including servers in the USA). The provider acts as
+  controller under its own privacy policy. We rely on the provider's own
+  transfer mechanism and, for the transfer initiated by the user's own
+  sign-in, on Art 49(1)(b) DSGVO. Microsoft's Data Protection Addendum
+  additionally contains Standard Contractual Clauses for Azure.
+
+  | Provider                                                        | Scope requested (`auth/providers.ts`) | Received                                                                                    | Stored by metrion         |
+  | --------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------- |
+  | Google                                                          | `openid email profile`                | OIDC userinfo (stable subject id, email, and profile claims such as name/picture)           | subject id and email only |
+  | Microsoft (tenant `common`: personal, work and school accounts) | `openid email profile`                | as above                                                                                    | subject id and email only |
+  | GitHub                                                          | `read:user user:email`                | numeric user id, profile, verified primary email (also when "keep my email private" is set) | user id and email only    |
+
+  Everything else the provider returns is processed in memory during
+  sign-in and discarded. A sign-in is refused if no email address is
+  available. Providing the email is therefore required to create an
+  account; without it the service cannot be used.
+
+- **Alert email (built; no mail is sent yet).** An evaluator service on the
+  Contabo VPS evaluates project thresholds every minute and, when a
+  threshold changes state, composes an email to the project owner's account
+  address (`applications/evaluator/src/mailer.ts`). The evaluator runs in
+  dry-run mode (`EVALUATOR_DRY_RUN=true`): messages are composed in memory
+  and never leave the VPS, and no email provider is contracted. Before real
+  sending starts, the chosen provider will be named in this section as an
+  Art 28 DSGVO processor with its DPA reference and, if it is outside the
+  EEA, its Chapter V transfer mechanism.
 
 Nothing is shared with anyone else, sold, or used for advertising.
 
@@ -432,14 +460,12 @@ written an `uptime.ok` sample AND been individually opted in via
 `applications.public_status_visible` (see "Uptime history" above): the
 application key and display name, uptime percentages (24 hours, 7 days, 30
 days), the latest latency, the time of the last sample and a 90-day daily
-uptime history — corrected here from an earlier edition of this document,
-which understated it as 30 days; the code has always returned 90
-(`applications/ingest/src/services/public-status-service.ts`). It never
+uptime history (`applications/ingest/src/services/public-status-service.ts`). It never
 returns the resource/metric inventory (no CPU, memory or container/host
 names); for every other project it returns the same 404 an unknown id would.
 
 **A second endpoint, `GET /api/v1/public/projects/:id/uptime/range`
-(added since the previous edition of this document; ADR 0009), reads
+(ADR 0009), reads
 further back than 90 days.** Same opt-in gate (project- and
 application-level), same field set (no resource/metric inventory), but a
 caller supplies its own `from`/`to` and can request the WHOLE stored
@@ -452,7 +478,7 @@ measurements either endpoint already exposes for an opted-in application,
 just over a caller-chosen range instead of a fixed one.
 
 Both routes are consumed server-to-server by the portfolio status page
-(`organizational/uptime-sources.md`), so a status-page visitor's own IP
+(operator runbook, not published), so a status-page visitor's own IP
 address reaches the portfolio host only, never this application; the caller
 seen by ingest is the portfolio's server. The viewer no longer serves either
 route.
@@ -467,9 +493,7 @@ timestamp, scoped to a `project_id` but naming no visitor. The same "against
 personal data" / "for personal data" reasoning previously written here still
 applies to that data on its own terms.
 
-### Account data — yes, and it is why this section exists in its current
-
-### form
+### Account data — yes
 
 `users.email`, `identities.provider_subject`/`identities.email` and the
 `sessions` table identify a signed-in natural person directly — this
@@ -486,9 +510,9 @@ because there is something stored under which they can be found.
 | Project and API-key management                                                                                           | Art 6(1)(b)                                                                                               |
 | Storing/serving a project's own ingested metrics                                                                         | Art 6(1)(b) — performance of the contract with that project's owner                                       |
 | Storing the permanent uptime history (`uptime_samples`/`uptime_daily`/`uptime_incidents`), kept with no retention policy | Art 6(1)(b) — performance of the contract with that project's owner, same basis as the metrics row above  |
-| Public uptime status endpoints (`GET .../uptime`, `GET .../uptime/range`), opt-in per project AND per application        | Art 6(1)(f) — legitimate interest, as reasoned above                                                      |
+| Public uptime status endpoints (`GET .../uptime`, `GET .../uptime/range`), opt-in per project AND per application        | Art 6(1)(f) — legitimate interest, see section 8a                                                         |
 | Account-table backups                                                                                                    | Art 6(1)(f) — legitimate interest in business continuity                                                  |
-| Threshold-alert email (**planned**, see below)                                                                           | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
+| Threshold-alert email (not yet active, see below)                                                                        | Art 6(1)(b) — performance of the contract formed by configuring the threshold rule that triggers the send |
 
 **DSAR / deletion cascade.** A request under Art 15/17/20 for a given user
 is answered by walking, in order: `identities` (by `user_id`) → `sessions`
@@ -507,13 +531,10 @@ mechanism as of 2026-09-22 — it deletes a project's (or one application's)
 uptime history for a given window and rebuilds `uptime_daily`/
 `uptime_incidents` for that window afterward, run by the operator with the
 database-owner DSN. `metrics` itself still has no equivalent scripted tool;
-deleting it remains a hand-run `DELETE` by the operator. Once the
-threshold-alerting feature ships (GitHub issues #20-#24), the same cascade
-extends to `thresholds`, `threshold_status` and `status_events` — all three
-scoped by `project_id`/`user_id` the same way `api_keys` and `metrics` are
-today — and `users.email` must be treated as playing two roles at that
-point: a login identifier (as today) _and_ a notification-delivery target
-for alert email, both erased together.
+deleting it remains a hand-run `DELETE` by the operator. The cascade also covers `thresholds`, `threshold_status` and `status_events`,
+which are deleted with the project via `ON DELETE CASCADE`. `users.email`
+plays two roles: a login identifier and a notification-delivery target for
+alert email, both erased together.
 
 **How this is actually exercised today.** There is no self-service
 account-deletion or project-deletion API endpoint yet — the only deletion
@@ -527,11 +548,11 @@ self-service UI — this qualifies, but a self-service deletion endpoint would
 close a real gap and is recommended as follow-up work, not claimed here as
 already built.
 
-### Transactional alert email is off-platform, not off-purpose (planned)
+### Transactional alert email is off-platform, not off-purpose (not yet active)
 
 A threshold-breach alert email necessarily carries metric values and
 application names — the alerting user's own infrastructure data — to
-whichever provider is finally chosen (section 6). This is a distinct
+whichever provider is finally chosen (section 6), once sending starts. This is a distinct
 processing purpose from account data and metrics storage, with its own basis
 (Art 6(1)(b), table above).
 
@@ -543,9 +564,27 @@ recast of the former § 107 TKG 2003 "Unerbetene Nachrichten" provision).
 § 174 TKG 2021 targets messages sent for direct-marketing purposes without
 the recipient's consent; a transactional alert triggered by the recipient's
 own configured rule, about the recipient's own infrastructure, is not that,
-so no separate consent gate under § 174 TKG 2021 applies to it. This
-statement is written now, before the feature ships, precisely so the
-reasoning is checkable rather than assumed silently once it does.
+so no separate consent gate under § 174 TKG 2021 applies to it.
+
+## 8a. Legitimate interests and other Art 13 information
+
+**Legitimate interests (Art 6(1)(f)).** (1) Public status endpoints: the
+project owner has opted in per project and per application; the interest is
+publishing a service's availability, the data contains measurements and
+display names chosen by the owner, and owners can switch it off at any time.
+Owners should not put personal data into display names. (2) Backups:
+restoring accounts after a failure. (3) Proxy logs: operating the service and
+detecting abuse, without IP addresses. You may object at any time (Art 21):
+write to the contact address. Requests for access, erasure and so on are
+handled within one month (Art 12(3)).
+
+**Source.** Account data comes from you and from the identity provider you
+chose (section 6).
+
+**Obligation to provide.** An email address from your provider is required to
+sign in; without it no account can be created. There is no automated
+decision-making or profiling. No data protection officer is appointed (not
+required under Art 37).
 
 ## 8. Your rights
 
@@ -581,7 +620,7 @@ that falsifies one of them is a change to this document too.
 - The Backblaze B2 EU-Central offsite backup credential is not yet
   provisioned; backups are on-host only until it is.
 - No scheduled job deletes an expired `sessions` row — it becomes unusable
-  at 30 days but is not purged from the table (section 5).
+  at 3 days but is not purged from the table (section 5).
 - No self-service account/project-deletion API endpoint exists; DSAR
   erasure is currently a manual, operator-run process (section 7). As of
   2026-09-22 the uptime-history part of that process has a real tool
@@ -602,8 +641,7 @@ that falsifies one of them is a change to this document too.
   retention.
 - The Azure `metrion-ingest` container was deleted on 2026-09-20; this
   policy describes the post-deletion state.
-- The threshold-alerting feature's email provider (Brevo, tentatively) is
-  not yet chosen; section 6's Chapter V position for it is provisional until
-  it is.
+- No email provider is chosen yet for threshold alerts; section 6 will name it
+  with its Chapter V position before real sending starts.
 
-Effective: 2026-09-22
+Effective: 2026-10-03

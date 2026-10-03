@@ -1,47 +1,12 @@
-Proprietary License
-
 Copyright (c) 2026 Phillip Kofler. All rights reserved.
 
-This repository and its contents (source code, documentation, and assets)
-are proprietary and confidential. No part of this repository may be
-reproduced, distributed, or used to create derivative works without prior
-written permission from the copyright holder.
-
-This is not open-source software. Access to this repository does not grant
-any license to use, copy, modify, or distribute its contents.
+This source code is published for inspection only. Apart from the rights GitHub's Terms of Service give
+every user of the platform (viewing and forking within GitHub), no licence is granted to use, copy,
+modify, deploy or distribute it, in whole or in part, without prior written permission of the copyright
+holder. This is not open-source software.
 
 ## Third-party components
 
-The self-hosted database image (`timescale/timescaledb-ha:pg17`, pinned in
-`docker-compose.prod.yml`, see `organizational/agent-deployment-runbook.md:159-183`)
-bundles TimescaleDB. Most of TimescaleDB is Apache License 2.0; the
-compression, continuous-aggregate and retention-policy features this project
-uses (`packages/db/migrations/0004_rollups_and_retention.sql`) are licensed
-under the **Timescale License (TSL)**, source read directly at
-<https://github.com/timescale/timescaledb/blob/main/tsl/LICENSE-TIMESCALE>
-("Posted Date: September 24, 2020" — the current text at that URL as of
-2026-09-13).
-
-**Conclusion, reasoned from the text actually read:** TSL § 2.2 prohibits
-offering TSL Licensed Software "to provide time-sharing services or
-database-as-a-service services... in which the TSL Licensed Software is
-offered or made available to third parties to provide time-series database
-functions or operations, other than as part of Your Value Added Products or
-Services." § 2.1(b) and the § 3.10 definition permit exactly that
-Value-Added-Products carve-out where (i) the product is not primarily a
-database product, (ii) it adds substantial value of a different nature, and
-(iii) its users are contractually or technically prohibited from issuing
-schema-defining commands (the Timescale Data Definition Interfaces) against
-the database directly. metrion exposes only an HTTP metrics ingest/query API
-(`applications/ingest`, `applications/viewer`) — no SQL surface, no way for
-a caller to run DDL or connect to Postgres directly — so no user of the
-product can touch the Timescale Data Definition Interfaces at all, which
-satisfies (iii) more strongly than the licence requires (technical
-impossibility, not just contractual prohibition). On this reading,
-self-hosting TimescaleDB behind metrion's own HTTP API is permitted "Value
-Added Products or Services" use under TSL § 2.1(b)/§ 3.10, not the
-prohibited "database-as-a-service" use under § 2.2. This is a licence-text
-reading, not a court's; if the repository is made public on this
-conclusion, it is worth a second read by counsel before that publication,
-not because the text is ambiguous but because the stakes of being wrong (an
-automatically-terminating licence, TSL § 4) are real.
+The deployed database image bundles TimescaleDB, partly under the Timescale License (TSL); see
+https://github.com/timescale/timescaledb/blob/main/tsl/LICENSE-TIMESCALE. Third-party packages are
+under their own licences, listed in `THIRD_PARTY_NOTICES.md`.
