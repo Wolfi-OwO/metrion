@@ -52,6 +52,12 @@ const DOCUMENTS: readonly LegalDocument[] = [
   { path: '/impressum', file: 'IMPRESSUM.md', title: 'Impressum - metrion', lang: 'de' },
   { path: '/privacy', file: 'PRIVACY.md', title: 'Privacy Policy - metrion', lang: 'en' },
   { path: '/terms', file: 'TERMS_OF_USE.md', title: 'Terms of Use - metrion', lang: 'en' },
+  {
+    path: '/third-party-notices',
+    file: 'THIRD_PARTY_NOTICES.md',
+    title: 'Third-party notices - metrion',
+    lang: 'en',
+  },
 ];
 
 /** The paths these routes own. Exported so the limiter and the SPA fallback

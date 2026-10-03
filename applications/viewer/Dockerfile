@@ -68,11 +68,11 @@ RUN echo '{"type":"module"}' > ./dist/package.json
 # `public/` sibling of `dist/`.
 COPY --from=build /repo/applications/viewer/client/dist ./public
 
-# The legal documents the /impressum, /privacy and /terms routes render. They
+# The legal documents the /impressum, /privacy, /terms and /third-party-notices routes render. They
 # MUST be in the image: Austrian ECG requires the Impressum to be reachable
 # from the deployed site, and without this copy those routes 404 in production
 # while passing every local test.
-COPY IMPRESSUM.md PRIVACY.md TERMS_OF_USE.md ./
+COPY IMPRESSUM.md PRIVACY.md TERMS_OF_USE.md THIRD_PARTY_NOTICES.md ./
 
 # node:alpine ships an unprivileged `node` user. Running as root in a
 # container that serves the public internet buys nothing.

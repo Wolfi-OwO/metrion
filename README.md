@@ -32,7 +32,7 @@ intervalSeconds }] }`. The same shape covers a VPS's CPU%, a container's
 - Writes land in Postgres/TimescaleDB (`docs/adr/0004-postgres-timescaledb-over-append-blob.md`)
   - a real hypertable with continuous aggregates and retention policies,
     not a growing pile of blobs.
-- A viewer (`applications/viewer`) that reads it back: a public query API, a
+- A viewer (`applications/viewer`) that reads it back: an account-scoped query API, a
   React charts client on one shared time axis, and an OpenAPI documentation
   site at `/docs` generated from the same zod schemas the API validates
   with.
@@ -164,11 +164,12 @@ is not that:
 
 - [`IMPRESSUM.md`](IMPRESSUM.md) - Offenlegung per § 5 ECG and § 25 MedienG.
 - [`PRIVACY.md`](PRIVACY.md) - what is stored and what deliberately is not,
-  with the file and line behind every claim. Only two strictly necessary
+  with the file behind each claim about the code. Only two strictly necessary
   cookies (sign-in session and OAuth state); no analytics, tracking or
   third-party requests - and therefore no consent banner.
 - [`TERMS_OF_USE.md`](TERMS_OF_USE.md) - who may use the read API and the
   ingest endpoint, and what a token holder answers for.
+- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) - licences of the bundled third-party packages.
 
 ## Contributing
 

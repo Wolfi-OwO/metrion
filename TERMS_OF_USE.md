@@ -103,7 +103,8 @@ process and — where you have opted in to public status — display it, solely 
 
 ## 6. Privacy
 
-One strictly-necessary session cookie for signed-in users; no analytics, no
+Two strictly necessary cookies, both set only when you sign in: the sign-in session (expires 3 days
+after sign-in) and a one-time OAuth state value (at most 10 minutes); no analytics, no
 tracking, no third-party request from the browser. Account data (email,
 OAuth identity, sessions, projects, API keys) and metrics are processed as
 described, with lawful basis per purpose, retention periods and the DSAR

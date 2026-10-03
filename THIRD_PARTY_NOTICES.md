@@ -1,6 +1,6 @@
 # Third-party notices
 
-Production dependencies of each workspace with their licences, generated from `npx license-checker --json` (resolved against `npm ls --omit=dev --all` for each workspace, because npm hoists packages to the root `node_modules`, which makes a per-workspace `--production` run come back empty). Regenerate it when dependencies change. The full licence texts ship inside each package.
+Production dependencies of each workspace with their licences, generated from `npx license-checker --json` (resolved against `npm ls --omit=dev --all` for each workspace, because npm hoists packages to the root `node_modules`, which makes a per-workspace `--production` run come back empty). Regenerate it when dependencies change. Copyright notices and full licence texts are in the `LICENSE` file of each package (`node_modules/<package>/`). The same list is served by the running app at `/third-party-notices`.
 
 ## packages/shared
 
@@ -371,3 +371,12 @@ No third-party production dependencies.
 | postgres-interval@1.2.0     | MIT     | https://github.com/bendrucker/postgres-interval |
 | split2@4.2.0                | ISC     | https://github.com/mcollina/split2              |
 | xtend@4.0.2                 | MIT     | https://github.com/Raynos/xtend                 |
+
+## NOTICE files
+
+`swagger-ui-dist` (Apache-2.0, served at `/docs`) carries this NOTICE:
+
+```
+swagger-ui
+Copyright 2020-2021 SmartBear Software Inc.
+```

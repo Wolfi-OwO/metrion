@@ -42,6 +42,7 @@ const DOCUMENTS = [
   { path: '/impressum', file: 'IMPRESSUM.md', lang: 'de' },
   { path: '/privacy', file: 'PRIVACY.md', lang: 'en' },
   { path: '/terms', file: 'TERMS_OF_USE.md', lang: 'en' },
+  { path: '/third-party-notices', file: 'THIRD_PARTY_NOTICES.md', lang: 'en' },
 ];
 
 test('legal documents are served as HTML with the right language', async () => {

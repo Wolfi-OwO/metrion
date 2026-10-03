@@ -37,7 +37,7 @@ abrufbar. Kein redaktionelles Angebot, keine Werbung, kein Verkauf.
 
 Die drei Identitätsanbieter (Google, Microsoft, GitHub) sind für den
 Anmeldevorgang eigenständige Verantwortliche, keine Auftragsverarbeiter von
-metrion — Einzelheiten in `PRIVACY.md`, Abschnitt 6.
+metrion — Einzelheiten in der Datenschutzerklärung, Abschnitt 6.
 
 ## Urheberrecht
 
@@ -48,7 +48,7 @@ Veröffentlichung ist keine Open-Source-Lizenz.
 
 Der Betreiber übernimmt Verantwortung für eigene Inhalte. Keine Haftung für
 verlinkte fremde Inhalte, für Daten, die Dritte über
-`POST /api/v1/ingest` einliefern (siehe `TERMS_OF_USE.md`), oder für
+`POST /api/v1/ingest` einliefern (siehe Nutzungsbedingungen), oder für
 Entscheidungen, die auf Basis der dargestellten Messwerte getroffen werden.
 
 ## Streitbeilegung
@@ -57,8 +57,9 @@ Der Betreiber ist zur Teilnahme an einem Verbraucherschlichtungsverfahren weder 
 
 ## Datenschutz
 
-Siehe `PRIVACY.md`. Beschwerden: Österreichische Datenschutzbehörde, Barichgasse 40-42, 1030 Wien,
-<https://www.dsb.gv.at>. Nutzungsbedingungen: `TERMS_OF_USE.md`.
+Siehe Datenschutzerklärung: <https://metrion.woofi-developments.at/privacy>. Beschwerden: Österreichische
+Datenschutzbehörde, Barichgasse 40-42, 1030 Wien, <https://www.dsb.gv.at>. Nutzungsbedingungen:
+<https://metrion.woofi-developments.at/terms>.
 
 ---
 

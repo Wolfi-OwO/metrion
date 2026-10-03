@@ -7,16 +7,13 @@
 Controller: Phillip Kofler, Fürnitz, Kärnten, Österreich
 Contact: <koflerphillip@outlook.com>
 
-This is a description of what the software in this repository does. Every claim
-about the code names the file and line that implements it; operational
-statements are made by the operator and are not independently verifiable from
-this repository. It is not legal advice.
+This is a description of what the software in this repository does. Claims about the code name the file,
+and the line where practical; operational statements are made by the operator and are not independently
+verifiable from this repository. It is not legal advice.
 
-**Language.** This document is English because the application, its API
-documentation and the whole repository are English. If a German-language
-version is ever needed — Art 12(1) DSGVO wants the information intelligible to
-the people it addresses — it has to be added, not translated on request. See
-`IMPRESSUM.md` for why the Impressum itself is German.
+**Language.** This document is English because the application, its API documentation and the whole
+repository are English; the Impressum is German. A German version has not been prepared (Art 12(1) DSGVO
+requires the information to be intelligible to the people it addresses).
 
 ---
 
@@ -108,10 +105,8 @@ results (up/down and latency) for the operator's own sites from MongoDB Atlas,
 via a one-time export. These measurements concern the operator's own
 services, not visitors, and contain no personal data.
 
-Nothing about who is watching a status page is stored here, only what a
-monitor measured about the operator's own infrastructure — the same
-against-personal-data reasoning section 7 gives for `metrics` applies to
-`uptime_samples`/`uptime_daily`/`uptime_incidents` unchanged.
+Nothing about who is watching a status page is stored here, only what a monitor measured about the
+operator's own infrastructure; the reasoning under "Metrics" in section 7 applies to these tables too.
 
 **Public visibility is a separate, per-application opt-in.**
 `applications.public_status_visible` defaults `false`
@@ -230,8 +225,12 @@ Request logs retain `path` — this application's own route, e.g.
 `/api/v1/metrics` — with the query string removed. It identifies an endpoint of
 this service, not a person: no address, no agent, no session and no other
 identifier is recorded alongside it. Keeping it is what makes a 500 traceable
-to an endpoint at all. Section 7 explains why this does not make the log line
-personal data.
+to an endpoint at all.
+
+Without an address, agent, session or other identifier alongside it, a method-and-path line does not by
+itself identify a person, so the operator treats it as not personal data. The viewer's line is held by
+Azure Log Analytics with a timestamp, and Azure's own ingress logging has not been verified (section 5
+and the open points).
 
 The session cookie described in section 4 does not change any of this: it
 carries an opaque session id, never an address, agent or request detail, and
@@ -261,10 +260,9 @@ is covered on its own terms there.
 device from the prior-consent requirement where it is technically necessary
 to provide a service the user explicitly requested — here, signing in and
 staying signed in. Both cookies are technically necessary for that service.
-They carry no identifier usable across sessions or sites, are never read by a
-third party, and are set only when a user starts signing in. For visitors in
-Germany the same exemption is § 25 Abs 2 Nr 2 TDDDG. The login cookie is kept
-to 3 days so that it does not outlive the sign-in it serves by long. On that
+They carry no identifier usable across sites and are never read by a third party. The login cookie
+identifies one sign-in for at most 3 days; the OAuth state cookie lives at most 10 minutes. Both are set
+only when a user starts signing in. On that
 basis no consent is sought and no banner is shown.
 
 **Hard gate for anything added later.** Any future analytics snippet,
@@ -406,10 +404,11 @@ out (at most 28 days). It is not restored for any other purpose.
 
   Signing in sends the user to the chosen provider and the viewer calls the
   provider's endpoints (including servers in the USA). The provider acts as
-  controller under its own privacy policy. We rely on the provider's own
-  transfer mechanism and, for the transfer initiated by the user's own
-  sign-in, on Art 49(1)(b) DSGVO. Microsoft's Data Protection Addendum
-  additionally contains Standard Contractual Clauses for Azure.
+  controller under its own privacy policy. We rely on Art 49(1)(b) DSGVO for the transfer that your own sign-in initiates. The mechanism each
+  provider applies to its own processing is stated in its privacy policy: Google
+  https://policies.google.com/privacy, Microsoft https://privacy.microsoft.com/privacystatement, GitHub
+  https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement. Microsoft's Data
+  Protection Addendum additionally contains Standard Contractual Clauses for Azure.
 
   | Provider                                                        | Scope requested (`auth/providers.ts`) | Received                                                                                    | Stored by metrion         |
   | --------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------- |
@@ -487,11 +486,9 @@ route.
 
 ### Metrics
 
-Within the metrics pipeline itself the section 3 analysis is unchanged: a
-row contains a machine hostname, a metric name, a number, a unit and a
-timestamp, scoped to a `project_id` but naming no visitor. The same "against
-personal data" / "for personal data" reasoning previously written here still
-applies to that data on its own terms.
+Within the metrics pipeline a row contains a machine hostname, a metric name, a number, a unit and a
+timestamp, scoped to a `project_id` but naming no visitor. On its own it is not personal data; the account
+data below is.
 
 ### Account data — yes
 
@@ -608,7 +605,7 @@ time, and rate limits on every route.
 ## 10. Changes
 
 Material changes will be reflected here with a new effective date. Because
-every claim in sections 3 and 4 is tied to a file and a line, a code change
+every claim in sections 3 and 4 names the file that implements it, a code change
 that falsifies one of them is a change to this document too.
 
 ---
