@@ -17,9 +17,12 @@ import { getPool } from '../lib/db.js';
  * `mtr_session` signed everyone out once. */
 export const SESSION_COOKIE_NAME = '__Host-mtr_session';
 
-/** 30 days - a read-heavy dashboard, not a banking app; revocation is a
- * `POST /auth/logout` away regardless of this TTL. */
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** 3 days, absolute (no sliding refresh). Shortened from 30 days: a login
+ * cookie that outlives a weekend is hard to call strictly necessary under
+ * § 165 Abs 3 TKG 2021. This one value sets both the `sessions.expires_at` row
+ * and the cookie's `expires`, so the server never honours a cookie the browser
+ * would have dropped, or the reverse. `POST /auth/logout` revokes earlier. */
+export const SESSION_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 function sign(sessionId: string): string {
   return createHmac('sha256', config.sessionSecret).update(sessionId).digest('base64url');
