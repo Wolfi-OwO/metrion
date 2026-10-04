@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.5.1 - 2026-10-04
+
+Bugfix release: root, agent, ingest, evaluator, shared and db packages go to
+0.5.1; the viewer and its client go to 0.7.1.
 
 - Blue/green deploys and scaled pods are one service now. The idle colour of a
   blue/green app stops reporting by design, but the evaluator gave it its own
