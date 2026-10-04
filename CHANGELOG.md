@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Blue/green deploys and scaled pods are one service now. The idle colour of a
+  blue/green app stops reporting by design, but the evaluator gave it its own
+  status row that went critical/no_data and never cleared (Fuwwy Platform sat
+  at Critical with "no data" for a day), and the viewer listed blue and green
+  as two dashboards. Migration 0023 adds `service_group()`; the evaluator and
+  the metrics API group by it, so a service's value is the mean of its running
+  pods (each pod averaged first, never summed) and a silent idle colour is
+  not a fault. The metrics page gets a "Show all pods" toggle for the
+  per-pod lines; `GET /metrics` takes `perInstance=true` for the same.
+  Per-colour thresholds and stale per-colour status rows are merged/dropped by
+  the migration.
+
 ## v0.5.0 - 2026-10-01
 
 Platform release: root, agent, ingest, evaluator, shared and db packages go to

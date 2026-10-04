@@ -15,6 +15,8 @@ import { parseProjectsSummary, type ProjectSummary } from '../lib/summary.ts';
 export interface ResourceSummary {
   readonly resource: string;
   readonly subResources: string[];
+  /** Group -> the individual containers (blue/green colours, pods) behind it. */
+  readonly instances: Record<string, string[]>;
   readonly metricNames: string[];
 }
 
@@ -243,6 +245,7 @@ export function fetchResources(
 export interface SeriesQuery {
   readonly resource: string;
   readonly subResource?: string | undefined;
+  readonly perInstance?: boolean | undefined;
   readonly names: readonly string[];
   readonly from: Date;
   readonly to: Date;
@@ -273,6 +276,7 @@ export function fetchSeries(query: SeriesQuery, signal: AbortSignal): Promise<Se
   // `subResource` is `.strict()`-validated upstream: sending it empty is a 400,
   // so an absent sub-resource means an absent parameter.
   if (query.subResource) params.set('subResource', query.subResource);
+  if (query.subResource && query.perInstance) params.set('perInstance', 'true');
   if (query.projectId) params.set('projectId', query.projectId);
 
   return getJson<SeriesBatch>('/api/v1/metrics', params, signal);

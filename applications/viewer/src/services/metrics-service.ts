@@ -33,13 +33,17 @@ function pickSource(from: Date, to: Date): MetricsSource {
 
 export interface ResourceSummary {
   readonly resource: string;
+  /** One entry per logical service (`service_group`), never per blue/green colour or pod. */
   readonly subResources: string[];
+  /** Group -> the individual containers behind it, for the "all pods" view. */
+  readonly instances: Record<string, string[]>;
   readonly metricNames: string[];
 }
 
 interface ResourceRow {
   resource: string;
   sub_resource: string | null;
+  group_key: string | null;
   name: string;
 }
 
@@ -60,27 +64,38 @@ export async function getResources(
   if (projectIds.length === 0) return { resources: [] };
 
   const { rows } = await getPool().query<ResourceRow>(
-    `SELECT DISTINCT resource, sub_resource, name
+    `SELECT DISTINCT resource, sub_resource, service_group(sub_resource) AS group_key, name
        FROM metrics
       WHERE project_id = ANY($1) AND time BETWEEN $2 AND $3`,
     [projectIds, from, to],
   );
 
-  const byResource = new Map<string, { subResources: Set<string>; metricNames: Set<string> }>();
+  const byResource = new Map<
+    string,
+    { instances: Map<string, Set<string>>; metricNames: Set<string> }
+  >();
   for (const row of rows) {
     let entry = byResource.get(row.resource);
     if (!entry) {
-      entry = { subResources: new Set<string>(), metricNames: new Set<string>() };
+      entry = { instances: new Map(), metricNames: new Set<string>() };
       byResource.set(row.resource, entry);
     }
-    if (row.sub_resource !== null) entry.subResources.add(row.sub_resource);
+    if (row.sub_resource !== null) {
+      const group = row.group_key ?? row.sub_resource;
+      const members = entry.instances.get(group) ?? new Set<string>();
+      members.add(row.sub_resource);
+      entry.instances.set(group, members);
+    }
     entry.metricNames.add(row.name);
   }
 
   const resources = [...byResource.entries()]
     .map(([resource, entry]) => ({
       resource,
-      subResources: [...entry.subResources].sort(),
+      subResources: [...entry.instances.keys()].sort(),
+      instances: Object.fromEntries(
+        [...entry.instances].map(([group, members]) => [group, [...members].sort()]),
+      ),
       metricNames: [...entry.metricNames].sort(),
     }))
     .sort((a, b) => a.resource.localeCompare(b.resource));
@@ -92,6 +107,8 @@ export interface SeriesBatchQuery {
   readonly projectIds: readonly string[];
   readonly resource: string;
   readonly subResource?: string | undefined;
+  /** One series per container behind `subResource`'s group instead of their mean. */
+  readonly perInstance?: boolean | undefined;
   readonly names: readonly string[];
   readonly from: Date;
   readonly to: Date;
@@ -124,6 +141,8 @@ export interface SeriesBatch {
 interface BucketRow {
   bucket: Date;
   name: string;
+  /** The container the row came from; `null` for the host-level series. */
+  sub_resource: string | null;
   avg_value: number;
   sample_count: number | string;
   unit?: string | null;
@@ -138,16 +157,18 @@ async function queryRawBuckets(query: SeriesBatchQuery): Promise<BucketRow[]> {
   const { rows } = await getPool().query<BucketRow>(
     `SELECT time_bucket($1::interval, time) AS bucket,
             name,
+            sub_resource,
             avg(value) AS avg_value,
             count(*)::int AS sample_count,
             min(unit) AS unit
        FROM metrics
       WHERE project_id = ANY($2)
         AND resource = $3
-        AND sub_resource IS NOT DISTINCT FROM $4
+        AND (CASE WHEN $4::text IS NULL THEN sub_resource IS NULL
+                  ELSE service_group(sub_resource) = service_group($4) END)
         AND name = ANY($5)
         AND time >= $6 AND time <= $7
-      GROUP BY bucket, name`,
+      GROUP BY bucket, name, sub_resource`,
     [
       `${query.stepSeconds} seconds`,
       query.projectIds,
@@ -179,16 +200,18 @@ async function queryHourlyBuckets(query: SeriesBatchQuery): Promise<BucketRow[]>
   const { rows } = await getPool().query<BucketRow>(
     `SELECT time_bucket($1::interval, bucket) AS bucket,
             name,
+            sub_resource,
             sum(avg_value * sample_count) / sum(sample_count) AS avg_value,
             sum(sample_count)::bigint AS sample_count
        FROM metrics_hourly
       WHERE project_id = ANY($2)
         AND resource = $3
-        AND sub_resource IS NOT DISTINCT FROM $4
+        AND (CASE WHEN $4::text IS NULL THEN sub_resource IS NULL
+                  ELSE service_group(sub_resource) = service_group($4) END)
         AND name = ANY($5)
         AND bucket >= time_bucket('1 hour', $6::timestamptz)
         AND bucket <= $7
-      GROUP BY time_bucket($1::interval, bucket), name`,
+      GROUP BY time_bucket($1::interval, bucket), name, sub_resource`,
     [
       `${query.stepSeconds} seconds`,
       query.projectIds,
@@ -203,7 +226,9 @@ async function queryHourlyBuckets(query: SeriesBatchQuery): Promise<BucketRow[]>
   const { rows: unitRows } = await getPool().query<{ name: string; unit: string }>(
     `SELECT DISTINCT ON (name) name, unit
        FROM metrics
-      WHERE project_id = ANY($1) AND resource = $2 AND sub_resource IS NOT DISTINCT FROM $3
+      WHERE project_id = ANY($1) AND resource = $2
+        AND (CASE WHEN $3::text IS NULL THEN sub_resource IS NULL
+                  ELSE service_group(sub_resource) = service_group($3) END)
         AND name = ANY($4)
       ORDER BY name, time DESC`,
     [query.projectIds, query.resource, subResource, query.names],
@@ -211,6 +236,34 @@ async function queryHourlyBuckets(query: SeriesBatchQuery): Promise<BucketRow[]>
   const units = new Map(unitRows.map((row) => [row.name, row.unit]));
 
   return rows.map((row) => ({ ...row, unit: units.get(row.name) ?? null }));
+}
+
+function seriesKey(name: string, instance: string | null): string {
+  return `${name}\u0000${instance ?? ''}`;
+}
+
+/** Per (bucket, name): mean of the per-container means, samples summed. */
+function combineInstances(rows: readonly BucketRow[]): BucketRow[] {
+  const merged = new Map<string, { row: BucketRow; sum: number; instances: number }>();
+  for (const row of rows) {
+    const key = `${row.bucket.getTime()}\u0000${row.name}`;
+    const entry = merged.get(key);
+    if (entry) {
+      entry.sum += row.avg_value;
+      entry.instances += 1;
+      entry.row = {
+        ...entry.row,
+        sample_count: Number(entry.row.sample_count) + Number(row.sample_count),
+        unit: entry.row.unit ?? row.unit,
+      };
+    } else {
+      merged.set(key, { row: { ...row, sub_resource: null }, sum: row.avg_value, instances: 1 });
+    }
+  }
+  return [...merged.values()].map(({ row, sum, instances }) => ({
+    ...row,
+    avg_value: sum / instances,
+  }));
 }
 
 /**
@@ -238,32 +291,44 @@ export async function getSeries(query: SeriesBatchQuery): Promise<SeriesBatch> {
   const source = pickSource(query.from, query.to);
   const rows = source === 'hourly' ? await queryHourlyBuckets(query) : await queryRawBuckets(query);
 
+  // A group with several containers (blue AND green mid-swap, or scaled pods)
+  // is answered as ONE series: per bucket, the mean of each container's own
+  // mean - never a sum, and a container that is not running just is not in the
+  // mean. `perInstance` skips that and keeps one series per container.
+  const instances = query.perInstance
+    ? [...new Set(rows.map((row) => row.sub_resource))].sort()
+    : [query.subResource ?? null];
+  const combined = query.perInstance ? rows : combineInstances(rows);
+
   const byName = new Map<string, BucketRow[]>();
-  for (const row of rows) {
-    const bucket = byName.get(row.name);
+  for (const row of combined) {
+    const key = seriesKey(row.name, query.perInstance ? row.sub_resource : null);
+    const bucket = byName.get(key);
     if (bucket) bucket.push(row);
-    else byName.set(row.name, [row]);
+    else byName.set(key, [row]);
   }
 
   // Every requested name comes back even with no points, so a caller can tell
   // "nothing in this window" apart from "that metric does not exist".
-  const series = query.names.map((name) => {
-    const bucketRows = [...(byName.get(name) ?? [])].sort(
-      (a, b) => a.bucket.getTime() - b.bucket.getTime(),
-    );
-    return {
-      resource: query.resource,
-      subResource: query.subResource,
-      name,
-      unit: bucketRows.find((row) => row.unit)?.unit ?? null,
-      stepSeconds: query.stepSeconds,
-      points: bucketRows.map((row) => ({
-        timestamp: row.bucket.toISOString(),
-        value: row.avg_value,
-        count: Number(row.sample_count),
-      })),
-    };
-  });
+  const series = query.names.flatMap((name) =>
+    instances.map((instance) => {
+      const bucketRows = [
+        ...(byName.get(seriesKey(name, query.perInstance ? instance : null)) ?? []),
+      ].sort((a, b) => a.bucket.getTime() - b.bucket.getTime());
+      return {
+        resource: query.resource,
+        subResource: query.perInstance ? (instance ?? undefined) : query.subResource,
+        name,
+        unit: bucketRows.find((row) => row.unit)?.unit ?? null,
+        stepSeconds: query.stepSeconds,
+        points: bucketRows.map((row) => ({
+          timestamp: row.bucket.toISOString(),
+          value: row.avg_value,
+          count: Number(row.sample_count),
+        })),
+      };
+    }),
+  );
 
   return { series, source };
 }

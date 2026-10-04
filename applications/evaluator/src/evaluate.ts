@@ -154,16 +154,26 @@ async function selectEnabledThresholds(pool: Pool): Promise<Threshold[]> {
  * sub_resource" convention.
  */
 async function aggregateWindow(pool: Pool, threshold: Threshold): Promise<Aggregate[]> {
+  // Two-level mean: each instance (blue/green colour, pod replica) is
+  // averaged on its own first, then the instances of one service group are
+  // averaged - so a pod that reported twice as often does not count double.
+  // An instance that is not running (the idle colour) simply is not in the
+  // window, it never turns the whole service into "no data".
   const { rows } = await pool.query(
-    `SELECT COALESCE(sub_resource, '') AS sub_resource_key,
-            avg(value) AS avg_value, count(*)::int AS sample_count
-     FROM metrics
-     WHERE project_id = $1
-       AND name = $2
-       AND time >= now() - make_interval(secs => $3)
-       AND ($4::text IS NULL OR resource = $4)
-       AND ($5::text IS NULL OR sub_resource = $5)
-     GROUP BY COALESCE(sub_resource, '')`,
+    `SELECT sub_resource_key,
+            avg(instance_avg) AS avg_value, sum(instance_count)::int AS sample_count
+     FROM (
+       SELECT COALESCE(service_group(sub_resource), '') AS sub_resource_key,
+              avg(value) AS instance_avg, count(*) AS instance_count
+       FROM metrics
+       WHERE project_id = $1
+         AND name = $2
+         AND time >= now() - make_interval(secs => $3)
+         AND ($4::text IS NULL OR resource = $4)
+         AND ($5::text IS NULL OR service_group(sub_resource) = service_group($5))
+       GROUP BY COALESCE(service_group(sub_resource), ''), sub_resource
+     ) per_instance
+     GROUP BY sub_resource_key`,
     [
       threshold.projectId,
       threshold.metricName,

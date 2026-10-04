@@ -54,6 +54,11 @@ export const metricsQuerySchema = refineRange(
       ...projectIdShape,
       resource: z.string().min(1).max(200),
       subResource: z.string().min(1).max(200).optional(),
+      /** `true`: one series per container behind `subResource`'s group, not their mean. */
+      perInstance: z
+        .enum(['true', 'false'])
+        .transform((value) => value === 'true')
+        .optional(),
       /**
        * Repeatable. `?name=cpu.usage&name=memory.used` returns both series
        * from ONE round trip; the client used to issue one request per metric

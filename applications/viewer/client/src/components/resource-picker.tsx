@@ -30,6 +30,8 @@ import { ScopeIcon, type ScopeIconId } from './icon.tsx';
 export interface Selection {
   readonly resource: string;
   readonly subResource?: string | undefined;
+  /** Draw every pod/colour behind the service as its own line instead of their average. */
+  readonly allPods?: boolean | undefined;
 }
 
 /** Heading for each prefix, in the order the groups should appear. */
@@ -69,6 +71,7 @@ export function ResourcePicker({
 }) {
   const entry = resources.find((candidate) => candidate.resource === value.resource);
   const subResources = entry?.subResources ?? [];
+  const podCount = value.subResource ? (entry?.instances[value.subResource]?.length ?? 1) : 1;
 
   const grouped = KIND_LABELS.map(([prefix, label]) => ({
     prefix,
@@ -153,6 +156,18 @@ export function ResourcePicker({
           </select>
         </div>
       </div>
+
+      {podCount > 1 && (
+        <label className="flex min-h-11 items-center gap-2 text-label text-ink-2 md:min-h-9">
+          <input
+            type="checkbox"
+            checked={value.allPods === true}
+            onChange={(event) => onChange({ ...value, allPods: event.target.checked })}
+          />
+          Show all {podCount} pods
+          <span className="text-ink-3">(otherwise their average)</span>
+        </label>
+      )}
     </div>
   );
 }

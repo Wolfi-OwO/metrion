@@ -101,6 +101,7 @@ function ProjectMetricsPanel({
       ? {
           resource: active.resource,
           subResource: active.subResource,
+          perInstance: active.allPods === true,
           names: activeEntry.metricNames,
           range,
           stepSeconds,
@@ -110,10 +111,20 @@ function ProjectMetricsPanel({
     attempt,
   );
 
-  const groups = useMemo(
-    () => groupByUnit(series.results, range, stepSeconds),
-    [series.results, range, stepSeconds],
-  );
+  // Per-pod mode returns the same metric name once per container; the chart
+  // keys lines by name, so the container is folded into it
+  // (`container.cpu · preussen-dashboard-blue-1`).
+  const groups = useMemo(() => {
+    const results = active?.allPods
+      ? series.results.map((result) => ({
+          ...result,
+          name: result.subResource
+            ? `${result.name} · ${result.subResource.replace(/^container:/, '')}`
+            : result.name,
+        }))
+      : series.results;
+    return groupByUnit(results, range, stepSeconds);
+  }, [series.results, range, stepSeconds, active?.allPods]);
 
   const newestSample = useMemo(() => {
     let newest = 0;

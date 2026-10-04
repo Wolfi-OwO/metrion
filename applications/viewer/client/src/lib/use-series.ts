@@ -40,6 +40,7 @@ export interface SeriesLoad {
 export interface SeriesRequest {
   readonly resource: string;
   readonly subResource?: string | undefined;
+  readonly perInstance?: boolean | undefined;
   readonly names: readonly string[];
   readonly range: TimeRange;
   readonly stepSeconds: number;
@@ -65,6 +66,7 @@ export function useSeries(request: SeriesRequest | null, attempt: number): Serie
     ? JSON.stringify([
         request.resource,
         request.subResource ?? '',
+        request.perInstance ?? false,
         request.names,
         request.stepSeconds,
         request.projectId ?? '',
@@ -124,6 +126,7 @@ export function useSeries(request: SeriesRequest | null, attempt: number): Serie
       {
         resource: request.resource,
         subResource: request.subResource,
+        perInstance: request.perInstance,
         names: request.names,
         from: request.range.from,
         to: request.range.to,

@@ -32,6 +32,7 @@ export async function getMetricSeries(req: Request, res: Response): Promise<void
     projectIds: scopeProjectIds(req, query.projectId),
     resource: query.resource,
     subResource: query.subResource,
+    perInstance: query.perInstance,
     names: query.name,
     from: new Date(query.from),
     to: new Date(query.to),
