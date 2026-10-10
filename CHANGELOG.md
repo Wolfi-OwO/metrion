@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.3 - 2026-10-10
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.5.3; the viewer and its client go to 0.7.3.
+
+- The repository now carries `docs/ai` project memory (`AGENTS.md`,
+  `CLAUDE.md`, an index, codebase map, the service-grouping decision and
+  feature note, active tasks and a session handoff), kept free of server
+  addresses and key names because the public mirror exports it.
+- The old pre-v0.2.0 changelog block is relabelled "Before v0.2.0" instead of
+  claiming to be unreleased. GitHub release pages now exist for every tag.
+
 ## v0.5.2 - 2026-10-10
 
 Patch release: root, agent, ingest, evaluator, shared and db packages go to
