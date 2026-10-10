@@ -233,7 +233,7 @@ Platform release: root, agent, ingest, evaluator, shared and db packages go to
   Added Products or Services" use under TSL § 2.1(b)/§ 3.10, not the
   prohibited database-as-a-service use under TSL § 2.2.
 
-## Unreleased
+## Before v0.2.0 (earlier entries, kept as written)
 
 - Add the metrics collector (`applications/collector`): reads CPU, RAM,
   disk, network throughput, per-container stats and per-hostname request
