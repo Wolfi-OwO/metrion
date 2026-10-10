@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.2 - 2026-10-10
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.5.2; the viewer and its client go to 0.7.2.
+
+- The deployment runbook now records that the evaluator is copied to the VPS
+  by hand rather than deployed by CI, and the order in which to clean up stale
+  per-colour status rows after migration 0023. The v0.5.1 grouping fix is live
+  in production: Fuwwy Platform evaluates as one service and no threshold is
+  non-ok.
+
 ## v0.5.1 - 2026-10-04
 
 Bugfix release: root, agent, ingest, evaluator, shared and db packages go to
