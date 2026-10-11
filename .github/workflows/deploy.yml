@@ -36,7 +36,7 @@ concurrency:
 env:
   REGISTRY: globalcr01.azurecr.io
   RESOURCE_GROUP: metrion-rg
-  VPS_HOST: <VPS-IP>
+  VPS_HOST: ${{ vars.VPS_HOST }}
 
 jobs:
   # One explicit step, before either service's new revision goes out -

@@ -30,7 +30,7 @@ usage() {
 POINTS_TSV=${1:?$(usage)}
 PROJECT_ID=${2:?$(usage)}
 CUTOFFS_JSON=${3:?$(usage)}
-SSH_TARGET=${4:-deploy@<VPS-IP>}
+SSH_TARGET=${4:-deploy@${VPS_HOST:?pass the SSH target as argument 4 or set VPS_HOST}}
 SSH_KEY=${SSH_KEY:-$HOME/.ssh/contabo_vps}
 COMPOSE_FILE=${5:-/opt/metrion/docker-compose.prod.yml}
 
