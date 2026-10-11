@@ -31,4 +31,4 @@ systemd-timer one-shot, next tick picks up the new code). See the delivery
 report for the exact systemd units and directory layout.
 
 The server-side paths and unit names still say `vps-metrics` even though the repo is now metrion; the
-reason is recorded in the operator runbook, which is not part of the public mirror.
+reason is recorded in the operator runbook, which is not published.

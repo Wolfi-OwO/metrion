@@ -51,11 +51,11 @@ TypeScript/Node, npm workspaces - matching every other project in
 `software-engineering/projects/web-apps/`.
 
 The **collector** is deployed as a systemd timer, not a container - see
-`organizational/agent-deployment-runbook.md` for why (no image builds on the VPS,
+the operator runbook for why (no image builds on the VPS,
 and Node's own `apt` package is already there). It runs on Node 18.19,
 which is what Ubuntu 24.04 ships, so the root `engines` floor stays there.
-Links into `organizational/` resolve only in the private repository, not in the
-public mirror.
+The operator runbooks (server layout, secrets locations, firewall) are kept out of
+this repository on purpose; comments that cite them point at that private material.
 
 The **ingest** service is Express 4 + zod 4 on Node 22
 (`applications/ingest`) - the one write path, deployed as its own container
@@ -68,7 +68,7 @@ Recharts client, built into one image and hosted on Azure Container Apps at
 `minReplicas: 0`, reachable at `https://metrion.woofi-developments.at` (a
 custom domain in front of the Container Apps default hostname since
 2026-09-30 - the old `*.azurecontainerapps.io` hostname now redirects there,
-see `organizational/oauth-provider-setup.md`). The server serves the
+see the operator runbook). The server serves the
 client's assets itself: one image, one origin, no CORS in production and one
 thing to deploy.
 
@@ -91,7 +91,6 @@ docs/
 ├── adr/           architecture decisions (storage type, one metrics source,
 │                  the generic envelope, tenancy, uptime-as-metrics)
 └── quickstart/    send your first metric in any language, no SDK
-organizational/    operator runbooks (private repo only, not in the public mirror)
 .github/workflows/ lint, format, typecheck, build and test on every push
 ```
 

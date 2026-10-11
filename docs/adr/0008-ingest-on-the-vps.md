@@ -53,9 +53,9 @@ on the VPS, next to `db`.
   for `metrion_default` (`172.23.0.0/16`, pinned in the compose file).
   `br_netfilter` is not loaded on the VPS (measured), so the DROP never saw
   bridge traffic; the ACCEPT makes that not depend on the module staying
-  unloaded (commit 55e3570).
+  unloaded (commit 85ff94a).
 - The public uptime endpoint moved from the viewer to ingest (commit
-  cfe37c3). The viewer stays on Azure at `minReplicas: 0` and reaches the
+  4241cc2). The viewer stays on Azure at `minReplicas: 0` and reaches the
   database through its SSH tunnel sidecar.
 - Cutover, 2026-09-20 ~13:20 CEST: `uptime.env`, `routing.env` and the
   portfolio's `METRION_STATUS_URL` now point at the VPS host.

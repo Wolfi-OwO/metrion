@@ -2,7 +2,7 @@ name: Deploy
 
 # Only after CI has passed on main. A deploy that races the test run would
 # publish an image nobody has checked. Restored from the version Task 1's
-# rename disabled (git history: 6054b8b) and extended to the two Metrion
+# rename disabled (git history: e7df5de) and extended to the two Metrion
 # services - see organizational/agent-deployment-runbook.md for the infrastructure
 # this deploys onto.
 on:
