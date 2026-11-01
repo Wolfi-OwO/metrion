@@ -1,0 +1,8 @@
+# Only the landing page is content; the per-project metric views are live data, not pages worth indexing.
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /projects/
+
+Sitemap: https://metrion.woofi-developments.at/sitemap.xml

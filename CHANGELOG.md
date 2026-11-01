@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.5.4 - 2026-11-01
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.5.4; the viewer and its client go to 0.7.4.
+
+- The viewer now serves `robots.txt` and `sitemap.xml` and a canonical link, so
+  search engines can find the landing page. The per-project metric views stay
+  out of the index.
+
 ## v0.5.3 - 2026-10-10
 
 Patch release: root, agent, ingest, evaluator, shared and db packages go to
