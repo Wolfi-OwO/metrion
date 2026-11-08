@@ -113,7 +113,7 @@ jobs:
             dir: applications/viewer
             dockerfile: applications/viewer/Dockerfile
             port: 8080
-            target: azure
+            target: vps
 
     steps:
       - uses: actions/checkout@v4
@@ -154,58 +154,12 @@ jobs:
             docker push "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.vps_tag }}"
           fi
 
-      # `--container-name` matters here: both apps run a `db-tunnel` sidecar
-      # (see infra/db-tunnel-sidecar and the runbook's Database
-      # connectivity section) alongside the main container, named exactly
-      # after the app. Omitting it targets an ambiguous/default container
-      # and risks dropping the sidecar from the new revision - `--image`
-      # alone (no `--yaml`) otherwise leaves every other container in the
-      # template untouched.
-      - name: Deploy revision
-        if: matrix.target == 'azure'
-        run: |
-          # -o none: nothing downstream reads this step's output (the next
-          # step polls revision list separately) and the default JSON
-          # output prints the full topology - secret names, env var names,
-          # sidecar config, customDomainVerificationId - into the log.
-          az containerapp update -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
-            --container-name "${{ matrix.app }}" \
-            --image "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}" \
-            --revision-suffix "${{ steps.version.outputs.suffix }}" \
-            -o none
-
-      # `az containerapp update` returns while the previous revision is
-      # still serving, so a check run immediately after it can pass against
-      # the code that was just replaced. Wait for a single active revision
-      # first - same trap the viewer's very first deploy hit.
-      - name: Wait for the handover
-        if: matrix.target == 'azure'
-        run: |
-          for _ in $(seq 1 60); do
-            ACTIVE=$(az containerapp revision list -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
-              --query "length([?properties.active])" -o tsv)
-            [ "$ACTIVE" = "1" ] && break
-            sleep 10
-          done
-
-      # A deploy that finishes is not a deploy that works. Liveness only -
-      # neither service has a separate readiness probe (both pools are lazy,
-      # see applications/*/src/lib/db.ts), so liveness answering 200 is the
-      # whole post-deploy check available today.
-      - name: Verify the running app
-        if: matrix.target == 'azure'
-        run: |
-          FQDN=$(az containerapp show -n "${{ matrix.app }}" -g "$RESOURCE_GROUP" \
-            --query properties.configuration.ingress.fqdn -o tsv)
-          curl -fsS --max-time 60 -o /dev/null "https://$FQDN/api/v1/health/liveness"
-          echo "https://$FQDN is live"
-
-      # metrion-ingest runs on the VPS now. The same forced-command key as the
-      # migrate job, but asking for `ingest <tag>` makes /opt/metrion/deploy.sh
-      # pull the image, restart only the ingest container, prove a DB round
-      # trip and roll back on failure - a non-zero exit here means it did.
-      # The Azure metrion-ingest app no longer exists (deleted 2026-09-20,
-      # ADR 0008); only the viewer is deployed to Azure.
+      # Both services run on the VPS now (ingest since 2026-09-20, ADR 0008; the
+      # viewer since 2026-11-08, ADR 0009). The same forced-command key as the
+      # migrate job, but asking for `ingest <tag>` or `viewer <tag>` makes
+      # /opt/metrion/deploy.sh pull the image, restart only that container, prove
+      # a DB round trip and roll back on failure - a non-zero exit here means it
+      # did. Azure is only used for the image registry.
       - name: Deploy to the VPS
         if: matrix.target == 'vps'
         run: |
@@ -214,12 +168,19 @@ jobs:
           chmod 600 ~/.ssh/metrion_deploy_key
           # Same pinned host key as the migrate job.
           echo "$VPS_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0EZSmAYeYlrrvypv8MGUoUHVyFlDnWFf6rDKQkdD2C" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" "ingest ${{ steps.version.outputs.vps_tag }}"
+          ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" "${{ matrix.app == 'metrion-viewer' && 'viewer' || 'ingest' }} ${{ steps.version.outputs.vps_tag }}"
 
       # The gate inside deploy.sh only sees the container; this checks the
       # path users hit (Caddy -> ingest) and that the new code is really the
       # one answering (the public-status route 404s on older images).
       - name: Verify the public endpoint
-        if: matrix.target == 'vps'
+        if: matrix.app == 'metrion-ingest'
         run: |
           curl -fsS --max-time 60 "https://metrion-ingest.woofi-developments.at/api/v1/public/projects/86b02c8c-4357-4655-9835-1897787cdd9a/uptime" | head -c 200
+
+      # The same for the viewer: the path users hit (Caddy -> viewer), liveness only like the gate inside deploy.sh.
+      - name: Verify the public viewer
+        if: matrix.app == 'metrion-viewer'
+        run: |
+          curl -fsS --max-time 60 -o /dev/null "https://metrion.woofi-developments.at/api/v1/health/liveness"
+          echo "https://metrion.woofi-developments.at is live"
