@@ -64,13 +64,11 @@ off Azure Container Apps on 2026-09-20, see `docs/adr/0008-*.md`) so a schema
 bug in it can never take the read side down.
 
 The **viewer** is Express 4 + zod 4 on Node 22, with a React 19 / Vite /
-Recharts client, built into one image and hosted on Azure Container Apps at
-`minReplicas: 0`, reachable at `https://metrion.woofi-developments.at` (a
-custom domain in front of the Container Apps default hostname since
-2026-09-30 - the old `*.azurecontainerapps.io` hostname now redirects there,
-see the operator runbook). The server serves the
-client's assets itself: one image, one origin, no CORS in production and one
-thing to deploy.
+Recharts client, built into one image and run as a container on the VPS next
+to the database and ingest, behind Caddy at
+`https://metrion.woofi-developments.at` (moved off Azure Container Apps on
+2026-11-08, see `docs/adr/0009-*.md`). The server serves the client's assets
+itself: one image, one origin, no CORS in production and one thing to deploy.
 
 Both apps and the collector share `packages/db` (raw `pg`, hand-written
 `.sql` migrations - hypertables and continuous aggregates aren't

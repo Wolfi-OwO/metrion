@@ -1,12 +1,10 @@
 # Production database stack for the Contabo VPS (<VPS-IP>). Run with:
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# This file owns the database and the ingest API (metrion-ingest, moved here
-# from Azure Container Apps so ingest reaches the db over the local bridge
-# instead of the SSH tunnel). metrion-viewer still runs on Azure Container Apps
-# (see organizational/agent-deployment-runbook.md) - see ADR 0004's Hosting
-# section for why the database itself is self-hosted here instead of managed
-# Azure Postgres.
+# This file owns the database, the ingest API and the viewer. Ingest moved here from Azure Container Apps so it
+# reaches the db over the local bridge instead of the SSH tunnel, and the viewer followed on 2026-11-08 for the same
+# reason: nothing of Metron runs on Azure any more except the image registry. See ADR 0004's Hosting section for why
+# the database itself is self-hosted here.
 #
 # ── How this differs from docker-compose.dev.yml ────────────────────────────
 #   * TLS is mandatory (ssl=on, TLSv1.2 minimum, no TCP trust in pg_hba.conf,
@@ -100,6 +98,38 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    networks:
+      - default
+      - edge-net
+
+  viewer:
+    # The viewer (accounts, charts, status pages) moved here from Azure Container Apps next to the database it
+    # always talked to, replacing the SSH-tunnel sidecar with the local bridge. Caddy reaches it as
+    # metrion-viewer-1:8080 over edge-net, like ingest.
+    image: globalcr01.azurecr.io/metrion-viewer:${VIEWER_IMAGE_TAG:?VIEWER_IMAGE_TAG must be set in .env}
+    restart: unless-stopped
+    mem_limit: 384m
+    env_file: viewer.env
+    environment:
+      NODE_ENV: production
+      PORT: '8080'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/api/v1/health/liveness').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
     networks:
       - default
       - edge-net
