@@ -503,3 +503,58 @@ export function deleteThreshold(thresholdId: string, signal: AbortSignal): Promi
     signal,
   );
 }
+
+/** Mirrors `ChatAction` in `applications/viewer/src/services/assistant-service.ts`. */
+export interface AssistantAction {
+  readonly type: 'create_threshold' | 'delete_threshold';
+  readonly status: 'done' | 'exists' | 'skipped' | 'pending' | 'declined';
+  readonly label: string;
+  readonly detail?: string;
+}
+
+export interface AssistantMessage {
+  readonly id: number;
+  readonly role: 'user' | 'assistant';
+  readonly content: string;
+  readonly actions: AssistantAction[];
+  readonly createdAt: string;
+}
+
+export interface AssistantChat {
+  readonly enabled: boolean;
+  readonly ready: boolean;
+  readonly messages: AssistantMessage[];
+}
+
+export function fetchAssistant(signal: AbortSignal): Promise<AssistantChat> {
+  return getJson<AssistantChat>('/api/v1/assistant', new URLSearchParams(), signal, 'projects');
+}
+
+export async function sendAssistantMessage(
+  message: string,
+  signal: AbortSignal,
+): Promise<AssistantMessage> {
+  return (
+    await sendJson<{ message: AssistantMessage }>('/api/v1/assistant', 'POST', { message }, signal)
+  ).message;
+}
+
+export async function answerAssistantAction(
+  messageId: number,
+  index: number,
+  decision: 'confirm' | 'decline',
+  signal: AbortSignal,
+): Promise<AssistantAction> {
+  return (
+    await sendJson<{ action: AssistantAction }>(
+      `/api/v1/assistant/messages/${String(messageId)}/actions/${String(index)}`,
+      'POST',
+      { decision },
+      signal,
+    )
+  ).action;
+}
+
+export function clearAssistant(signal: AbortSignal): Promise<void> {
+  return sendJson<void>('/api/v1/assistant', 'DELETE', undefined, signal);
+}

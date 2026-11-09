@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App.tsx';
+import AssistantRoute from './routes/assistant.tsx';
 import NotFoundRoute from './routes/not-found.tsx';
 import ProjectMetricsRoute from './routes/project-metrics.tsx';
 import ProjectSettingsRoute from './routes/project-settings.tsx';
@@ -27,6 +28,7 @@ createRoot(root).render(
             path Express does not otherwise own. */}
         <Route element={<App />}>
           <Route index element={<RootRoute />} />
+          <Route path="assistant" element={<AssistantRoute />} />
           <Route path="projects/:projectId" element={<ProjectMetricsRoute />} />
           <Route path="projects/:projectId/status" element={<ProjectStatusRoute />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettingsRoute />} />

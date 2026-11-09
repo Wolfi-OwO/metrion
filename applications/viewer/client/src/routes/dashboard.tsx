@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError, createProject, type MeResponse, type Project } from '../api/client.ts';
 import { AccountBar } from '../components/account-bar.tsx';
 import { Field } from '../components/field.tsx';
@@ -149,7 +150,11 @@ export default function DashboardRoute({
   return (
     <>
       <header className="border-b border-line bg-surface">
-        <AccountBar email={user.email} onSignedOut={onSignedOut} />
+        <AccountBar email={user.email} onSignedOut={onSignedOut}>
+          <Link to="/assistant" className="text-ink-2 hover:text-ink">
+            Assistant
+          </Link>
+        </AccountBar>
       </header>
       <main className="flex-1">
         <div className="enter page py-8">
