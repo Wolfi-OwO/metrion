@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.6.0 - 2026-11-09
+
+Minor release: root, agent, ingest, evaluator, shared and db packages go to
+0.6.0; the viewer and its client go to 0.8.0.
+
+- A chat assistant on `/assistant`. Ask how your projects are doing, or tell it
+  which alerts to set ("warn me above 80 and alert above 95") and it creates the
+  threshold; removing one waits for your yes on a card. It runs on the same
+  llama.cpp server the burrow stack uses, over an internal network, and is only
+  sent the names and latest values of your own projects' applications and
+  metrics (`docs/adr/0010-assistant-on-the-shared-language-model.md`). New
+  migration `0013_assistant_messages.sql` keeps the conversation.
+
 ## v0.5.4 - 2026-11-01
 
 Patch release: root, agent, ingest, evaluator, shared and db packages go to

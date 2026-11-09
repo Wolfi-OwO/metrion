@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { applicationsRouter } from './applications.routes.js';
+import { assistantRouter } from './assistant.routes.js';
 import { authRouter } from './auth.routes.js';
 import { docsRouter } from './docs.routes.js';
 import { healthRouter } from './health.routes.js';
@@ -23,6 +24,7 @@ routes.use(authRouter);
 routes.use(projectsRouter);
 routes.use(applicationsRouter);
 routes.use(thresholdsRouter);
+routes.use(assistantRouter);
 routes.use(metricsRouter);
 routes.use(docsRouter);
 // Before the SPA fallback in main.ts, so `/impressum` renders the Impressum

@@ -35,6 +35,15 @@ function requirePublicBaseUrl(): string {
 }
 
 export const config = {
+  /** The language model behind the assistant (a llama.cpp server). Unset: the assistant says it is not running. */
+  llm: {
+    url: process.env.LLM_SERVICE_URL,
+    timeoutMs: Number(process.env.LLM_TIMEOUT_MS) || 300_000,
+    maxTokens: Number(process.env.LLM_MAX_TOKENS) || 900,
+    /** Messages one account may send per minute: every answer costs seconds of the server's CPU. */
+    rateLimitMax: Number(process.env.ASSISTANT_RATE_LIMIT_MAX) || 10,
+  },
+
   port: Number(process.env.PORT) || 8080,
   nodeEnv: process.env.NODE_ENV ?? 'development',
   /** pino level: trace/debug/info/warn/error/fatal/silent. */

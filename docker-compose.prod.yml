@@ -113,6 +113,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: '8080'
+      LLM_SERVICE_URL: http://burrow-llm:8080
     depends_on:
       db:
         condition: service_healthy
@@ -133,6 +134,9 @@ services:
     networks:
       - default
       - edge-net
+      # The assistant's language model (llama.cpp in the burrow stack, `burrow-llm`), reached over its own internal
+      # network: it only ever sees the account's project, metric and threshold names and answers with text.
+      - llm-net
 
 networks:
   # Pinned so the DOCKER-USER ACCEPT in organizational/metrion-db-firewall/
@@ -147,6 +151,10 @@ networks:
   # the portfolio Caddy - see /opt/portfolio/docker-compose.prod.yaml.
   edge-net:
     external: true
+  # Owned by the burrow stack (compose names it <project>_llm-net); internal, so it has no route to the internet.
+  llm-net:
+    external: true
+    name: burrow_llm-net
 
 volumes:
   metrion-db-data:
