@@ -1,27 +1,41 @@
 name: Deploy
 
-# Only after CI has passed on main. A deploy that races the test run would
-# publish an image nobody has checked. Restored from the version Task 1's
-# rename disabled (git history: e7df5de) and extended to the two Metrion
-# services - see organizational/agent-deployment-runbook.md for the infrastructure
-# this deploys onto.
+# A published GitHub Release starts a deploy; it then waits for the
+# `production` environment's required reviewer, so nothing reaches the VPS
+# without an explicit approval. Before this it deployed on every green push
+# to main, with no gate and no way back. See
+# organizational/agent-deployment-runbook.md for the infrastructure this
+# deploys onto.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
-  # A manual button, for redeploying the same commit after an infrastructure
-  # change CI knows nothing about.
+  release:
+    types: [published]
+  # The manual button doubles as the rollback: run it with `ref` set to an
+  # older release tag (for example v0.5.4) and `rollback` ticked. It rebuilds
+  # that tag and redeploys it without touching the database, because
+  # migrations only move forward.
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Release tag (or branch) to deploy; empty means the branch the workflow was started from"
+        required: false
+        type: string
+      rollback:
+        description: "Rolling back to an older version: skip the database migration"
+        required: false
+        default: false
+        type: boolean
 
 # OIDC: GitHub mints a short-lived token that Azure trades for one of its
-# own. There is no client secret stored in this repository - the
+# own. The deploy job runs in the `production` environment, so the token's
+# subject is `...:environment:production`; the identity has federated
+# credentials for that subject (and the older main-branch ones).
+# There is no client secret stored in this repository - the
 # `metrion-deploy` identity (in `metrion-rg`, replacing the old `mona-deploy`
 # in the now-deleted `mona-rg` - see the viewer runbook's "Teardown, as
-# actually executed" section) has two federated credentials, both trusting
-# this repo on `main` only: one by name, one carrying GitHub's numeric
-# owner/repo IDs (see the viewer runbook's note on why - that form already
-# survives a repo rename).
+# actually executed" section) has federated credentials for the `main`
+# branch and for the `production` environment, each once by name and once
+# carrying GitHub's numeric owner/repo IDs (see the viewer runbook's note on
+# why - that form already survives a repo rename).
 permissions:
   contents: read
   id-token: write
@@ -39,37 +53,26 @@ env:
   VPS_HOST: ${{ vars.VPS_HOST }}
 
 jobs:
-  # One explicit step, before either service's new revision goes out -
-  # never from application startup. Ingest can be restarted while another
-  # process is starting; two processes migrating the same database at once is a bug
-  # class this project has hit before. Runs over SSH, not a direct Postgres
-  # connection: GitHub-hosted runners have no stable egress IP, so
-  # allowlisting them on the VPS firewall isn't workable (see the runbook's
-  # own note on why the Container Apps side needed a tunnel for the same
-  # reason).
-  # `branches: [main]` above matches the triggering CI run's head-branch
-  # NAME, not its repo. ci.yml also runs on pull_request, so once this repo
-  # is public a fork PR from a branch literally named `main` whose CI
-  # passes would satisfy that filter and start this job. Require the CI run
-  # to have been a push (not a pull_request) on this repo's own `main`,
-  # never a fork's.
-  migrate:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository)
+  # One job, one approval. A migrate job plus a deploy job would each stop at
+  # the environment gate, so a release would need two clicks; the migration
+  # therefore runs as the first step here, strictly before either service goes out.
+  # `release` events only come from this repo's own maintainers, so unlike the
+  # old workflow_run trigger there is no fork-PR path to guard against.
+  deploy:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.release.tag_name }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - run: npm ci
-
-      - run: npm run build --workspace @metrion/db
-
-      - name: Ship the migrator to the VPS and run it there
+      - name: Install SSH key and pinned host key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.METRION_SSH_DEPLOY_KEY }}" > ~/.ssh/metrion_deploy_key
@@ -82,41 +85,23 @@ jobs:
           # now pins (see infra/db-tunnel-sidecar/entrypoint.sh).
           echo "$VPS_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0EZSmAYeYlrrvypv8MGUoUHVyFlDnWFf6rDKQkdD2C" >> ~/.ssh/known_hosts
 
+      # Never from application startup, and never while another process
+      # migrates: two processes migrating the same database at once is a bug
+      # class this project has hit before. Runs over SSH, not a direct
+      # Postgres connection: GitHub-hosted runners have no stable egress IP.
+      # Skipped on a rollback, because the old code must run on the newer schema.
+      - name: Ship the migrator to the VPS and run it there
+        if: ${{ !inputs.rollback }}
+        run: |
+          npm ci
+          npm run build --workspace @metrion/db
           tar czf /tmp/db-migrate.tar.gz -C packages/db dist migrations package.json
-
-          # The CI key is now a forced-command key (see
-          # organizational/agent-deployment-runbook.md and
+          # The CI key is a forced-command key (see
           # /opt/metrion/deploy.sh on the VPS) - it ignores whatever we ask
           # it to run and always executes that one script, reading the
-          # tarball off stdin. No `scp` step: modern OpenSSH `scp` defaults
-          # to the SFTP protocol, which a forced command can't cleanly
-          # single out without exec'ing a real sftp-server - piping over the
-          # same session's stdin needs no such exception.
+          # tarball off stdin. No `scp`: a forced command can't single out the
+          # SFTP protocol without exec'ing a real sftp-server.
           ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" < /tmp/db-migrate.tar.gz
-
-  deploy:
-    needs: migrate
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository)
-    runs-on: ubuntu-latest
-
-    strategy:
-      # One matrix, both services - a deploy is a merge for either, not a
-      # separately-remembered sequence per app.
-      matrix:
-        include:
-          - app: metrion-ingest
-            dir: applications/ingest
-            dockerfile: applications/ingest/Dockerfile
-            port: 8090
-            target: vps
-          - app: metrion-viewer
-            dir: applications/viewer
-            dockerfile: applications/viewer/Dockerfile
-            port: 8080
-            target: vps
-
-    steps:
-      - uses: actions/checkout@v4
 
       - uses: azure/login@v2
         with:
@@ -124,63 +109,55 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # Ingest first, then the viewer, and a failure in either stops the run.
       # The version in package.json is the image tag, so a deployed revision
-      # can be traced back to a released version rather than to a commit sha
-      # nobody can read. The run number keeps the suffix unique when the
-      # same version is deployed twice.
-      - name: Resolve version
-        id: version
+      # traces back to a released version rather than a commit sha. The run
+      # number gives an immutable per-run tag: "roll back to the previous
+      # tag" must not land on whatever a later push of the same version left.
+      # Built from the repository root: npm workspaces need the root manifest
+      # and lockfile - same reason as every Dockerfile here.
+      - name: Build, push and deploy both services
         run: |
-          VERSION=$(node -p "require('./${{ matrix.dir }}/package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "suffix=v${VERSION//./-}-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-          # Immutable per-run tag: the VPS deploy needs a tag that can never
-          # be overwritten, otherwise "roll back to the previous tag" would
-          # roll back to whatever a later push of the same version left there.
-          echo "vps_tag=$VERSION-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push
-        run: |
+          set -euo pipefail
           az acr login -n globalcr01
-          # Built from the repository root: npm workspaces need the root
-          # manifest and lockfile - same reason as every Dockerfile here.
-          docker build -f "${{ matrix.dockerfile }}" \
-            -t "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}" \
-            -t "$REGISTRY/${{ matrix.app }}:latest" .
-          docker push "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.version }}"
-          docker push "$REGISTRY/${{ matrix.app }}:latest"
-          if [ "${{ matrix.target }}" = vps ]; then
-            docker tag "$REGISTRY/${{ matrix.app }}:latest" "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.vps_tag }}"
-            docker push "$REGISTRY/${{ matrix.app }}:${{ steps.version.outputs.vps_tag }}"
-          fi
+          for svc in ingest viewer; do
+            app="metrion-$svc"
+            dir="applications/$svc"
+            version=$(node -p "require('./$dir/package.json').version")
+            vps_tag="$version-${{ github.run_number }}"
 
-      # Both services run on the VPS now (ingest since 2026-09-20, ADR 0008; the
-      # viewer since 2026-11-08, ADR 0009). The same forced-command key as the
-      # migrate job, but asking for `ingest <tag>` or `viewer <tag>` makes
-      # /opt/metrion/deploy.sh pull the image, restart only that container, prove
-      # a DB round trip and roll back on failure - a non-zero exit here means it
-      # did. Azure is only used for the image registry.
-      - name: Deploy to the VPS
-        if: matrix.target == 'vps'
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.METRION_SSH_DEPLOY_KEY }}" > ~/.ssh/metrion_deploy_key
-          chmod 600 ~/.ssh/metrion_deploy_key
-          # Same pinned host key as the migrate job.
-          echo "$VPS_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL0EZSmAYeYlrrvypv8MGUoUHVyFlDnWFf6rDKQkdD2C" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" "${{ matrix.app == 'metrion-viewer' && 'viewer' || 'ingest' }} ${{ steps.version.outputs.vps_tag }}"
+            docker build -f "$dir/Dockerfile" \
+              -t "$REGISTRY/$app:$version" -t "$REGISTRY/$app:latest" .
+            docker push "$REGISTRY/$app:$version"
+            docker push "$REGISTRY/$app:latest"
+            docker tag "$REGISTRY/$app:latest" "$REGISTRY/$app:$vps_tag"
+            docker push "$REGISTRY/$app:$vps_tag"
+
+            # The same forced-command key: asking for `ingest <tag>` or
+            # `viewer <tag>` makes /opt/metrion/deploy.sh pull the image,
+            # restart only that container, prove a DB round trip and roll back
+            # on failure - a non-zero exit here means it did.
+            ssh -i ~/.ssh/metrion_deploy_key "deploy@$VPS_HOST" "$svc $vps_tag"
+            echo "- \`$app\` $vps_tag" >> deployed.txt
+          done
 
       # The gate inside deploy.sh only sees the container; this checks the
-      # path users hit (Caddy -> ingest) and that the new code is really the
+      # path users hit (Caddy -> service) and that the new code is really the
       # one answering (the public-status route 404s on older images).
-      - name: Verify the public endpoint
-        if: matrix.app == 'metrion-ingest'
+      - name: Verify the public endpoints
         run: |
           curl -fsS --max-time 60 "https://metrion-ingest.woofi-developments.at/api/v1/public/projects/86b02c8c-4357-4655-9835-1897787cdd9a/uptime" | head -c 200
-
-      # The same for the viewer: the path users hit (Caddy -> viewer), liveness only like the gate inside deploy.sh.
-      - name: Verify the public viewer
-        if: matrix.app == 'metrion-viewer'
-        run: |
+          echo
           curl -fsS --max-time 60 -o /dev/null "https://metrion.woofi-developments.at/api/v1/health/liveness"
           echo "https://metrion.woofi-developments.at is live"
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Deployed ${{ inputs.ref || github.event.release.tag_name || github.ref_name }}${{ inputs.rollback && ' (rollback)' || '' }}"
+            echo ""
+            cat deployed.txt
+            echo ""
+            echo "To go back: run this workflow with \`ref\` set to an older release tag and \`rollback\` ticked."
+          } >> "$GITHUB_STEP_SUMMARY"
