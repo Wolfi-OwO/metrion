@@ -22,6 +22,8 @@ RUN npm run build --workspace @metrion/db \
  && npm run build --workspace @metrion/ingest
 
 FROM node:22-alpine AS runtime
+# The base image's own npm carries unpatched dependencies and nothing here runs npm after the install below, so it is removed; OS packages are upgraded for the same reason.
+RUN apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -32,7 +34,8 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 COPY applications/ingest/package.json applications/ingest/
 RUN npm ci --omit=dev --workspace @metrion/ingest --include-workspace-root \
- && npm cache clean --force
+ && npm cache clean --force \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 COPY --from=build /repo/applications/ingest/dist ./dist
 # @metrion/db is a REAL runtime dependency here (unlike @metrion/shared, which

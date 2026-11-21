@@ -39,6 +39,8 @@ RUN npm run build --workspace @metrion/db \
  && npm run build --workspace @metrion/viewer-client
 
 FROM node:22-alpine AS runtime
+# The base image's own npm carries unpatched dependencies and nothing here runs npm after the install below, so it is removed; OS packages are upgraded for the same reason.
+RUN apk upgrade --no-cache
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -51,7 +53,8 @@ COPY applications/agent/package.json applications/agent/
 COPY applications/viewer/package.json applications/viewer/
 COPY applications/viewer/client/package.json applications/viewer/client/
 RUN npm ci --omit=dev --workspace @metrion/viewer --include-workspace-root \
- && npm cache clean --force
+ && npm cache clean --force \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 COPY --from=build /repo/applications/viewer/dist ./dist
 # Same reason as the ingest Dockerfile: @metrion/db is a real runtime
