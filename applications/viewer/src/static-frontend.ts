@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import type { Express } from 'express';
@@ -15,6 +15,13 @@ import type { Express } from 'express';
  * Must be mounted after every API router and before `notFound`.
  */
 const CLIENT_DIST = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
+
+// Vite puts a content hash in every file name under assets/, so a changed file is always a new URL and may be kept for
+// a year. Everything else (index.html, the icon) keeps its name across releases, so it is revalidated with its ETag:
+// "no-cache" still stores the file, and an unchanged one costs a 304 with no body, while a deploy shows at once.
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+const REVALIDATE = 'no-cache';
+const ASSETS_DIR = join(CLIENT_DIST, 'assets') + sep;
 
 /**
  * First path segments that belong to the server, not to the SPA.
@@ -35,7 +42,14 @@ export function mountFrontend(app: Express): void {
   // `index: false` so the static handler never answers `/` itself - the
   // fallback below owns that, and one owner is easier to reason about than
   // two that happen to agree.
-  app.use(express.static(CLIENT_DIST, { index: false }));
+  app.use(
+    express.static(CLIENT_DIST, {
+      index: false,
+      setHeaders: (res, filePath) => {
+        res.setHeader('Cache-Control', filePath.startsWith(ASSETS_DIR) ? IMMUTABLE : REVALIDATE);
+      },
+    }),
+  );
 
   app.get(/.*/, (req, res, next) => {
     const firstSegment = req.path.split('/')[1];
@@ -43,6 +57,6 @@ export function mountFrontend(app: Express): void {
       next();
       return;
     }
-    res.sendFile(join(CLIENT_DIST, 'index.html'));
+    res.set('Cache-Control', REVALIDATE).sendFile(join(CLIENT_DIST, 'index.html'));
   });
 }
