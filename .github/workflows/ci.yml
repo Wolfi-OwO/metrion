@@ -64,8 +64,6 @@ jobs:
       # The same root scripts a developer runs locally, in the same order, so
       # a green CI run and a green working copy mean the same thing. CI does
       # not get its own parallel set of commands to drift from.
-      - run: npm run lint
-      - run: npm run format:check
       - run: npm run typecheck
 
       # Builds every workspace, the client's Vite build included. Runs before

@@ -9,7 +9,7 @@ set -euo pipefail
 # shell key with no `command=`/`restrict` in authorized_keys - a straight
 # path to root on a box hosting six production stacks, since `deploy` has
 # passwordless sudo. This restricts it to exactly what the migrate step in
-# .github/workflows/deploy.yml used to run inline over that open shell.
+# .github/workflows/release.yml used to run inline over that open shell.
 #
 # Reads the migration tarball off stdin instead of a separate scp/sftp step.
 # Measured directly (`scp -vvv` from this box's own client against this

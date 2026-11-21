@@ -1,0 +1,34 @@
+name: Lint
+
+# Lint and format checks live in this one workflow in every repo, apart from CI,
+# so a style failure never hides a test failure and the same name means the same
+# thing everywhere.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run format:check

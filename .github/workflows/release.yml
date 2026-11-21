@@ -1,4 +1,4 @@
-name: Deploy
+name: Release
 
 # A published GitHub Release starts a deploy; it then waits for the
 # `production` environment's required reviewer, so nothing reaches the VPS

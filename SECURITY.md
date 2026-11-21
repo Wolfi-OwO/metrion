@@ -284,14 +284,21 @@ OPTIONS`) only serves the public reads and does not widen the guard.
 
 ## CI/CD
 
-- **CI** (`.github/workflows/ci.yml`) runs lint, format check, typecheck, build
-  and tests against a throwaway Postgres service. Markdown is format-checked, so
-  this file must be prettier-clean.
-- **Deploy** (`.github/workflows/deploy.yml`) runs only after CI succeeded on
-  `main`, or by manual dispatch, and never cancels a deploy in progress.
+- **Lint** (`.github/workflows/lint.yml`) runs eslint and the prettier check.
+  Markdown is format-checked, so this file must be prettier-clean.
+- **CI** (`.github/workflows/ci.yml`) runs typecheck, build and tests against a
+  throwaway Postgres service.
+- **Security** (`.github/workflows/security.yml`) runs gitleaks, a Trivy
+  filesystem scan, a Trivy scan of every container image and CodeQL, on every
+  push and pull request and weekly.
+- **Release** (`.github/workflows/release.yml`) starts when a GitHub Release is
+  published, waits for the `production` environment's required reviewer, and
+  never cancels a deploy in progress. A manual run with an older release tag and
+  `rollback` ticked redeploys that version without migrating the database.
 - **Azure**: OIDC federation. There is no long-lived Azure client secret in the
   repository or in GitHub; the `metrion-deploy` identity trusts this repository
-  on `main` only, through two federated credentials.
+  on `main` and on the `production` environment only, through four federated
+  credentials (each once by name and once by GitHub's numeric IDs).
 - **VPS**: a dedicated SSH key stored as the GitHub secret
   `METRION_SSH_DEPLOY_KEY` (this one is long-lived) that is a **forced-command
   key**: the server ignores what the client asks for and always runs
