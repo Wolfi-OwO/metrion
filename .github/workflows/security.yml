@@ -1,0 +1,157 @@
+name: Security
+
+# The same four checks in every repo: secrets, dependencies, static analysis and
+# the container images themselves. Keep this file identical across the apps and
+# change only the CodeQL languages and the image list.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly scan to catch newly-disclosed CVEs / newly-committed secrets.
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          # Downloaded to a file with retries: GitHub's download host drops connections now and then, and a piped
+          # `curl | tar` turned every such hiccup into a failed secret scan on an unrelated change.
+          RETRY=(--retry 6 --retry-all-errors --retry-delay 5)
+          VERSION="$(curl -sSf "${RETRY[@]}" https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | tr -d v)"
+          curl -sSfL "${RETRY[@]}" -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+
+      # --no-git is load-bearing: `gitleaks detect` (no flag) only scans
+      # committed git history and would pass a file that was never
+      # committed untouched. Scanning the working tree instead catches
+      # secrets before they're ever committed.
+      - name: Run gitleaks (working tree, not git history)
+        run: gitleaks detect --no-git --source . --redact --verbose
+
+  trivy-fs:
+    name: Trivy filesystem scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run Trivy (filesystem, SARIF)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('trivy-fs.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      # A second, gating run: the first only reports, this one fails the build on HIGH or CRITICAL.
+      - name: Run Trivy (filesystem, gate)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+  # The base image and the OS packages in it are not in the lockfile, so the
+  # filesystem scan never sees them. Each image is built exactly as the release
+  # builds it and scanned; a fixable HIGH or CRITICAL fails the build.
+  container-scan:
+    name: Container scan (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ingest
+            context: .
+            file: applications/ingest/Dockerfile
+          - name: viewer
+            context: .
+            file: applications/viewer/Dockerfile
+          - name: db-tunnel-sidecar
+            context: infra/db-tunnel-sidecar
+            file: infra/db-tunnel-sidecar/Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -f "${{ matrix.file }}" -t scan/${{ matrix.name }}:ci "${{ matrix.context }}"
+
+      - name: Run Trivy (image, SARIF)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: scan/${{ matrix.name }}:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image-${{ matrix.name }}
+
+      - name: Run Trivy (image, gate)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: scan/${{ matrix.name }}:ci
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+  codeql:
+    name: CodeQL analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:${{ matrix.language }}'
