@@ -16,11 +16,11 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Release tag (or branch) to deploy; empty means the branch the workflow was started from"
+        description: 'Release tag (or branch) to deploy; empty means the branch the workflow was started from'
         required: false
         type: string
       rollback:
-        description: "Rolling back to an older version: skip the database migration"
+        description: 'Rolling back to an older version: skip the database migration'
         required: false
         default: false
         type: boolean
