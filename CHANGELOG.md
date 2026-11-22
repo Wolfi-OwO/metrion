@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.1 - 2026-11-22
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.6.1; the viewer and its client go to 0.8.1.
+
+- The viewer's page title and description now say what metrion is (self-hosted
+  metrics and uptime monitoring) instead of the one-word name and a sentence
+  about my own servers.
+
 ## v0.6.0 - 2026-11-09
 
 Minor release: root, agent, ingest, evaluator, shared and db packages go to
