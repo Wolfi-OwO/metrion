@@ -260,14 +260,14 @@
 /* The pinned footer's height, single-sourced: the footer sets its `height` from
    this, `App.tsx` reserves it as bottom padding and scroll-padding-bottom
    keeps focus clear of it. 45px = one 44px control + the 1px border on a
-   phone; 53px = the 28px pill + 12px padding twice + the border from `lg`.
+   phone; 41px = the 40px row + the border from `lg`, the same bar height as the other apps.
    The inset is the iPhone home indicator (0 unless the page is standalone). */
 :root {
   --footer-h: calc(45px + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 1024px) {
   :root {
-    --footer-h: calc(53px + env(safe-area-inset-bottom, 0px));
+    --footer-h: calc(41px + env(safe-area-inset-bottom, 0px));
   }
 }
 
