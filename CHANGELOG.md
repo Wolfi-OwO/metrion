@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.6.3 - 2026-11-23
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.6.3; the viewer and its client go to 0.8.3.
+
+- The version chip in the bottom bar is 30px tall, like in the other apps.
+
 ## v0.6.2 - 2026-11-23
 
 Patch release: root, agent, ingest, evaluator, shared and db packages go to
