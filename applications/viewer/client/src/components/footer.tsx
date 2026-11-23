@@ -29,7 +29,7 @@ import { ChevronIcon, CodeIcon } from './icon.tsx';
  * bar is one 45px row: the version pill and one 44px control.
  */
 const LINK =
-  'inline-flex min-h-11 items-center rounded-control px-2 text-ink-2 transition-colors hover:text-ink lg:min-h-0 lg:px-0';
+  'inline-flex min-h-11 items-center rounded-lg px-2 font-medium text-ink-2 transition-colors duration-200 hover:text-ink lg:min-h-0 lg:px-0';
 
 function LegalLinks({ onNavigate, className }: { onNavigate?: () => void; className: string }) {
   return (
@@ -43,14 +43,14 @@ function LegalLinks({ onNavigate, className }: { onNavigate?: () => void; classN
       >
         Status
       </a>
-      <a href="/privacy" className={LINK} onClick={onNavigate}>
-        Privacy Policy
-      </a>
       {/* The Impressum keeps its German name: it is the word an Austrian
           reader looks for. `lang` so a screen reader does not read it with an
           English voice. */}
       <a lang="de" href="/impressum" className={LINK} onClick={onNavigate}>
         Impressum
+      </a>
+      <a href="/privacy" className={LINK} onClick={onNavigate}>
+        Privacy Policy
       </a>
       <a href="/terms" className={LINK} onClick={onNavigate}>
         Terms of use
@@ -62,7 +62,7 @@ function LegalLinks({ onNavigate, className }: { onNavigate?: () => void; classN
   );
 }
 
-const COPYRIGHT = `© ${new Date().getFullYear()} Phillip Kofler · All rights reserved.`;
+const COPYRIGHT = `© ${new Date().getFullYear()} Woofi-Developments All Rights Reserved.`;
 
 /** The phone/tablet disclosure. Closes on Escape (focus returns to the button), on a press outside, and on any link. */
 function LegalDisclosure() {
@@ -122,8 +122,8 @@ export function Footer() {
       aria-label="Site"
       className="fixed inset-x-0 bottom-0 z-(--z-footer) h-(--footer-h) border-t border-line bg-surface pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <div className="page flex h-full items-center justify-between text-meta lg:grid lg:grid-cols-[1fr_auto_1fr] lg:justify-items-center lg:gap-x-6">
-        <p className="hidden whitespace-nowrap text-ink-3 lg:block lg:justify-self-start">
+      <div className="flex h-full items-center justify-between px-4 text-[13px] sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:justify-items-center lg:gap-x-4 lg:px-8">
+        <p className="hidden whitespace-nowrap text-ink-2 lg:block lg:justify-self-start">
           {COPYRIGHT}
         </p>
 
@@ -131,7 +131,7 @@ export function Footer() {
             for everyone else. */}
         <p
           aria-label={`Metrion version ${__APP_VERSION__}`}
-          className="inline-flex h-7 items-center gap-2 rounded-pill border border-line bg-bg px-3 font-mono"
+          className="inline-flex items-center gap-2 rounded-lg border border-transparent bg-bg px-2.5 py-1 font-mono text-ink-3"
         >
           <CodeIcon />
           <span className="text-ink" aria-hidden="true">
@@ -146,7 +146,7 @@ export function Footer() {
         </p>
 
         <LegalDisclosure />
-        <LegalLinks className="hidden items-center gap-x-3 lg:flex lg:justify-self-end" />
+        <LegalLinks className="hidden items-center gap-x-4 lg:flex lg:justify-self-end" />
       </div>
     </footer>
   );
