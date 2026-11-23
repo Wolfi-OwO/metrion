@@ -131,7 +131,7 @@ export function Footer() {
             for everyone else. */}
         <p
           aria-label={`Metrion version ${__APP_VERSION__}`}
-          className="inline-flex items-center gap-2 rounded-lg border border-transparent bg-bg px-2.5 py-1 font-mono text-ink-3"
+          className="inline-flex items-center gap-2 rounded-lg border border-transparent bg-bg px-2.5 py-1 font-mono leading-5 text-ink-3"
         >
           <CodeIcon />
           <span className="text-ink" aria-hidden="true">
