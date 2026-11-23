@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.2 - 2026-11-23
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.6.2; the viewer and its client go to 0.8.2.
+
+- The bottom bar is full width with the same height (41px), 13px type and side
+  padding as the bar in the other apps, and its copyright reads
+  Woofi-Developments like everywhere else.
+
 ## v0.6.1 - 2026-11-22
 
 Patch release: root, agent, ingest, evaluator, shared and db packages go to
