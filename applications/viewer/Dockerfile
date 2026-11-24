@@ -39,6 +39,11 @@ RUN npm run build --workspace @metrion/db \
  && npm run build --workspace @metrion/viewer-client
 
 FROM node:22-alpine AS runtime
+# What GET /api/info reports (src/lib/app-info.ts); the release workflow passes the values.
+ARG APP_VERSION=dev
+ARG APP_REVISION=
+ARG APP_BUILD_DATE=
+ENV APP_VERSION=$APP_VERSION APP_REVISION=$APP_REVISION APP_BUILD_DATE=$APP_BUILD_DATE
 # The base image's own npm carries unpatched dependencies and nothing here runs npm after the install below, so it is removed; OS packages are upgraded for the same reason.
 RUN apk upgrade --no-cache
 WORKDIR /app
