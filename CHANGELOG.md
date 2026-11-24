@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.6.5 - 2026-11-24
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.6.5; the viewer and its client go to 0.8.5.
+
+- `GET /api/info` on the ingest service and on the viewer answers name,
+  version, revision, build date and repository URL, the shape every app of the
+  stack answers. The release workflow stamps the version, commit and build date
+  into the images.
+
 ## v0.6.4 - 2026-11-24
 
 Patch release: root, agent, ingest, evaluator, shared and db packages go to

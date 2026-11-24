@@ -127,6 +127,9 @@ jobs:
             vps_tag="$version-${{ github.run_number }}"
 
             docker build -f "$dir/Dockerfile" \
+              --build-arg APP_VERSION="$version" \
+              --build-arg APP_REVISION="${{ github.sha }}" \
+              --build-arg APP_BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
               -t "$REGISTRY/$app:$version" -t "$REGISTRY/$app:latest" .
             docker push "$REGISTRY/$app:$version"
             docker push "$REGISTRY/$app:latest"

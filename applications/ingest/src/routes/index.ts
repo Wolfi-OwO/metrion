@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { config } from '../config/index.js';
+import { appInfo } from '../lib/app-info.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 import { ingestMetrics } from '../handlers/ingest.handlers.js';
 import {
@@ -22,6 +23,11 @@ export const routes = Router();
  */
 routes.get('/api/v1/health/liveness', (_req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+/** Who is running: the same answer, at the same path, in every app of the stack. */
+routes.get('/api/info', (_req, res) => {
+  res.json(appInfo());
 });
 
 const openApiDocument = buildOpenApiDocument();

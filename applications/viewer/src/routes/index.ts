@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { appInfo } from '../lib/app-info.js';
 import { applicationsRouter } from './applications.routes.js';
 import { assistantRouter } from './assistant.routes.js';
 import { authRouter } from './auth.routes.js';
@@ -20,6 +21,10 @@ import { thresholdsRouter } from './thresholds.routes.js';
 export const routes = Router();
 
 routes.use(healthRouter);
+/** Who is running: the same answer, at the same path, in every app of the stack. */
+routes.get('/api/info', (_req, res) => {
+  res.json(appInfo());
+});
 routes.use(authRouter);
 routes.use(projectsRouter);
 routes.use(applicationsRouter);
