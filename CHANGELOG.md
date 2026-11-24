@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.4 - 2026-11-24
+
+Patch release: root, agent, ingest, evaluator, shared and db packages go to
+0.6.4; the viewer and its client go to 0.8.4.
+
+- The bottom bar matches the portfolio webpage: Status with the pulsing green
+  dot, Impressum, Privacy Policy and Contact (to the portfolio's contact page),
+  and the version chip links to the public repository.
+
 ## v0.6.3 - 2026-11-23
 
 Patch release: root, agent, ingest, evaluator, shared and db packages go to
