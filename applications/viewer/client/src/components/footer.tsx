@@ -41,6 +41,7 @@ function LegalLinks({ onNavigate, className }: { onNavigate?: () => void; classN
         className={LINK}
         onClick={onNavigate}
       >
+        <span aria-hidden="true" className="animate-live mr-2 size-1.5 rounded-full bg-status-ok" />
         Status
       </a>
       {/* The Impressum keeps its German name: it is the word an Austrian
@@ -52,11 +53,11 @@ function LegalLinks({ onNavigate, className }: { onNavigate?: () => void; classN
       <a href="/privacy" className={LINK} onClick={onNavigate}>
         Privacy Policy
       </a>
+      <a href="https://www.woofi-developments.at/contact" className={LINK} onClick={onNavigate}>
+        Contact
+      </a>
       <a href="/terms" className={LINK} onClick={onNavigate}>
         Terms of use
-      </a>
-      <a href="mailto:koflerphillip@outlook.com" className={LINK} onClick={onNavigate}>
-        Contact
       </a>
     </nav>
   );
@@ -127,23 +128,24 @@ export function Footer() {
           {COPYRIGHT}
         </p>
 
-        {/* The repo is private, so this is text, not a link that would 404
-            for everyone else. */}
-        <p
-          aria-label={`Metrion version ${__APP_VERSION__}`}
-          className="inline-flex items-center gap-2 rounded-lg border border-transparent bg-bg px-2.5 py-1 font-mono leading-5 text-ink-3"
+        <a
+          href="https://github.com/Wolfi-OwO/metrion"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Metrion version ${__APP_VERSION__}, source on GitHub`}
+          className="group inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <CodeIcon />
-          <span className="text-ink" aria-hidden="true">
-            Wolfi-OwO/metrion
+          <span className="inline-flex items-center gap-2 rounded-lg border border-transparent bg-bg px-2.5 py-1 font-mono leading-5 text-ink-3 transition-colors duration-200 group-hover:border-accent">
+            <CodeIcon />
+            <span className="text-ink" aria-hidden="true">
+              Wolfi-OwO/metrion
+            </span>
+            <span aria-hidden="true" className="text-line">
+              ·
+            </span>
+            <span aria-hidden="true">v{__APP_VERSION__}</span>
           </span>
-          <span aria-hidden="true" className="text-ink-3">
-            ·
-          </span>
-          <span className="text-ink-3" aria-hidden="true">
-            v{__APP_VERSION__}
-          </span>
-        </p>
+        </a>
 
         <LegalDisclosure />
         <LegalLinks className="hidden items-center gap-x-4 lg:flex lg:justify-self-end" />

@@ -518,3 +518,24 @@ input:focus-visible + span {
     transform: translateX(300%);
   }
 }
+
+/* The one status signal that animates: a slow pulse on the live dot, the same in every app. */
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+.animate-live {
+  animation: live-pulse 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-live {
+    animation: none;
+  }
+}
