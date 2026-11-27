@@ -17,6 +17,10 @@ planned CPU/RAM tile on my status page) - see
 `docs/adr/0002-one-metrics-source.md` for why that's exactly the kind of
 bug I've hit before and why there's now exactly one source instead.
 
+![The public sign-in page of a running metrion install](docs/screenshots/sign-in.png)
+
+<sub>The only page that works without an account is the sign-in page; the viewer and the charts sit behind it, so they are not shown here. A short recording of the page: <a href="docs/demo/metrion-demo.mp4">MP4</a> · <a href="docs/demo/metrion-demo.gif">GIF</a>.</sub>
+
 ## Features
 
 - One authenticated write path, `POST /api/v1/ingest`
