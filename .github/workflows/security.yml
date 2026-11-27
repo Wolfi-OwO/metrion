@@ -27,12 +27,16 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install gitleaks
+        env:
+          # An unauthenticated call to the releases API is rate-limited per runner address and answers 403 often
+          # enough to fail the scan on an unrelated change; the token lifts that limit.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # Downloaded to a file with retries: GitHub's download host drops connections now and then, and a piped
           # `curl | tar` turned every such hiccup into a failed secret scan on an unrelated change.
           RETRY=(--retry 6 --retry-all-errors --retry-delay 5)
-          VERSION="$(curl -sSf "${RETRY[@]}" https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | tr -d v)"
+          VERSION="$(curl -sSf "${RETRY[@]}" -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | tr -d v)"
           curl -sSfL "${RETRY[@]}" -o gitleaks.tar.gz \
             "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
           tar -xzf gitleaks.tar.gz gitleaks
